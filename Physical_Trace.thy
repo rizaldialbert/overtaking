@@ -704,159 +704,7 @@ lemma common_contains_ub:
   using compact_common_setX bdd_above_common closed_contains_Sup
   unfolding ub_x_def compact_eq_bounded_closed
   by meson  
-  
-\<comment> \<open>The associated parameter for lower and upper bound of left and right boundary.\<close>
-definition ri_is_mono where
-  "ri_is_mono \<equiv> ri.curve_eq_x (Inf domain) < ri.curve_eq_x (Sup domain)"  
-  
-definition right_lb' :: real where
-  "right_lb' \<equiv> (if ri_is_mono then ri.inv_curve_x lb_x else ri.inv_curve_x ub_x)"
-
-definition right_ub' :: real where
-  "right_ub' \<equiv> (if ri_is_mono then ri.inv_curve_x ub_x else ri.inv_curve_x lb_x)"  
-  
- \<comment> \<open>parameterise path\<close>
-definition param_lb' :: "real \<Rightarrow> real \<Rightarrow> real" where
-  "param_lb' left right \<equiv> (if ri_is_mono then ri.inv_curve_x left else ri.inv_curve_x right)"
- 
-definition param_ub' :: "real \<Rightarrow> real \<Rightarrow> real" where
-  "param_ub' left right \<equiv> (if ri_is_mono then ri.inv_curve_x right else ri.inv_curve_x left)"
         
-lemma endpoints_in_domain'':
-  assumes "left \<in> common_setX" and "right \<in> common_setX"
-  shows "param_lb' left right \<in> domain" and "param_ub' left right \<in> domain"
-  unfolding param_lb'_def param_ub'_def split_ifs using assms ri.image_inverse by auto    
-
-lemma endpoints_in_domain:
-  assumes "left \<in> common_setX" and "right \<in> common_setX"
-  shows "ri.inv_curve_x left \<in> domain \<and> ri.inv_curve_x right \<in> domain"
-  using assms ri.image_inverse by auto  
-      
-lemma
-  assumes "common_setX \<noteq> {}"
-  shows "right_lb' \<in> domain \<and> right_lb' \<in> domain"
-  unfolding right_lb'_def split_ifs right_lb'_def
-  using common_contains_lb[OF assms] common_contains_ub[OF assms] ri.image_inverse
-    by (simp add: image_subset_iff)
-
-lemma ri_is_mono_strict_antimono:
-  assumes "common_setX \<noteq> {}" and "\<not> is_singleton common_setX"
-  assumes "\<not> ri_is_mono"
-  shows "strict_antimono_in ri.curve_eq_x domain"
-proof -
-  from assms have 0: "domain \<noteq> {}" unfolding le.setX_alt_def by auto
-  from assms have 1: "\<not> is_singleton domain" unfolding le.setX_alt_def ri.setX_alt_def 
-    by (smt IntD2 bij_betw_def f_the_inv_into_f image_subset_iff inverse_image_common_right 
-          is_singletonI' le.setX_alt_def ri.bij_betw ri.inv_curve_x_def two_elements_not_singleton)
-  from assms show "strict_antimono_in ri.curve_eq_x domain"
-    using ri.checking_strict_antimono[OF 0] unfolding ri_is_mono_def
-    using ri.impossible_equal_endpoints_value[OF 0 1] by auto
-qed      
-            
-lemma ri_is_mono_eq_checking:
-  assumes "left \<in> common_setX" and "right \<in> common_setX" and "left < right"
-  shows "ri_is_mono \<longleftrightarrow> (ri.inv_curve_x left < ri.inv_curve_x right)"
-proof 
-  assume "ri_is_mono"
-  from assms have dom_neq_empty:"domain \<noteq> {}" unfolding le.setX_alt_def by auto
-  from \<open>ri_is_mono\<close> have "strict_mono_in ri.curve_eq_x domain" 
-    using ri.checking_strict_mono[OF dom_neq_empty] unfolding ri_is_mono_def by auto  
-  from ri.strict_mono_inverse[OF this] have "strict_mono_in ri.inv_curve_x ri.setX" .
-  with assms show "ri.inv_curve_x left < ri.inv_curve_x right" unfolding strict_mono_in_def
-    by auto
-next
-  { assume "\<not> ri_is_mono"
-    from assms have "\<not> is_singleton common_setX" 
-      using two_elements_not_singleton[of "left" "common_setX" "right"] by blast
-    hence dom_not_single:"\<not> is_singleton domain" unfolding le.setX_alt_def ri.setX_alt_def 
-      by (smt IntD2 assms image_subset_iff inverse_image_common_right 
-                       ri.strict_antimono_inverse strict_antimono_in_def two_elements_not_singleton)        
-    with assms have dom_neq_empty:"domain \<noteq> {}" unfolding le.setX_alt_def by  blast
-    from \<open>\<not> ri_is_mono\<close> have "strict_antimono_in ri.curve_eq_x domain"
-      using ri.checking_strict_antimono[OF dom_neq_empty] unfolding ri_is_mono_def 
-      using ri.impossible_equal_endpoints_value[OF dom_neq_empty dom_not_single] by auto
-    from ri.strict_antimono_inverse[OF this] have "ri.inv_curve_x left > ri.inv_curve_x right"
-      using assms unfolding strict_antimono_in_def by auto }    
-  thus "ri.inv_curve_x left < ri.inv_curve_x right \<Longrightarrow> ri_is_mono" by auto 
-qed
-  
-lemma ri_is_mono_eq_checking': 
-  assumes "left \<in> common_setX" and "right \<in> common_setX" and "left > right"
-  shows "\<not> ri_is_mono \<longleftrightarrow> (ri.inv_curve_x left < ri.inv_curve_x right)"
-proof
-  assume "\<not> ri_is_mono"
-  from assms have 0: "common_setX \<noteq> {}" and 1: "\<not> is_singleton common_setX"
-    using two_elements_not_singleton[OF assms(1) assms(2)] by auto
-  have "strict_antimono_in ri.curve_eq_x domain" using ri_is_mono_strict_antimono[OF 0 1]   
-    \<open>\<not> ri_is_mono\<close> by auto
-  with assms show "ri.inv_curve_x left < ri.inv_curve_x right" unfolding strict_antimono_in_def
-    le.setX_alt_def ri.setX_alt_def
-    by (metis assms inf.cobounded2 ri.strict_antimono_inverse strict_antimono_in_def subset_iff)      
-next
-  { assume "ri_is_mono"
-    hence "strict_mono_in ri.curve_eq_x domain" using ri.checking_strict_mono 
-      unfolding ri_is_mono_def using assms unfolding le.setX_alt_def by auto
-    have "ri.inv_curve_x right < ri.inv_curve_x left" unfolding strict_mono_in_def
-      le.setX_alt_def ri.setX_alt_def  using \<open>ri_is_mono\<close> assms ri_is_mono_eq_checking by blast
-    hence "\<not> (ri.inv_curve_x left < ri.inv_curve_x right)" by auto }
-  thus "ri.inv_curve_x left < ri.inv_curve_x right \<Longrightarrow> \<not> ri_is_mono"  by auto
-qed
-    
-lemma segment_in_domain:
-  assumes "left \<in> common_setX" and "right \<in> common_setX" and "left < right"
-  shows "{(param_lb' left right) .. (param_ub' left right)} \<subseteq> domain"
-proof - 
-  from assms(1 - 2) have "common_setX \<noteq> {}" by auto
-  hence 0: "domain \<noteq> {}" unfolding le.setX_alt_def ri.setX_alt_def by auto  
-  from assms have "\<not> is_singleton common_setX"
-    using two_elements_not_singleton[of "left" "common_setX" "right"] by blast      
-  hence dom_not_single:"\<not> is_singleton domain" unfolding le.setX_alt_def ri.setX_alt_def       
-      by (smt IntD2 assms image_subset_iff inverse_image_common_right 
-                       ri.strict_antimono_inverse strict_antimono_in_def two_elements_not_singleton)
-  have "ri_is_mono \<or> \<not> ri_is_mono" by auto
-  moreover
-  { assume "ri_is_mono"
-    hence "ri.curve_eq_x (Inf domain) < ri.curve_eq_x (Sup domain)" unfolding ri_is_mono_def .        
-    from ri.checking_strict_mono[OF 0 this] have "strict_mono_in ri.curve_eq_x domain" .
-    with assms have " ri.inv_curve_x left \<le> ri.inv_curve_x right" 
-      using ri_is_mono_eq_checking[OF assms] \<open>ri_is_mono\<close> by auto
-    hence "{(param_lb' left right) .. (param_ub' left right)} =
-                                        closed_segment (param_lb' left right) (param_ub' left right)"
-      using closed_segment_eq_real_ivl \<open>ri_is_mono\<close>unfolding param_lb'_def param_ub'_def by auto
-    also have "... \<subseteq> domain"           
-      using convex_contains_segment ri.convex_domain endpoints_in_domain''[OF assms(1) assms(2)]
-      by auto
-    finally have ?thesis . }  
-  moreover
-  { assume "\<not> ri_is_mono"
-    hence "ri.inv_curve_x left \<ge> ri.inv_curve_x right" using ri_is_mono_eq_checking[OF assms] by auto
-    hence "{(param_lb' left right) .. (param_ub' left right)} =
-                                        closed_segment (param_lb' left right) (param_ub' left right)"
-      using closed_segment_eq_real_ivl \<open>\<not> ri_is_mono\<close> unfolding param_lb'_def param_ub'_def by auto
-    also have "... \<subseteq> domain"
-      using convex_contains_segment ri.convex_domain endpoints_in_domain''[OF assms(1) assms(2)]
-      by auto
-    finally have ?thesis . } 
-  ultimately show ?thesis by auto
-qed
-
-lemma segment_in_domain':
-  assumes "left \<in> common_setX" and "right \<in> common_setX"
-  shows "{ri.inv_curve_x left .. ri.inv_curve_x right} \<subseteq> domain"
-proof (cases "ri.inv_curve_x left \<le> ri.inv_curve_x right")
-  case True
-  hence "{ri.inv_curve_x left .. ri.inv_curve_x right} = 
-                                      closed_segment (ri.inv_curve_x left) (ri.inv_curve_x right)" 
-    using closed_segment_eq_real_ivl by auto
-  also have "... \<subseteq> domain"
-    using convex_contains_segment ri.convex_domain endpoints_in_domain[OF assms] by auto
-  finally show ?thesis .
-next
-  case False
-  hence "{ri.inv_curve_x left .. ri.inv_curve_x right} = {}" by auto
-  then show ?thesis by auto
-qed
-      
 lemma between_setY_nonempty: "x \<in> common_setX \<Longrightarrow> between_setY x \<noteq> {}"
 proof -  
   assume "x \<in> common_setX"
@@ -988,15 +836,8 @@ lemma midcurve_fun_inside_drivable_area:
           
 definition rep_mid :: "real \<Rightarrow> real \<Rightarrow> real \<Rightarrow> real" where
   "rep_mid start end \<equiv> (\<lambda>s. start + (end - start) * s)"
-      
-definition rep_right'' :: "real \<Rightarrow> real \<Rightarrow> real \<Rightarrow> real" where
-  "rep_right'' left_x right_x \<equiv>
-         (\<lambda>s. param_lb' left_x right_x + (param_ub' left_x right_x - param_lb' left_x right_x) * s)"  
-
-definition rep_right :: "real \<Rightarrow> real \<Rightarrow> real \<Rightarrow> real" where
-  "rep_right start end \<equiv> (\<lambda>s. ri.inv_curve_x start + (ri.inv_curve_x end - ri.inv_curve_x start) * s)"  
-  
-  
+        
+(* TODO: combine these two lemmas to make it more general! *)  
 lemma image_rep_mid:
   assumes "start \<le> end"
   shows "(rep_mid start end) ` {0 .. 1} = {start .. end}"      
@@ -1014,90 +855,15 @@ proof -
     unfolding rep_mid_def closed_segment_real_eq by auto
   thus ?thesis unfolding closed_segment_eq_real_ivl using assms by auto
 qed      
-      
-lemma image_rep_right':
-  assumes "left_x \<in> common_setX" and "right_x \<in> common_setX" and "left_x < right_x"
-  shows "(rep_right'' left_x right_x) ` {0 .. 1} = {(param_lb' left_x right_x) .. (param_ub' left_x right_x)}"
-proof -
-  have 0: "param_lb' left_x right_x \<le> param_ub' left_x right_x" using assms ri_is_mono_eq_checking[OF assms]
-    unfolding param_lb'_def param_ub'_def by auto
-  have "(rep_right'' left_x right_x) ` {0 .. 1} = 
-                                 closed_segment (param_lb' left_x right_x) (param_ub' left_x right_x)"
-    unfolding rep_right''_def closed_segment_real_eq by auto
-  thus ?thesis unfolding closed_segment_eq_real_ivl using 0 by auto
-qed
-  
-lemma image_rep_right:
-  assumes "start \<in> common_setX" and "end \<in> common_setX"
-  assumes "start < end \<and> ri_is_mono \<or> end < start \<and> \<not> ri_is_mono"
-  shows "(rep_right start end) ` {0 .. 1} = {ri.inv_curve_x start .. ri.inv_curve_x end}"
-proof -
-  { assume 0: "start < end \<and> ri_is_mono"  
-    have "(rep_right start end) ` {0 .. 1} = closed_segment (ri.inv_curve_x start) (ri.inv_curve_x end)"
-      unfolding rep_right_def closed_segment_real_eq by auto
-    hence ?thesis unfolding closed_segment_eq_real_ivl 
-      using 0 ri_is_mono_eq_checking[OF assms(1) assms(2)] by auto }  
-  moreover    
-  { assume 1: "end < start \<and> \<not> ri_is_mono" 
-    have "(rep_right start end) ` {0 .. 1} = closed_segment (ri.inv_curve_x start) (ri.inv_curve_x end)"
-      unfolding rep_right_def closed_segment_real_eq by auto
-    hence ?thesis unfolding closed_segment_eq_real_ivl 
-      using 1 ri_is_mono_eq_checking'[OF assms(1) assms(2)] by auto }  
-  ultimately show ?thesis using assms by auto 
-qed
-  
-lemma image_rep_right2: 
-  assumes "start \<in> common_setX" and "end \<in> common_setX"
-  assumes "start < end \<and> \<not> ri_is_mono \<or> end < start \<and> ri_is_mono"
-  shows "(rep_right start end) ` {0 .. 1} = {ri.inv_curve_x end .. ri.inv_curve_x start}"
-proof -
-  { assume 0: "start < end \<and> \<not> ri_is_mono"
-    have "(rep_right start end) ` {0 .. 1} = closed_segment (ri.inv_curve_x start) (ri.inv_curve_x end)"
-      unfolding rep_right_def closed_segment_real_eq by auto
-    hence ?thesis unfolding closed_segment_eq_real_ivl
-      using 0 ri_is_mono_eq_checking'[OF assms(2) assms(1)] by auto }
-  moreover  
-  { assume 1: "end < start \<and> ri_is_mono"
-    have "(rep_right start end) ` {0 .. 1} = closed_segment (ri.inv_curve_x start) (ri.inv_curve_x end)"
-      unfolding rep_right_def closed_segment_real_eq by auto
-    hence ?thesis unfolding closed_segment_eq_real_ivl
-      using 1 ri_is_mono_eq_checking[OF assms(2) assms(1)] by auto  }
-  ultimately show ?thesis using assms by auto
-qed
-  
-(*
-corollary image_rep_right: 
-  "rep_right ` {0 .. 1} = {right_lb .. right_ub}"
-  using image_rep_right'[of "lb_x" "ub_x"] unfolding rep_right_def param_lb_def param_ub_def
-  by auto
- *)
-    
-definition right_path'' where
-  "right_path'' left_x right_x \<equiv> (\<lambda>s. (curve_right \<circ> rep_right'' left_x right_x) s)"  
-
-definition right_path where
-  "right_path start end \<equiv> (\<lambda>s. (curve_right \<circ> rep_right start end) s)"
-  
+        
 definition mid_path where
   "mid_path start end \<equiv> (\<lambda>s. (rep_mid start end s, midcurve_fun (rep_mid start end s)))"
-  
-lemma path_right_path':
-  assumes "left_x \<in> common_setX" and "right_x \<in> common_setX" and "left_x < right_x"
-  shows "path (right_path'' left_x right_x)"
-  unfolding path_def right_path''_def
-proof (rule continuous_on_compose)
-  show "continuous_on {0 .. 1} (rep_right'' left_x right_x)"
-    unfolding rep_right''_def param_lb'_def param_ub'_def by (auto intro!:continuous_intros)
-next
-  show "continuous_on (rep_right'' left_x right_x ` {0 .. 1}) curve_right"
-    unfolding image_rep_right'[OF assms] using ri.continuous continuous_on_subset  
-    segment_in_domain[OF assms] by auto       
-qed
-      
+        
 lemma continuous_midcurve:
   assumes "start \<in> common_setX" and "end \<in> common_setX"
   shows "continuous_on {start .. end} midcurve_fun"
   unfolding midcurve_fun_def 
+(* TODO: the proof for the two subgoals have the same structure. Generalise!*)
 proof (rule continuous_on_mult_right, rule continuous_on_add)
   from convex_common_setX have "{start .. end} \<subseteq> common_setX"
     by (metis assms atLeastAtMost_iff atLeastatMost_subset_iff common_setX_interval)
@@ -1136,88 +902,13 @@ next
   qed
   thus " continuous_on {0..1} (\<lambda>x. midcurve_fun (rep_mid start end x))" unfolding comp_def .    
 qed
-  
-lemma path_right_path:
-  assumes "start \<in> common_setX" and "end \<in> common_setX"
-  shows "path (right_path start end)"
-  unfolding path_def right_path_def
-proof (rule continuous_on_compose)
-  show "continuous_on {0 .. 1} (rep_right start end)"
-    unfolding rep_right_def by (auto intro!: continuous_intros)
-next
-  (* TODO: can be made into more succinct. Three cases is enough! *)
-  consider "start < end \<and>   ri_is_mono" | "start > end \<and> \<not> ri_is_mono" | 
-           "start < end \<and> \<not> ri_is_mono" | "start > end \<and>   ri_is_mono" | 
-           "start = end" using less_linear by auto
-  thus " continuous_on (rep_right start end ` {0..1}) curve_right"
-  proof cases
-    case 1
-    with assms show ?thesis using image_rep_right ri.continuous continuous_on_subset
-      segment_in_domain'[OF assms] by auto
-  next
-    case 2
-    with assms  show ?thesis using image_rep_right ri.continuous continuous_on_subset
-      segment_in_domain'[OF assms] by auto
-  next
-    case 3
-    thus ?thesis using image_rep_right2[OF assms] ri.continuous continuous_on_subset
-      segment_in_domain'[OF assms(2) assms(1)] by auto
-  next
-    case 4
-    thus ?thesis using image_rep_right2[OF assms] ri.continuous continuous_on_subset
-      segment_in_domain'[OF assms(2) assms(1)] by auto  
-  next
-    case 5
-    have "rep_right start end ` {0 .. 1} = {ri.inv_curve_x end}" unfolding rep_right_def 5
-      by fastforce      
-    thus ?thesis using continuous_on_sing by auto        
-  qed  
-qed
-  
-lemma curve_right_comp_inv_curve_x:
-  assumes "left_x \<in> common_setX"
-  shows "curve_right (ri.inv_curve_x left_x) = (left_x, ri.f_of_x left_x)"
-proof 
-  have "fst (curve_right (ri.inv_curve_x left_x)) = ri.curve_eq_x (ri.inv_curve_x left_x)" (is "?lhs = _")
-    unfolding ri.curve_eq_x_def by auto
-  also have "... = left_x" using f_the_inv_into_f_bij_betw[OF ri.bij_betw, of "left_x"]
-    ri.bij_betw assms unfolding ri.inv_curve_x_def by auto
-  finally show "?lhs = fst (left_x, ri.f_of_x left_x)" by auto
-next
-  have 0: "ri.inv_curve_x left_x \<in> domain" using assms inverse_image_common_right by auto
-  have "snd (curve_right (ri.inv_curve_x left_x)) = ri.curve_eq_y (ri.inv_curve_x left_x)" (is "?lhs = _")
-    unfolding ri.curve_eq_y_def by auto
-  also have "... = (ri.f_of_x \<circ> ri.curve_eq_x) (ri.inv_curve_x left_x)" using ri.param_y_via_f_of_x[of "ri.inv_curve_x left_x"]      
-    using 0 by auto
-  also have "... = ri.f_of_x left_x" unfolding comp_def ri.inv_curve_x_def 
-    using f_the_inv_into_f[of "ri.curve_eq_x" "domain" "left_x"] ri.setX_alt_def ri.bij_betw 
-    bij_betw_def assms by fastforce
-  finally show "?lhs = snd (left_x, ri.f_of_x left_x)" by auto
-qed
-  
-
-lemma pathstart_right_path1':
-  fixes left_x right_x :: real
-  assumes "left_x \<in> common_setX" and "right_x \<in> common_setX"
-  shows "pathstart (right_path left_x right_x) = (left_x, ri.f_of_x left_x)"
-  using assms curve_right_comp_inv_curve_x[OF assms(1)]
-  unfolding pathstart_def right_path_def comp_def rep_right_def 
-  by auto      
-    
+          
 lemma pathstart_mid_path:
   fixes left_x right_x :: real
   assumes "left_x \<in> common_setX" and "right_x \<in> common_setX"
   shows "pathstart (mid_path left_x right_x) = (left_x, midcurve_fun left_x)"
   using assms  unfolding pathstart_def mid_path_def rep_mid_def by auto 
               
-lemma pathfinish_right_path2':
-  fixes left_x right_x :: real
-  assumes "left_x \<in> common_setX" and "right_x \<in> common_setX"
-  shows "pathfinish (right_path left_x right_x) = (right_x, ri.f_of_x right_x)"
-  using assms curve_right_comp_inv_curve_x[OF assms(2)]
-  unfolding pathfinish_def right_path_def comp_def rep_right_def 
-  by auto
-
 lemma pathfinish_mid_path:
   fixes left_x right_x :: real
   assumes "left_x \<in> common_setX" and "right_x \<in> common_setX"
@@ -1263,21 +954,7 @@ lemma path_image_mid_path:
   shows "path_image (mid_path x1 x2) \<subseteq> drivable_area"
   using assms mid_path_in_midcurve_points2 midcurve_points_inside_drivable_area 
   unfolding path_image_def by auto
-      
-(* definition right_path :: "real \<Rightarrow> real2" where
-  "right_path \<equiv> (\<lambda>s. (curve_right \<circ> rep_right) s)"  
-
-lemma right_path_eq_right_path':
-  "right_path = right_path' lb_x ub_x"
-  unfolding right_path_def right_path'_def rep_right'_def rep_right_def by auto *)
-     
-(* lemma
-  assumes "common_setX \<noteq> {}"
-  shows "path right_path"  
-  unfolding right_path_eq_right_path' 
-  using common_contains_ub[OF assms] common_contains_lb[OF assms] path_right_path'
-  by auto *)
-                  
+                        
 theorem "path_connected drivable_area"
   unfolding path_connected_def
 proof (rule ballI, rule ballI, rename_tac z1 z2)
@@ -1352,6 +1029,7 @@ proof (rule ballI, rule ballI, rename_tac z1 z2)
     \<comment> \<open>proving the second conjunct\<close> 
     have "path_image g \<subseteq> drivable_area"
       unfolding drivable_area_def g_def
+    (* TODO : first and third subgoal has the SAME proof structure. Generalise this! *)        
     proof (rule subset_path_image_join, rule subset_path_image_join,  rule_tac[!] subsetI, 
           rename_tac[!] z, unfold mem_Collect_eq) 
       fix z
