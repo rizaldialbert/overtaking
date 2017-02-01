@@ -189,62 +189,9 @@ proof -
   thus ?thesis 
     by (smt atLeastatMost_empty bot_set_def that)
 qed  
-  
-subsection "Reparametrisation"
-  
+    
 type_synonym real2 = "real \<times> real"
-  
-\<comment> \<open>First reparametrisation: making a finite-length curve into a new curve of length one.\<close>
-(* FIXME: a more elegant way to prove other than unfolding lebesgue integral definition*)  
-
-(* I don't think this parametrisation is required anymore. We can just use the second 
-   parametrisation below. *)
-lemma
-  fixes s0 s1 :: real
-  assumes "(LBINT s=s0..s1. f s) = len"
-  assumes "len \<noteq> 0"    
-  shows "(LBINT s=s0..s1. (1 / len) *\<^sub>R f s) = 1"    
-  unfolding interval_lebesgue_integral_def  
-proof (case_tac "s0 \<le> s1", simp_all split: if_splits)
-  assume "s0 \<le> s1"
-  with assms show "len \<noteq> 0 \<and> len = LBINT x. indicator {s0<..<s1} x * f x"
-    unfolding interval_lebesgue_integral_def by auto
-next
-  assume "\<not> s0 \<le> s1"
-  with assms show "(LBINT x. indicator {s1<..<s0} x * f x) / len = - 1"   
-    unfolding interval_lebesgue_integral_def by auto    
-qed      
-
-\<comment> \<open>Second reparametrisation is by axis (domain) transformation: translation w.r.t to @{term "s0"}
-  and then contraction by factor of @{term "s1 - s0"}.\<close>
-
-lemma
-  fixes s0 s1 :: real
-  fixes f :: "real \<Rightarrow> real2"
-  assumes "continuous_on {s0 .. s1} f"
-  assumes "s0 \<le> s1" 
-  defines "g  \<equiv> \<lambda>x. s0 + (s1 - s0) * x"
-  defines "g' \<equiv> \<lambda>x. s1 - s0"  
-  shows "(LBINT t=(ereal 0)..(ereal 1). (g' t) *\<^sub>R f (g t)) = (LBINT s=(g 0)..(g 1). f s)"
-proof (rule interval_integral_substitution_finite)
-  show "0 \<le> (1 ::real)" by simp
-next
-  fix t :: real
-  assume "0 \<le> t" and "t \<le> 1"
-  show "(g has_real_derivative g' t) (at t within {0..1})"
-    unfolding g_def g'_def by (auto intro!:derivative_eq_intros)
-next
-  have 0: "g ` {0 .. 1} = closed_segment s0 s1"
-    unfolding g_def closed_segment_real_eq by auto
-  also have "... = {s0 .. s1}"
-    using closed_segment_eq_real_ivl assms by auto
-  finally have "g ` {0 .. 1} = {s0 .. s1}" by auto    
-  with assms show "continuous_on (g ` {0 .. 1}) f" by auto    
-next    
-  show "continuous_on {0 .. 1} g'"
-    unfolding g'_def by (auto intro: continuous_intros)
-qed    
-        
+         
 section "Trace"    
 \<comment> \<open>Represent the state of a (dynamic) road user as a record.\<close>
 
