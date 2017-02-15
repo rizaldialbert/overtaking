@@ -1,5 +1,6 @@
 theory Physical_Trace
-  imports Complex_Main Analysis           
+  imports Complex_Main Analysis
+  Overtaking_Aux
   "$AFP/Affine_Arithmetic/Affine_Arithmetic"         
 begin
   
@@ -210,14 +211,7 @@ definition is_sup_x :: "real \<Rightarrow> real2 set \<Rightarrow> bool" where
 
 definition is_sup_y :: "real \<Rightarrow> real2 set \<Rightarrow> bool" where
   "is_sup_y \<equiv> is_sup snd"
-      
-typedef (overloaded) 'a fin_trace = "{x::nat \<Rightarrow> 'a::zero. 
-                                    \<exists>l. 0 \<le> l \<and> (\<forall>i. i < l \<longrightarrow> x i \<noteq> 0) \<and> (\<forall>k. l \<le> k \<longrightarrow> x k = 0)}"
-  morphisms fin_trace_apply Abs_trace
-  by (auto intro!: exI[where x="\<lambda>x. 0"])
-
-setup_lifting type_definition_pdevs
-  
+        
 section "Environment"
 
 text "At the moment, we focus on highway (freeway) scenario first without fork and joints. There 
@@ -567,9 +561,7 @@ lemma param_y_via_f_of_x:
   shows "curve_eq_y d = (f_of_x \<circ> curve_eq_x) d"
   unfolding f_of_x_def comp_def  using the_inv_into_f_f[of "curve_eq_x" "domain" "d"]
   using assms bij_betw unfolding bij_betw_def inv_curve_x_def 
-  by auto
-    
-    
+  by auto        
 end
   
 subsection "Simple road"   
@@ -594,8 +586,10 @@ parametrised further with two simple boundaries, for left and right boundary.\<c
 
 locale simple_road =  le: simple_boundary curve_left domain +  ri: simple_boundary curve_right domain 
   for curve_left and curve_right and domain +
-  assumes injective: "inj_on (\<lambda>(lane, s). lane s) ({curve_left, curve_right} \<times> domain)"
-  assumes above: "y1 \<in> le.setY \<Longrightarrow> y2 \<in> ri.setY \<Longrightarrow> y1 > y2" \<comment> \<open>left lane is above right lane\<close>    
+(*   assumes injective: "inj_on (\<lambda>(lane, s). lane s) ({curve_left, curve_right} \<times> domain)"
+   assumes above: "y1 \<in> le.setY \<Longrightarrow> y2 \<in> ri.setY \<Longrightarrow> y1 > y2" \<comment> \<open>left lane is above right lane\<close>    
+*) 
+ assumes above': "x \<in> le.setX \<inter> ri.setX \<Longrightarrow> ri.f_of_x x < le.f_of_x x"
 begin
   
 abbreviation common_setX where
@@ -655,7 +649,7 @@ lemma common_contains_ub:
 lemma between_setY_nonempty: "x \<in> common_setX \<Longrightarrow> between_setY x \<noteq> {}"
 proof -  
   assume "x \<in> common_setX"
-  with above have "ri.f_of_x x < le.f_of_x x" 
+  with above' have "ri.f_of_x x < le.f_of_x x" 
     using le.domain_and_range_f_of_x ri.domain_and_range_f_of_x by auto
   from Rats_dense_in_real[OF this] obtain r where "r \<in> between_setY x" 
     using greaterThanLessThan_iff by blast      
@@ -902,7 +896,8 @@ lemma path_image_mid_path:
   using assms mid_path_in_midcurve_points2 midcurve_points_inside_drivable_area 
   unfolding path_image_def by auto
                         
-theorem "path_connected drivable_area"
+theorem path_connected_drivable_area: 
+  "path_connected drivable_area"
   unfolding path_connected_def
 proof (rule ballI, rule ballI, rename_tac z1 z2)
   fix z1 z2
@@ -1017,6 +1012,135 @@ proof (rule ballI, rule ballI, rename_tac z1 z2)
 qed      
 end  
 
+subsection "Multilane road"
+  
+ 
+          
+locale multilane_road = simple_road curve_left curve_right domain 
+  for curve_left and curve_right and domain +
+  fixes lds :: "(real \<Rightarrow> real2) list" \<comment> \<open>lds is an abbreviation for lane dividers\<close>
+  assumes lds_nonempty: "lds \<noteq> []"
+  assumes sb: "ld \<in> set lds \<Longrightarrow> simple_boundary ld domain"
+  assumes bw: "i < j \<Longrightarrow> x \<in> curve.setX (lds ! i) domain \<inter> curve.setX (lds ! j) domain \<Longrightarrow> 
+             simple_boundary.f_of_x (lds ! i) domain x <  simple_boundary.f_of_x (lds ! j) domain x"    
+  assumes lb:"x \<in> curve.setX (last lds) domain \<inter> le.setX \<Longrightarrow> 
+                                           simple_boundary.f_of_x (last lds) domain x < le.f_of_x x"  
+  assumes rb:"x \<in> curve.setX (hd lds) domain \<inter> ri.setX \<Longrightarrow> 
+                                             ri.f_of_x x < simple_boundary.f_of_x (hd lds) domain x"    
+begin
+
+definition nbr_of_lanes where
+  "nbr_of_lanes \<equiv> length lds + 1"
+  
+\<comment> \<open>In multilane scenario the number of lanes is at least 2.\<close>  
+lemma "2 \<le> nbr_of_lanes"
+  unfolding nbr_of_lanes_def using lds_nonempty by (cases lds) (auto)
+
+abbreviation ld_idx  where "ld_idx i \<equiv> lds ! i"
+    
+\<comment> \<open>Each adjacent lane dividers is a simple road.\<close>
+theorem li:
+  assumes "i < length lds - 1"
+  shows "simple_road (ld_idx (i + 1)) (ld_idx i) domain"  
+  unfolding simple_road_def
+proof (rule conjI, rule_tac[2] conjI, unfold simple_road_axioms_def, rule_tac[3] allI, 
+       rule_tac[3] impI)
+  show "simple_boundary (ld_idx (i + 1)) domain" using sb[of "ld_idx (i+1)"] using assms by auto
+next
+  show "simple_boundary (ld_idx i) domain" using sb[of "ld_idx i"] using assms by auto
+next
+  fix x
+  assume "x \<in> curve.setX (ld_idx (i+1)) domain \<inter> curve.setX (ld_idx i) domain"  
+  with bw[of "i" "i+1" "x"] 
+  show "simple_boundary.f_of_x (ld_idx i) domain x < simple_boundary.f_of_x (ld_idx (i + 1)) domain x"  
+    by auto      
+qed  
+ 
+\<comment> \<open>Last lane dividers with left boundaries is a simple road too.\<close>
+theorem lanel:
+  "simple_road curve_left (last lds) domain"
+  unfolding simple_road_def
+proof (rule conjI, rule_tac[2] conjI, unfold simple_road_axioms_def, rule_tac[3] allI, 
+       rule_tac[3] impI)
+  show "simple_boundary curve_left domain" using le.simple_boundary_axioms by auto
+next
+  show "simple_boundary (last lds) domain" using sb[of "last lds"] last_in_set[OF lds_nonempty]
+    by auto
+next
+  fix x
+  assume "x \<in> le.setX \<inter> curve.setX (last lds) domain"
+  with lb[of "x"] show " simple_boundary.f_of_x (last lds) domain x < le.f_of_x x" by auto   
+qed
+  
+\<comment> \<open>First lane divider and right boundary is a simple road too.\<close>  
+theorem  lane0: 
+  "simple_road (hd lds) curve_right domain"
+  unfolding simple_road_def
+proof (rule conjI, rule_tac[2] conjI, unfold simple_road_axioms_def, rule_tac[3] allI, 
+       rule_tac[3] impI)
+  show "simple_boundary (hd lds) domain" using sb[of "hd lds"] hd_in_set[OF lds_nonempty]
+    by auto
+next
+  show "simple_boundary curve_right domain" using ri.simple_boundary_axioms by auto
+next
+  fix x
+  assume " x \<in> curve.setX (hd lds) domain \<inter> ri.setX"
+  with rb[of "x"] show "ri.f_of_x x < simple_boundary.f_of_x (hd lds) domain x" by auto   
+qed
+  
+definition drivable_lane :: "nat \<Rightarrow> real2 set" where
+  "drivable_lane i \<equiv> (if i = 0 then 
+                        simple_road.drivable_area (ld_idx i) curve_right domain
+                      else if 0 < i \<and> i < nbr_of_lanes - 1 then 
+                        simple_road.drivable_area (ld_idx i) (ld_idx (i - 1)) domain 
+                      else if i = nbr_of_lanes - 1 then 
+                        simple_road.drivable_area curve_left (ld_idx (i - 1)) domain 
+                      else 
+                        undefined)"
+
+interpretation l0: simple_road "(hd lds)" curve_right domain using lane0 .    
+interpretation ll: simple_road curve_left "last lds" domain using lanel .
+    
+lemma 
+  assumes "i < nbr_of_lanes"  
+  shows "path_connected (drivable_lane i)"
+  unfolding drivable_lane_def if_splits(1)
+proof (rule conjI, rule impI, rule_tac[2] impI, rule_tac[2] conjI, rule_tac[2] impI, 
+       rule_tac[3] impI, rule_tac[3] conjI, rule_tac[3] impI, rule_tac[4] impI)    
+  assume "i = 0"
+  hence "ld_idx i = hd lds" using hd_conv_nth[OF lds_nonempty] by auto
+  thus "path_connected (simple_road.drivable_area (ld_idx i) curve_right domain)"
+    using l0.path_connected_drivable_area by auto    
+next
+  assume "0 < i \<and> i < nbr_of_lanes - 1"
+  hence pos: "0 < i" and valid: "i < length lds" unfolding nbr_of_lanes_def by auto
+  then interpret li: simple_road "ld_idx i" "ld_idx (i - 1)" domain using li[of "i-1"] by auto   
+  show "path_connected li.drivable_area" using li.path_connected_drivable_area .
+next
+  assume "i = nbr_of_lanes - 1"
+  hence "i = length lds" unfolding nbr_of_lanes_def by auto    
+  hence "ld_idx (i - 1) = last lds" using last_conv_nth[OF lds_nonempty] by auto
+  thus "path_connected (simple_road.drivable_area curve_left (ld_idx (i - 1)) domain)" 
+    using ll.path_connected_drivable_area by auto
+next
+  assume "i \<noteq> 0"
+  assume "\<not> (0 < i \<and> i < nbr_of_lanes - 1)"
+  hence "0 \<ge> i \<or> i \<ge> nbr_of_lanes - 1" by auto
+  with \<open>i \<noteq> 0\<close> have 0: "nbr_of_lanes - 1 \<le> i" by auto
+  assume "i \<noteq> nbr_of_lanes - 1"
+  with 0 have "nbr_of_lanes - 1 < i" by auto
+  with assms have "False" by auto
+  thus "path_connected undefined" by auto      
+qed
+  
+      
+(* \<comment> \<open>Drivable area for multilane road\<close>
+definition multi_drivable_area :: "real2 set" where
+  "multi_drivable_area \<equiv> (\<Union>i < length lds. drivable_lane i) \<union>"
+ *)  
+  
+  
+end
   
   
 end  
