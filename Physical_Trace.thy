@@ -659,7 +659,16 @@ qed
 definition drivable_area :: "real2 set" where
   "drivable_area \<equiv> {(x,y). x \<in> common_setX \<and> y \<in> between_setY x}"  
   
+lemma drivable_areaI:
+  assumes "x \<in> common_setX"
+  assumes "y \<in> between_setY x"
+  shows "(x,y) \<in> drivable_area"
+using assms unfolding drivable_area_def by auto
+      
 lemma drivable_areaD1: "z \<in> drivable_area \<Longrightarrow> fst z \<in> common_setX"
+  by (auto simp add:drivable_area_def)
+    
+lemma drivable_areaD2: "z \<in> drivable_area \<Longrightarrow> snd z \<in> between_setY (fst z)"
   by (auto simp add:drivable_area_def)
        
 lemma drivable_area_alt_def: 
@@ -1009,26 +1018,26 @@ proof (rule ballI, rule ballI, rename_tac z1 z2)
     qed      
     thus ?thesis using \<open>path g\<close> \<open>pathstart g = z1\<close> \<open>pathfinish g = z2\<close> by auto
   qed      
-qed      
+qed        
 end  
-
+  
+        
 subsection "Multilane road"
   
- 
-          
 locale multilane_road = simple_road curve_left curve_right domain 
   for curve_left and curve_right and domain +
   fixes lds :: "(real \<Rightarrow> real2) list" \<comment> \<open>lds is an abbreviation for lane dividers\<close>
   assumes lds_nonempty: "lds \<noteq> []"
   assumes sb: "ld \<in> set lds \<Longrightarrow> simple_boundary ld domain"
+  assumes csx: "i < length lds \<Longrightarrow> common_setX = curve.setX (lds ! i) domain"    
   assumes bw: "i < j \<Longrightarrow> x \<in> curve.setX (lds ! i) domain \<inter> curve.setX (lds ! j) domain \<Longrightarrow> 
              simple_boundary.f_of_x (lds ! i) domain x <  simple_boundary.f_of_x (lds ! j) domain x"    
   assumes lb:"x \<in> curve.setX (last lds) domain \<inter> le.setX \<Longrightarrow> 
                                            simple_boundary.f_of_x (last lds) domain x < le.f_of_x x"  
   assumes rb:"x \<in> curve.setX (hd lds) domain \<inter> ri.setX \<Longrightarrow> 
-                                             ri.f_of_x x < simple_boundary.f_of_x (hd lds) domain x"    
+                                             ri.f_of_x x < simple_boundary.f_of_x (hd lds) domain x"     
 begin
-
+    
 definition nbr_of_lanes where
   "nbr_of_lanes \<equiv> length lds + 1"
   
@@ -1098,8 +1107,73 @@ definition drivable_lane :: "nat \<Rightarrow> real2 set" where
                       else 
                         undefined)"
 
-interpretation l0: simple_road "(hd lds)" curve_right domain using lane0 .    
+interpretation l0: simple_road "(hd lds)" curve_right domain using lane0 .
+            
+theorem l0_common_setX:
+  "l0.common_setX = common_setX"   
+proof -  
+  from csx[of "0"] have 0: "common_setX = curve.setX (hd lds) domain" using lds_nonempty
+    hd_conv_nth[OF lds_nonempty] by auto        
+  hence "l0.le.setX \<inter> ri.setX = l0.le.setX" by auto
+  thus ?thesis using 0 by auto      
+qed    
+  
+theorem bw2:
+  assumes "i \<le> j"
+  assumes "x \<in> curve.setX (lds ! i) domain \<inter> curve.setX (lds ! j) domain"
+  shows "simple_boundary.f_of_x (ld_idx i) domain x \<le> simple_boundary.f_of_x (ld_idx j) domain x"
+proof (cases "i < j")
+  case True
+  then show ?thesis using bw[OF True assms(2)] by auto
+next
+  case False
+  then show ?thesis using assms by auto
+qed
+      
+theorem l0_between_setY:
+  assumes "x \<in> l0.common_setX"
+  shows "l0.between_setY x \<subseteq> between_setY x"
+proof
+  fix xa
+  assume "xa \<in> l0.between_setY x"
+  hence 0: "xa \<in> {(ri.f_of_x x) <..< (l0.le.f_of_x x)}" by auto
+  from bw2[of "0" "length lds - 1"] 
+  have "simple_boundary.f_of_x (hd lds) domain x \<le> simple_boundary.f_of_x (last lds) domain x"
+    using hd_conv_nth[OF lds_nonempty] last_conv_nth[OF lds_nonempty] lds_nonempty assms csx
+    by (metis (no_types, lifting) diff_less inf_left_idem l0_common_setX le0 length_greater_0_conv less_numeral_extra(1)) 
+  also have "... < le.f_of_x x" using assms l0_common_setX csx lb
+    last_conv_nth[OF lds_nonempty]
+    by (metis (no_types, lifting) diff_less inf.right_idem inf_sup_aci(1) lds_nonempty length_greater_0_conv less_numeral_extra(1))
+  finally have "l0.le.f_of_x x < le.f_of_x x"  by auto
+  with 0 show "xa \<in> {(ri.f_of_x x) <..< le.f_of_x x}" by auto      
+qed  
+    
 interpretation ll: simple_road curve_left "last lds" domain using lanel .
+
+theorem ll_common_setX:  
+  "ll.common_setX = common_setX"   
+proof -  
+  from csx[of "length lds - 1"] have 0: "common_setX = curve.setX (last lds) domain" using lds_nonempty
+    last_conv_nth[OF lds_nonempty] by auto         
+  hence "le.setX \<inter> ll.ri.setX = ll.ri.setX" by auto 
+  thus ?thesis using 0 by auto
+qed
+  
+theorem ll_between_setY:
+  assumes "x \<in> ll.common_setX"
+  shows "ll.between_setY x \<subseteq> between_setY x"
+proof
+  fix xa
+  assume 0: "xa \<in> ll.between_setY x"
+  from bw2[of "0" "length lds - 1"] 
+  have "simple_boundary.f_of_x (hd lds) domain x \<le> simple_boundary.f_of_x (last lds) domain x"
+    using hd_conv_nth[OF lds_nonempty] last_conv_nth[OF lds_nonempty] lds_nonempty assms csx
+    by (metis (no_types, lifting) diff_less inf_left_idem l0_common_setX le0 length_greater_0_conv less_numeral_extra(1))
+  moreover have "ri.f_of_x x < simple_boundary.f_of_x (hd lds) domain x" using rb[of "x"] assms 
+    l0_common_setX ll_common_setX by auto
+  ultimately have "ri.f_of_x x < ll.ri.f_of_x x" by auto
+  with 0 show "xa \<in> between_setY x" by auto              
+qed
     
 lemma 
   assumes "i < nbr_of_lanes"  
@@ -1132,17 +1206,298 @@ next
   with assms have "False" by auto
   thus "path_connected undefined" by auto      
 qed
+    
+lemma drivable_lane_subseteq_drivable_area:
+  assumes "i < nbr_of_lanes"  
+  shows "drivable_lane i \<subseteq> drivable_area"
+  unfolding drivable_lane_def 
+proof (split if_splits, rule conjI, rule_tac[!] impI)
+  assume 0:"i = 0"  
+  show "simple_road.drivable_area (ld_idx i) curve_right domain \<subseteq> drivable_area"
+  proof 
+    fix x
+    assume "x \<in> simple_road.drivable_area (ld_idx i) curve_right domain"
+    with 0 have "x \<in> l0.drivable_area" using hd_conv_nth[OF lds_nonempty] by auto
+    hence 1: "fst x \<in> l0.common_setX" and 2: "snd x \<in> l0.between_setY (fst x)"
+      using l0.drivable_areaD1 l0.drivable_areaD2 by auto        
+    with l0_common_setX have 3: "fst x \<in> common_setX" by auto
+    from 1 and 2 have "snd x \<in> between_setY (fst x)" using l0_between_setY[OF 1] by auto
+    with 3 show "x \<in> drivable_area" unfolding drivable_area_def by auto            
+  qed
+next
+  assume "i \<noteq> 0"
+  show " (if 0 < i \<and> i < nbr_of_lanes - 1 then simple_road.drivable_area (ld_idx i) (ld_idx (i - 1)) domain
+          else if i = nbr_of_lanes - 1 then simple_road.drivable_area curve_left (ld_idx (i - 1)) domain else undefined)
+          \<subseteq> drivable_area"
+  proof (split if_splits, rule conjI, rule_tac[!] impI)
+    assume "0 < i \<and> i < nbr_of_lanes - 1"
+    hence pos: "0 < i" and valid: "i < length lds" unfolding nbr_of_lanes_def by auto
+    then interpret li: simple_road "ld_idx i" "ld_idx (i - 1)" domain using li[of "i-1"] by auto 
+    show " simple_road.drivable_area (ld_idx i) (ld_idx (i - 1)) domain \<subseteq> drivable_area"      
+    proof 
+      fix x
+      assume 4: "x \<in> li.drivable_area"
+      hence 5: "fst x \<in> common_setX" using li.drivable_areaD1 csx valid by blast
+      have 6: "snd x \<in> li.between_setY (fst x)" using li.drivable_areaD2[OF 4] by auto
+      have "ri.f_of_x (fst x) < l0.le.f_of_x (fst x)" using rb 5 l0_common_setX by auto
+      also have "... \<le> li.ri.f_of_x (fst x)" using bw2[of "0" "i-1" "fst x"] pos csx 5 valid 
+        lds_nonempty hd_conv_nth[OF lds_nonempty]    
+        by (metis "4" le0 length_greater_0_conv li.drivable_areaD1)          
+      finally have 7:"ri.f_of_x (fst x) < li.ri.f_of_x (fst x)" by auto
+      have "ll.ri.f_of_x (fst x) < le.f_of_x (fst x)" using lb 5 ll_common_setX by auto     
+      moreover have "li.le.f_of_x (fst x) \<le> ll.ri.f_of_x (fst x)" using bw2[of "i" "length lds - 1" "fst x"]
+        valid last_conv_nth[OF lds_nonempty] csx 5 lds_nonempty ll_common_setX
+        proof -
+          obtain rr :: real and rra :: real where
+              f1: "ll.ri.setX = {rr..rra}"
+            by (meson ll.ri.setX_closed_interval_or_empty)
+          then obtain rrb :: real and rrc :: real where
+            f2: "{rrb..rrc} \<inter> {rr..rra} = le.setX \<inter> ll.ri.setX"
+            using le.setX_closed_interval_or_empty by blast
+          then have "{rrb..rrc} \<inter> {rr..rra} = li.le.setX"
+            using csx ll_common_setX valid by blast
+          then have "li.le.setX \<inter> curve.setX (ld_idx (length lds - 1)) domain = {rrb..rrc} \<inter> {rr..rra}"
+            using f1 by (metis (no_types) \<open>last lds = ld_idx (length lds - 1)\<close> inf.right_idem)
+          then have "li.le.setX \<inter> curve.setX (ld_idx (length lds - 1)) domain = le.setX \<inter> ri.setX"
+            using f2 ll_common_setX by blast
+          then have f3: "fst x \<in> li.le.setX \<inter> curve.setX (ld_idx (length lds - 1)) domain"
+            using "5" by blast (* > 1.0 s, timed out *)
+          have f4: "\<not> length lds \<le> i"
+            by (metis linorder_not_le valid)
+          then have f5: "1 = length lds - i - 0 - (length lds - i - 0 - Suc 0)"
+            by force
+          { assume "\<not> i \<le> length lds - 1"
+            then have "1 \<noteq> length lds - i"
+              using f4 by (metis (no_types) diff_diff_cancel nat_le_linear)
+            then have "\<not> length lds - 1 \<le> i"
+              using f5 by (metis (no_types) One_nat_def cancel_ab_semigroup_add_class.diff_right_commute diff_is_0_eq' diff_zero)
+            then have "i \<le> length lds - 1"
+              by (metis nat_le_linear) }
+          then have "li.le.f_of_x (fst x) + - 1 * simple_boundary.f_of_x (ld_idx (length lds - 1)) domain (fst x) \<le> 0"
+            using f3 bw2 by force
+          then show ?thesis
+            by (simp add: \<open>last lds = ld_idx (length lds - 1)\<close>)
+        qed
+      ultimately have 8:"li.le.f_of_x (fst x) < le.f_of_x (fst x)" by auto
+      with 6 and 7 have "snd x \<in> between_setY (fst x)" by auto
+      with 5 show "x \<in> drivable_area" unfolding drivable_area_def by auto  
+    qed
+  next
+    assume "\<not> (0 < i \<and> i < nbr_of_lanes - 1)"
+    hence "0 \<ge> i \<or> i \<ge> nbr_of_lanes - 1" by auto
+    with \<open>i \<noteq> 0\<close> have "i \<ge> nbr_of_lanes - 1" by auto                
+    show "(if i = nbr_of_lanes - 1 then simple_road.drivable_area curve_left (ld_idx (i - 1)) domain else undefined) \<subseteq> drivable_area"
+    proof (split if_splits, rule conjI, rule_tac[!] impI)
+      assume "i = nbr_of_lanes - 1"
+      hence 9: "i = length lds" unfolding nbr_of_lanes_def by auto    
+      show "simple_road.drivable_area curve_left (ld_idx (i - 1)) domain \<subseteq> drivable_area"
+      proof           
+        fix x
+        assume "x \<in> simple_road.drivable_area curve_left (ld_idx (i - 1)) domain"
+        hence "x \<in> ll.drivable_area" using 9 last_conv_nth[OF lds_nonempty] by auto
+        hence "fst x \<in> common_setX" using ll.drivable_areaD1 ll_common_setX by auto
+        moreover have "snd x \<in> ll.between_setY (fst x)" using ll.drivable_areaD2 \<open>x \<in> ll.drivable_area\<close>
+          by auto
+        hence "snd x \<in> between_setY (fst x)" using ll_between_setY[of "fst x"] \<open>fst x \<in> common_setX\<close>
+          ll_common_setX by auto
+        with \<open>fst x \<in> common_setX\<close> show "x \<in> drivable_area" using drivable_areaI[of "fst x" "snd x"]
+          by auto            
+      qed
+    next
+      assume "i \<noteq> nbr_of_lanes - 1"
+      with \<open>i \<ge> nbr_of_lanes - 1\<close> have "i > nbr_of_lanes - 1" by auto
+      with assms have "False" by auto
+      thus "undefined \<subseteq> drivable_area" by auto          
+    qed  
+  qed    
+qed
   
+definition boundary_points where
+  "boundary_points i \<equiv> {(x,y). x \<in> curve.setX (lds ! i) domain \<and> 
+                                                     y = simple_boundary.f_of_x (lds ! i) domain x}"  
+
+lemma boundary_pointsD1:
+  assumes "i < length lds"
+  assumes "x \<in> boundary_points i"  
+  shows "fst x \<in> common_setX"
+  using assms csx unfolding boundary_points_def by auto
+
+lemma boundary_pointsD2:
+  assumes "i < length lds"
+  assumes "x \<in> boundary_points i"
+  shows "snd x = simple_boundary.f_of_x (lds ! i) domain (fst x)"
+  using assms unfolding boundary_points_def by auto
       
-(* \<comment> \<open>Drivable area for multilane road\<close>
+theorem boundary_points_subseteq_drivable_area:
+  assumes "i < length lds"
+  shows "boundary_points i \<subseteq> drivable_area"
+proof    
+  fix x
+  assume "x \<in> boundary_points i"
+  with assms have fst: "fst x \<in> common_setX" and snd:"snd x = simple_boundary.f_of_x (lds ! i) domain (fst x)" 
+    using boundary_pointsD1 boundary_pointsD2 by auto    
+  with bw2[of "i" "length lds - 1" "fst x"] assms csx last_conv_nth[OF lds_nonempty]
+  have "simple_boundary.f_of_x (ld_idx i) domain (fst x) \<le> ll.ri.f_of_x (fst x)" 
+  proof -
+    have f1: "0 < Suc 0"
+      by (metis One_nat_def less_numeral_extra(1))
+    obtain rr :: real and rra :: real where
+      f2: "ll.ri.setX = {rr..rra}"
+      using ll.ri.setX_closed_interval_or_empty by blast
+    then obtain rrb :: real and rrc :: real where
+          f3: "{rrb..rrc} \<inter> {rr..rra} = le.setX \<inter> ll.ri.setX"
+      using le.setX_closed_interval_or_empty by blast
+    then have "{rrb..rrc} \<inter> {rr..rra} = curve.setX (ld_idx i) domain"
+      using assms csx ll_common_setX by blast
+    then have "curve.setX (ld_idx i) domain \<inter> curve.setX (ld_idx (length lds - 1)) domain = {rrb..rrc} \<inter> {rr..rra}"
+      using f2 by (metis (no_types) \<open>last lds = ld_idx (length lds - 1)\<close> inf.right_idem)
+    then have f4: "fst x \<in> curve.setX (ld_idx i) domain \<inter> curve.setX (ld_idx (length lds - 1)) domain"
+      using f3 fst ll_common_setX by blast
+    have f5: "length lds - (length lds - inf i (length lds) - inf 0 (Suc 0)) = i"
+      using f1 by (metis (no_types) assms diff_diff_cancel diff_zero inf.strict_order_iff less_imp_le_nat)
+    have "Suc 0 \<le> length lds - inf i (length lds) - inf 0 (Suc 0)"
+      by (metis One_nat_def assms diff_is_0_eq diff_zero inf.strict_order_iff less_one linorder_not_le)
+    then show ?thesis
+      using f5 f4 by (metis (full_types) One_nat_def \<open>\<lbrakk>i \<le> length lds - 1; fst x \<in> curve.setX (ld_idx i) domain \<inter> curve.setX (ld_idx (length lds - 1)) domain\<rbrakk> \<Longrightarrow> simple_boundary.f_of_x (ld_idx i) domain (fst x) \<le> simple_boundary.f_of_x (ld_idx (length lds - 1)) domain (fst x)\<close> \<open>last lds = ld_idx (length lds - 1)\<close> diff_le_mono2)
+  qed
+  also have "... < le.f_of_x (fst x)" using lb[of "fst x"] fst ll_common_setX by auto
+  finally have 1: "simple_boundary.f_of_x (ld_idx i) domain (fst x) < le.f_of_x (fst x)" by auto
+  with bw2[of "0" "i" "fst x"] assms csx lds_nonempty fst hd_conv_nth[OF lds_nonempty]
+    have "l0.le.f_of_x (fst x) \<le> simple_boundary.f_of_x (ld_idx i) domain (fst x)" by auto
+  moreover have "ri.f_of_x (fst x) < l0.le.f_of_x (fst x)" using rb[of "fst x"] fst l0_common_setX
+      by auto
+  ultimately have "ri.f_of_x (fst x) < simple_boundary.f_of_x (ld_idx i) domain (fst x)" by auto
+  with 1 and snd have "snd x \<in> between_setY (fst x)" by auto
+  with \<open>fst x \<in> common_setX\<close> show "x \<in> drivable_area" using drivable_areaI[of "fst x" "snd x"] 
+    by auto
+qed
+  
+(*
+definition partition_between where
+  "partition_between x \<equiv> {l0.between_setY x, ll.between_setY x} \<union> 
+    {ran . \<exists>i>0. i < length lds \<and> ran = simple_road.between_setY (ld_idx i) (ld_idx (i-1)) domain x}"  
+ 
+lemma aux_intro:
+  assumes "x \<in> A \<or> x \<in> B \<or> (\<exists>i. P i \<and> x \<in> C i)"
+  shows "x \<in> \<Union>({A,B} \<union> {C'. \<exists>i. P i \<and> C' = C i})"  
+  using assms by auto
+      
+lemma 
+  assumes "x \<in> common_setX"
+  shows "partition_on (between_setY x) (partition_between x)"    
+proof (intro partition_onI)
+  show "\<Union>partition_between x = between_setY x"
+    unfolding partition_between_def
+  proof (rule Set.equalityI, rule_tac[!] subsetI)
+    fix xa
+    assume "xa \<in> \<Union>({l0.between_setY x, ll.between_setY x} \<union>
+                  {ran. \<exists>i>0. i < length lds \<and>
+                   ran = {simple_boundary.f_of_x (ld_idx (i - 1)) domain x<..<simple_boundary.f_of_x (ld_idx i) domain x}})"  
+    from this obtain X where "X \<in> partition_between x" and "xa \<in> X" unfolding partition_between_def 
+      using Union_iff by blast
+    hence "X = l0.between_setY x \<or> X = ll.between_setY x \<or> 
+           X \<in> {ran. \<exists>i>0. i < length lds \<and>
+                   ran = {simple_boundary.f_of_x (ld_idx (i - 1)) domain x<..<simple_boundary.f_of_x (ld_idx i) domain x}}"
+      unfolding partition_between_def by auto
+    from this consider \<open>X = l0.between_setY x\<close> | \<open>X = ll.between_setY x\<close> | 
+              \<open>X \<in> {ran. \<exists>i>0. i < length lds \<and>
+                   ran = {simple_boundary.f_of_x (ld_idx (i - 1)) domain x<..<simple_boundary.f_of_x (ld_idx i) domain x}}\<close>
+      by auto
+    then show "xa \<in> between_setY x"
+    proof cases
+      case 1
+      then show ?thesis using l0_between_setY assms l0_common_setX \<open>xa \<in> X\<close> by blast
+    next
+      case 2
+      then show ?thesis using ll_between_setY assms ll_common_setX \<open>xa \<in> X\<close> by blast
+    next
+      case 3
+      then obtain i where X_def: "X = {simple_boundary.f_of_x (ld_idx (i-1)) domain x <..< 
+                                simple_boundary.f_of_x (ld_idx i) domain x}" 
+        and "i > 0" and "i < length lds" by blast
+      from this interpret li: simple_road "ld_idx i" "ld_idx (i - 1)" domain using li[of "i-1"] 
+        by auto
+      have "li.between_setY x \<subseteq> between_setY x"
+      proof   
+        fix xa
+        assume "xa \<in> li.between_setY x"
+        have "li.le.f_of_x x \<le> ll.ri.f_of_x x" using bw2[of "i" "length lds - 1" "x"]
+          using \<open>i < length lds\<close> csx[of "length lds - 1"] csx[of "i"] lds_nonempty assms
+          last_conv_nth[OF lds_nonempty] by fastforce
+        also have "... < le.f_of_x x" using lb[of "x"] using assms ll_common_setX by auto
+        finally have temp: "li.le.f_of_x x < le.f_of_x x" by auto
+        have "ri.f_of_x x < l0.le.f_of_x x" using rb[of "x"] assms l0_common_setX by auto
+        also have "... \<le> li.ri.f_of_x x" using bw2[of "0" "i-1" "x"] \<open>i > 0\<close> 
+          hd_conv_nth[OF lds_nonempty] csx[of "0"] lds_nonempty csx[of "i-1"] \<open>i < length lds\<close>    
+          assms by auto
+        finally have "ri.f_of_x x < li.ri.f_of_x x" by auto
+        with temp and \<open>xa \<in> li.between_setY x\<close> show "xa \<in> between_setY x" by auto
+      qed  
+      with \<open>xa \<in> X\<close> and X_def show ?thesis by auto
+    qed
+  next          
+    fix xa
+    assume "xa \<in> between_setY x"
+    have "xa \<in> \<Union>({l0.between_setY x, ll.between_setY x} \<union>
+                  {ran. \<exists>i. (0 < i \<and> i < length lds) \<and>
+                              ran = {simple_boundary.f_of_x (ld_idx (i - 1)) domain x<..<simple_boundary.f_of_x (ld_idx i) domain x}})"      
+    proof (intro aux_intro)
+      
+    qed
+  
+  
+    
+lemma 
+  assumes "x \<in> common_setX"
+  assumes "y \<in> between_setY x"
+  assumes "i < length_lds \<Longrightarrow> (x, y) \<notin> boundary_points i"
+  assumes "y \<in> l0.between_setY x \<or> y \<in> ll.between_setY x"    
+  shows "\<exists>i>0. i < length_lds \<and> y \<in> simple_road.between_setY (ld_idx i) (ld_idx (i-1)) domain x"           
+proof (rule ccontr)  
+  assume "\<not> (\<exists>i>0. i < length_lds \<and> y \<in> simple_road.between_setY (ld_idx i) (ld_idx (i-1)) domain x)"
+  hence "\<forall>i>0. i < length_lds \<longrightarrow> y \<notin> simple_road.between_setY (ld_idx i) (ld_idx (i-1)) domain x"
+    by auto
+  have "y < simple_boundary.f_of_x (ld_idx 0) domain x \<or>
+                      y > simple_boundary.f_of_x (ld_idx (length_lds - 1)) domain x"
+  proof (rule ccontr)
+    assume "\<not> (y < simple_boundary.f_of_x (ld_idx 0) domain x \<or> 
+                   simple_boundary.f_of_x (ld_idx (length_lds - 1)) domain x < y)"   
+    hence "y \<le> simple_boundary.f_of_x (ld_idx (length_lds - 1)) domain x \<and> 
+               simple_boundary.f_of_x (ld_idx 0) domain x \<le> y" by auto
+      
+  qed    
+qed  
+    
+    
+\<comment> \<open>Drivable area for multilane road\<close>
 definition multi_drivable_area :: "real2 set" where
-  "multi_drivable_area \<equiv> (\<Union>i < length lds. drivable_lane i) \<union>"
- *)  
-  
-  
-end
-  
-  
+  "multi_drivable_area \<equiv> 
+                      (\<Union>i < nbr_of_lanes. drivable_lane i) \<union>  (\<Union>i < length lds. boundary_points i)"
+
+theorem multi_drivable_area_alt_def:
+  "multi_drivable_area = drivable_area"  
+  unfolding multi_drivable_area_def
+proof (rule Set.equalityI, unfold Un_subset_iff, rule conjI, unfold UN_subset_iff, rule_tac[1-2] ballI)
+  fix i
+  assume "i \<in> {..<nbr_of_lanes}"    
+  hence "i < nbr_of_lanes" by auto
+  with drivable_lane_subseteq_drivable_area[OF this] show "drivable_lane i \<subseteq> drivable_area" by simp        
+next
+  fix i
+  assume "i \<in> {..<length lds}"
+  hence "i < length lds" by auto
+  with boundary_points_subseteq_drivable_area show "boundary_points i \<subseteq> drivable_area" by auto
+next
+  show "drivable_area \<subseteq> (\<Union>i < nbr_of_lanes. drivable_lane i) \<union>  (\<Union>i < length lds. boundary_points i)"
+  proof 
+    fix x
+    assume "x \<in> drivable_area"
+    hence fst:"fst x \<in> common_setX" and snd:"snd x \<in> between_setY (fst x)" using drivable_areaD1
+      drivable_areaD2 by auto                    
+  qed    
+qed  
+*)  
+end  
 end  
   
 
