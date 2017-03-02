@@ -17,12 +17,58 @@ subsection "Strict monotonicity  and anti-monotonicity"
 definition strict_mono_in :: "('a::order \<Rightarrow> 'b::order) \<Rightarrow> 'a set \<Rightarrow> bool" where
   "strict_mono_in f S \<longleftrightarrow> (\<forall>x\<in>S. \<forall>y\<in>S. x < y \<longrightarrow> f x < f y)"
   
+lemma strict_mono_inI[intro]:
+  assumes "\<And>x y. x \<in> S \<Longrightarrow> y \<in> S \<Longrightarrow> x < y \<Longrightarrow> f x < f y"
+  shows "strict_mono_in f S"  
+  using assms unfolding strict_mono_in_def by auto
+    
+lemma strict_mono_inD:
+  assumes "strict_mono_in f S"
+  assumes "x \<in> S"
+  assumes "y \<in> S"
+  assumes "x < y"
+  shows "f x < f y"
+  using assms unfolding strict_mono_in_def by auto    
+  
 definition mono_in :: "('a :: order \<Rightarrow> 'b :: order) \<Rightarrow> 'a set \<Rightarrow> bool" where
-  "mono_in f S \<longleftrightarrow> (\<forall>x\<in>S. \<forall>y\<in>S. x \<le> y \<longrightarrow> f x \<le> f y)"  
+  "mono_in f S \<longleftrightarrow> (\<forall>x\<in>S. \<forall>y\<in>S. x \<le> y \<longrightarrow> f x \<le> f y)" 
 
+lemma mono_inI[intro]:
+  fixes S :: "('a :: order) set"
+  fixes f :: "'a  \<Rightarrow> 'b :: order"  
+  assumes "\<And>x y. x \<in> S \<Longrightarrow> y \<in> S \<Longrightarrow> x \<le> y \<Longrightarrow> f x \<le> f y"
+  shows "mono_in f S"    
+  using assms unfolding mono_in_def by auto
+      
 lemma strict_mono_in_mono_in: 
   "strict_mono_in f S \<Longrightarrow> mono_in f S"
   unfolding strict_mono_in_def mono_in_def by (simp add: le_less)
+    
+lemma strict_imp_inj_on:
+  fixes S :: "'a ::linorder set"
+  assumes "strict_mono_in f S"
+  shows "inj_on f S"
+  unfolding inj_on_def
+proof (rule ballI, rule ballI, rule impI, rule ccontr)
+  fix x y
+  assume "x \<in> S"
+  assume "y \<in> S"
+  assume "f x = f y"
+  assume "x \<noteq> y"
+  then consider "x < y" | "x > y" using less_linear by auto
+  hence  "f x \<noteq> f y"
+  proof (cases)
+    case 1
+    hence "f x < f y" using strict_mono_inD[OF assms \<open>x \<in> S\<close> \<open>y \<in> S\<close>] by auto 
+    then show ?thesis by auto
+  next
+    case 2
+    hence "f y < f x" using strict_mono_inD[OF assms \<open>y \<in>S\<close> \<open>x \<in> S\<close>] by auto
+    then show ?thesis by auto
+  qed
+  with \<open>f x = f y\<close> show "False" by auto  
+qed
+  
   
 definition strict_antimono_in :: "('a::order \<Rightarrow> 'b::order) \<Rightarrow> 'a set \<Rightarrow> bool" where
   "strict_antimono_in f S \<longleftrightarrow> (\<forall>x\<in>S. \<forall>y\<in>S. x < y \<longrightarrow> f x > f y)"
@@ -214,7 +260,7 @@ definition is_sup_y :: "real \<Rightarrow> real2 set \<Rightarrow> bool" where
         
 section "Environment"
 
-text "At the moment, we focus on highway (freeway) scenario first without fork and joints. There 
+text "At the moment, we focus on highway (freeway) scenario first without forks and joints. There 
 are multiple lanes in one road. The road is characterised with left boundary, right boundary, and
 lane boundaries. Left, right, and lane boundaries are formalised as curve in mathematical sense."
   
