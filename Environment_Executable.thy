@@ -88,6 +88,11 @@ end
      
 subsection "Lanelet's simple boundary"
   
+text \<open>One of the most important property for the polychain is monotonicity. This property is 
+similar to the property that each curve equation in Physical_Trace.thy must be a graph. A graph 
+here means that @{term "y"} is a function of @{term "x"}. This mean that a curve which looks like 
+letter "S" cannot be a graph.\<close>
+  
 definition "monotone_polychain xs \<longleftrightarrow>  
             polychain (xs :: (real2 \<times> real2) list) \<and> (\<forall>i < length xs. fst (fst (xs ! i)) < fst (snd (xs ! i)))"  
    
@@ -392,7 +397,16 @@ next
   qed    
 qed  
 end
-
+  
+subsection "Lanelet"  
+  
+text \<open>The direction of a lanelet is defined according to the relative position of the left polychain
+with respect to the right polychain. In order to determine the direction, we first construct a 
+polygon from these two polychains, and then find the vertex (point) which is guaranteed to be
+the point in its convex hull. To find this vertex, we only need to find the points with the smallest
+@{term "x"} value, and if there are more than one, we choose the one with the smallest @{term "y"}
+values. The following function min2D does this job.\<close> 
+ 
 definition min2D :: "real2 \<Rightarrow> real2 \<Rightarrow> real2" where
   "min2D z1 z2 = (let x1 = fst z1; x2 = fst z2; y1 = snd z1; y2 = snd z2 in
                     if x1 < x2 then z1 else
@@ -435,7 +449,7 @@ fun convex_hull_vertex2 :: "(real2 \<times>  real2) list \<Rightarrow> real2 opt
 lemma cons_convex_hull_vertex_some':
   "\<exists>x. convex_hull_vertex2 (z # zs) = Some x"
   by (simp add: option.case_eq_if)  
- 
+    
 fun convex_hull_vertex3 :: "(real2 \<times>  real2) list \<Rightarrow> real2 option" where
  "convex_hull_vertex3 [] = None" |
  "convex_hull_vertex3 [z] = Some (min2D (fst z) (snd z))" |  
@@ -454,6 +468,9 @@ next
   then show ?case by auto
 qed
   
+text \<open>Function @{term "convex_hull_vertex3"} is the same with @{term "convex_hull_vertex2"}. It is 
+nicer to have the former when we are doing induction.\<close>  
+ 
 theorem chv3_eq_chv2:
   "convex_hull_vertex3 zs = convex_hull_vertex2 zs" 
 proof (induction zs rule:convex_hull_vertex3.induct)
@@ -470,6 +487,8 @@ next
   hence "convex_hull_vertex2 (z1 # z2 # zs) = Some (min2D (fst z1) x)" by auto      
   then show ?case using case_three by (auto split:option.split)
 qed
+  
+text \<open>This function is to test the membership of a point in a polychain.\<close>  
     
 definition element_of_polychain :: "real2 \<Rightarrow> (real2 \<times> real2) list \<Rightarrow> bool" where
   "element_of_polychain x xs \<equiv> \<exists>y. (x, y) \<in> set xs \<or> (y, x) \<in> set xs" 
@@ -719,6 +738,10 @@ qed
       
 (* TODO: prove that the result of convex_hull_vertex2 is an extreme point of the convex hull. *)  
   
+text \<open>Function @{term "pre_and_post_betw"} and @{term "pre_and_post"} are the functions to find 
+the point connected before and after a point in the polychain. The former is the tail recursive 
+part of the latter.\<close>  
+  
 fun pre_and_post_betw :: "(real2 \<times> real2) list \<Rightarrow> real2 \<Rightarrow> (real2 \<times> real2) option" where
   "pre_and_post_betw [] x = None" | 
   "pre_and_post_betw [z] x = None" | 
@@ -779,6 +802,8 @@ next
   qed
 qed    
 
+(* This function is not necessarily recursive. Avoid using pre_and_post.induct! *)
+  
 fun pre_and_post :: "(real2 \<times> real2) list \<Rightarrow> real2 \<Rightarrow> (real2 \<times> real2) option" where
   "pre_and_post [] x = None" | 
   "pre_and_post [z] x = None" | 
@@ -800,6 +825,8 @@ proof -
     by (metis assms option.distinct(1) pre_and_post.elims)
   thus ?thesis by blast    
 qed
+
+text \<open>We prove the correctness of the @{term "pre_and_post"} here.\<close>
   
 theorem pre_and_post_correctness1:
   assumes "pre_and_post zs x = Some pp"
@@ -903,6 +930,8 @@ next
   with True have "pre_and_post zs x = Some (fst (last (z2 # zs')), snd z1)" by auto      
   thus ?thesis by auto
 qed    
+  
+text \<open>Two auxiliary lemmas for polychain.\<close>  
 
 theorem polychain_snoc:
   assumes "polychain xs"
@@ -1063,8 +1092,6 @@ next
       by auto
   qed    
 qed    
-
-subsection "Lanelet"  
   
 locale lanelet = le: lanelet_simple_boundary points_le + ri: lanelet_simple_boundary points_ri
   for points_le and points_ri +
@@ -1154,5 +1181,6 @@ definition dir_right :: "bool" where
   "dir_right \<equiv> (case vertex_chain of (pre, x, post) \<Rightarrow> ccw' pre x post)"        
 end
   
+
 
 end
