@@ -59,7 +59,7 @@ next
   then show ?case unfolding points_path2_def by auto
 qed    
   
-subsection "Lanelet curve"  
+subsection "Lanelet's curve"  
             
 locale lanelet_curve = 
   fixes points :: "(real2 \<times> real2) list" 
@@ -96,6 +96,13 @@ letter "S" cannot be a graph.\<close>
 definition "monotone_polychain xs \<longleftrightarrow>  
             polychain (xs :: (real2 \<times> real2) list) \<and> (\<forall>i < length xs. fst (fst (xs ! i)) < fst (snd (xs ! i)))"  
    
+lemma monotone_polychainI:
+  fixes xs :: "(real2 \<times> real2) list"
+  assumes "polychain xs"
+  assumes "\<And>i. i < length xs \<Longrightarrow> fst (fst (xs ! i)) < fst (snd (xs ! i))"
+  shows "monotone_polychain xs"
+  using assms unfolding monotone_polychain_def by auto
+    
 lemma monotone_polychain_ConsD:
   assumes "monotone_polychain (x # xs)"
   shows "monotone_polychain xs"
@@ -356,7 +363,7 @@ proof -
 qed
         
 locale lanelet_simple_boundary = lanelet_curve +
-  assumes monotone: "monotone_polychain xs"  
+  assumes monotone: "monotone_polychain points"  
 begin
   
 lemma curve_eq_is_curve: 
@@ -397,7 +404,7 @@ next
   qed    
 qed  
 end
-  
+    
 subsection "Lanelet"  
   
 text \<open>The direction of a lanelet is defined according to the relative position of the left polychain
@@ -1180,6 +1187,15 @@ theorem
 definition dir_right :: "bool" where
   "dir_right \<equiv> (case vertex_chain of (pre, x, post) \<Rightarrow> ccw' pre x post)"        
 end
+  
+(* subsection "Singe direction lane"
+  
+locale SD_lane =
+  fixes boundaries :: "(real2 \<times> real2) list list"
+  assumes "\<forall>i. i+1 < length boundaries \<longrightarrow> lanelet (boundaries ! i) (boundaries ! (i + 1))"
+    
+ *)
+  
   
 
 

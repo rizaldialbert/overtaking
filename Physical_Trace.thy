@@ -365,7 +365,7 @@ lemma "is_interval setY"
     
 theorem domain_interval: 
   "\<exists> a b. domain = {a .. b}"    
-  using compact_convex_closed_interval[OF compact_domain convex_domain] by meson
+  using compact_convex_closed_interval[OF compact_domain convex_domain] by meson    
 end  
   
 subsection "Simple boundary"
@@ -630,12 +630,11 @@ parametrised further with two simple boundaries, for left and right boundary.\<c
 (* TODO: add @{term"common_setX \<noteq> {}"} as one of the assumption in the locale. It simplifies 
   the theorem inside. *)
 
+
+
 locale simple_road =  le: simple_boundary curve_left domain +  ri: simple_boundary curve_right domain 
   for curve_left and curve_right and domain +
-(*   assumes injective: "inj_on (\<lambda>(lane, s). lane s) ({curve_left, curve_right} \<times> domain)"
-   assumes above: "y1 \<in> le.setY \<Longrightarrow> y2 \<in> ri.setY \<Longrightarrow> y1 > y2" \<comment> \<open>left lane is above right lane\<close>    
-*) 
- assumes above': "x \<in> le.setX \<inter> ri.setX \<Longrightarrow> ri.f_of_x x < le.f_of_x x"
+  assumes above': "x \<in> le.setX \<inter> ri.setX \<Longrightarrow> ri.f_of_x x < le.f_of_x x"
 begin
   
 abbreviation common_setX where
@@ -1066,7 +1065,306 @@ proof (rule ballI, rule ballI, rename_tac z1 z2)
   qed      
 qed        
 end  
+
   
+subsection "A generalised simple road"
+       
+lemma det3_nonneg_scaleR3:
+  "0 < e \<Longrightarrow> det3 0 xr P > 0 \<Longrightarrow> det3 0 xr (e *\<^sub>R (P - xr) + xr) > 0"
+  by (auto simp add: det3_def' algebra_simps)  
+
+lemma det3_nonneg_scaleR3':
+  "0 < e \<Longrightarrow> det3 0 xr P \<le> 0 \<Longrightarrow> det3 0 xr (e *\<^sub>R (P - xr) + xr) \<le> 0"
+  by (auto simp add: det3_def' algebra_simps)  
+        
+lemma det3_invariant1:
+  assumes "0 < e"
+  assumes "det3 p q r > 0" 
+  shows "det3 p q (e *\<^sub>R (r - q) + q) > 0"
+  using assms
+proof -
+  from assms(2) have "det3 0 (q - p) (r - p) > 0" using det3_translate_origin by auto
+  hence "det3 0 (q - p) (e *\<^sub>R ((r - p) - (q - p)) + (q - p)) > 0" 
+    using det3_nonneg_scaleR3[OF assms(1), of "q - p" "r - p"] by simp 
+  hence "det3 0 (q - p) (e *\<^sub>R (r - q) + (q - p)) > 0" by (auto simp add: det3_def' algebra_simps)    
+  thus "det3 p q (e *\<^sub>R (r - q) + q) > 0" by (auto simp add:det3_def' algebra_simps)    
+qed
+  
+lemma det3_invariant2:
+  assumes "0 < e"
+  assumes "det3 p q r \<le> 0"
+  shows "det3 p q (e *\<^sub>R (r - q) + q) \<le> 0"
+proof -
+  from assms(2) have "det3 0 (q - p) (r - p) \<le> 0" using det3_translate_origin by auto
+  hence "det3 0 (q - p) (e *\<^sub>R ((r - p) - (q - p)) + (q - p)) \<le> 0" 
+    using det3_nonneg_scaleR3'[OF assms(1), of "q - p" "r - p"] by simp 
+  hence "det3 0 (q - p) (e *\<^sub>R (r - q) + (q - p)) \<le> 0" by (auto simp add: det3_def' algebra_simps)    
+  thus "det3 p q (e *\<^sub>R (r - q) + q) \<le> 0" by (auto simp add:det3_def' algebra_simps)    
+qed
+  
+theorem ccw_invariant:
+  assumes "0 < e"
+  shows "ccw' p q r = ccw' p q (e *\<^sub>R (r - q) + q)"
+  unfolding ccw'_def  
+  using det3_invariant1[OF assms] det3_invariant2[OF assms]  
+proof -
+  have "\<forall>x0 x1 x2. (0 < det3 x2 x1 x0) = (\<not> det3 x2 x1 x0 \<le> 0)"
+    by linarith
+  then show "(0 < det3 p q r) = (0 < det3 p q (e *\<^sub>R (r - q) + q))"
+    by (metis (no_types) \<open>\<And>r q p. 0 < det3 p q r \<Longrightarrow> 0 < det3 p q (e *\<^sub>R (r - q) + q)\<close> 
+                         \<open>\<And>r q p. det3 p q r \<le> 0 \<Longrightarrow> det3 p q (e *\<^sub>R (r - q) + q) \<le> 0\<close>)
+qed  
+  
+    
+locale simple_road2 =  le: simple_boundary curve_left domain +  ri: simple_boundary curve_right domain 
+  for curve_left and curve_right and domain +
+  assumes domain_nonempty: "domain \<noteq> {}"   
+  \<comment>\<open>The following assumption can be easily checked with @{thm "simple_boundary.checking_strict_mono"}.\<close>
+  assumes mono_x_le: "strict_mono_in le.curve_eq_x domain" 
+      and mono_x_ri: "strict_mono_in ri.curve_eq_x domain"
+  assumes non_intersecting: "\<forall>t1\<in>domain. \<forall>t2\<in> domain. curve_left t1 \<noteq> curve_right t2"
+  assumes diff:"curve_right differentiable (at 0)"      
+begin
+  
+theorem domain_inf_sup:
+  "domain = {Inf domain .. Sup domain}"
+proof -
+  from le.domain_interval obtain a and b where "domain = {a .. b}" by auto
+  with domain_nonempty have "a \<le> b" by auto
+  with \<open>domain = {a .. b}\<close> have "Inf domain = a" and "Sup domain = b" by auto
+  with \<open>domain = {a .. b}\<close> show ?thesis by auto      
+qed
+  
+theorem domain_closed_segment_inf_sup:
+  "domain = closed_segment (Inf domain) (Sup domain)"
+  using domain_inf_sup closed_segment_real  cInf_le_cSup[OF domain_nonempty le.bdd_above_domain 
+    le.bdd_below_domain] by auto
+    
+theorem inf_in_dom:
+  "Inf domain \<in> domain"
+  using closed_contains_Inf[OF domain_nonempty le.bdd_below_domain le.closed_domain] by auto
+
+theorem sup_in_dom:
+  "Sup domain \<in> domain"    
+  using closed_contains_Sup[OF domain_nonempty le.bdd_above_domain le.closed_domain] by auto    
+    
+definition tangent_at_0 where
+  "tangent_at_0 \<equiv> vector_derivative curve_right (at 0)"  
+  
+theorem v_deriv_at_0:
+  "(curve_right has_vector_derivative tangent_at_0) (at 0)"
+  using diff by (auto simp add: vector_derivative_works tangent_at_0_def)
+    
+\<comment>\<open>The tangent line for the right curve at 0.\<close>  
+definition cr_tangent_line :: "real2 set" where
+  "cr_tangent_line \<equiv> {(x, y). \<exists>t>0. (x, y) = curve_right 0 + t *\<^sub>R tangent_at_0}"  
+  
+theorem cr_tangent_line_nonempty:
+  "\<exists>x. x \<in> cr_tangent_line"
+proof -
+  obtain x and y where "(x,y) = curve_right 0 + 1 *\<^sub>R tangent_at_0" using prod.collapse by blast
+  hence "\<exists>t>0. (x, y) = curve_right 0 + t *\<^sub>R tangent_at_0" 
+    by (auto intro: exI[where x="1"])
+  thus ?thesis unfolding cr_tangent_line_def by auto        
+qed
+  
+theorem cr_tangent_line_D1:
+  assumes "x \<in> cr_tangent_line"  
+  obtains t where "x = curve_right 0 + t *\<^sub>R tangent_at_0" and "0 < t"
+  using assms prod.collapse unfolding cr_tangent_line_def by auto    
+    
+\<comment>\<open>Basically we can use any point in the tangent line to determine the direction of the simple road.
+  To be more exact, all points in the direction of the tangent line.\<close>    
+theorem ccw'_on_tangent_line:
+  assumes "p1 \<in> cr_tangent_line" and "p2 \<in> cr_tangent_line"    
+  shows "ccw' (curve_left 0) (curve_right 0) p1 = ccw' (curve_left 0) (curve_right 0) p2"
+proof -
+  from assms obtain t1 where "p1 = curve_right 0 + t1 *\<^sub>R tangent_at_0" and "0 < t1"
+    using cr_tangent_line_D1 by blast
+  hence "tangent_at_0 = (1 / t1) *\<^sub>R (p1 - curve_right 0)" by (auto simp add:divide_simps)      
+  moreover    
+  from assms obtain t2 where "p2 = curve_right 0 + t2 *\<^sub>R tangent_at_0" and "0 < t2" 
+    using cr_tangent_line_D1 by blast
+  ultimately have *: "p2 = curve_right 0 + (t2 / t1) *\<^sub>R (p1 - curve_right 0)" and "0 < t2 / t1"
+    using \<open>0 < t1\<close> by (auto simp add:divide_simps)    
+  show ?thesis unfolding *
+    using ccw_invariant[OF \<open>0 < t2 / t1\<close>, of "curve_left 0" "curve_right 0" "p1"] 
+    by (auto simp add:algebra_simps)             
+qed
+  
+definition direction_right :: "bool" where  
+  "direction_right \<equiv> (let tgt = curve_right 0 + 1 *\<^sub>R tangent_at_0 in 
+                                                           ccw' (curve_left 0) (curve_right 0) tgt)"  
+
+definition direction_left :: "bool" where
+  "direction_left \<equiv> (let tgt = curve_right 0 + 1 *\<^sub>R tangent_at_0 in 
+                                                       det3 (curve_left 0) (curve_right 0) tgt) < 0"  
+
+definition open_domain :: "real set" where
+  "open_domain \<equiv> domain - {Inf domain, Sup domain}"
+  
+theorem convex_open_domain:
+  "convex open_domain"
+  unfolding open_domain_def  using le.convex_domain extreme_point_of_stillconvex[of "domain"] 
+  domain_closed_segment_inf_sup inf_in_dom sup_in_dom 
+  by (metis atLeastAtMost_diff_ends convex_real_interval(8) domain_inf_sup)
+  
+lemma open_domain_subset_domain:
+  "t \<in> open_domain \<Longrightarrow> t \<in> domain"
+  unfolding open_domain_def by auto  
+  
+definition inside :: "real2 set" where
+  "inside \<equiv> {(x,y). \<exists>t \<in> open_domain. (x,y) \<in> open_segment (curve_left t) (curve_right t)}"
+  
+definition insideP :: "real2 \<Rightarrow> bool" where
+  "insideP x \<equiv> \<exists>t \<in> open_domain. x \<in> open_segment (curve_left t) (curve_right t)"  
+
+theorem insideP_eq:
+  "(x \<in> inside) = insideP x"
+  unfolding insideP_def inside_def by auto
+    
+theorem insidePI[intro]:
+  assumes "t \<in> open_domain"
+  assumes "x \<in> open_segment (curve_left t) (curve_right t)"
+  shows "insideP x"  
+  using assms unfolding insideP_def by auto
+    
+theorem insidePD:
+  assumes "insideP x"
+  obtains t where "t \<in> open_domain \<and> x \<in> open_segment (curve_left t) (curve_right t)"
+  using assms unfolding insideP_def by auto
+  
+definition midcurve_eq :: "real \<Rightarrow> real2" where
+  "midcurve_eq  \<equiv> \<lambda>t. (1 / 2) *\<^sub>R (curve_left t + curve_right t)"
+  
+theorem midcurve_inside:
+  assumes "t \<in> open_domain"
+  shows "midcurve_eq t \<in> inside"
+  unfolding midcurve_eq_def insideP_eq
+proof (intro insidePI, rule assms, unfold in_segment(2), rule conjI)
+  from assms have "t \<in> domain" using open_domain_subset_domain by auto
+  with non_intersecting show "curve_left t \<noteq> curve_right t" by auto      
+next
+  show "\<exists>u>0. u < 1 \<and> (1 / 2) *\<^sub>R (curve_left t + curve_right t) = 
+                                                      (1 - u) *\<^sub>R curve_left t + u *\<^sub>R curve_right t "  
+    by(rule exI[where x="1/2"]) (auto simp add:algebra_simps)  
+qed
+  
+theorem midcurve_in_open_segment:
+  assumes "t \<in> open_domain"
+  shows "midcurve_eq t \<in> open_segment (curve_left t) (curve_right t)"
+  unfolding midcurve_eq_def in_segment(2)
+proof 
+  from assms have "t \<in> domain" unfolding open_domain_def by auto
+  with non_intersecting show "curve_left t \<noteq> curve_right t" by auto
+next
+  show "\<exists>u>0. u < 1 \<and> (1 / 2) *\<^sub>R (curve_left t + curve_right t) = 
+                                                      (1 - u) *\<^sub>R curve_left t + u *\<^sub>R curve_right t "  
+    by(rule exI[where x="1/2"]) (auto simp add:algebra_simps)    
+qed
+  
+theorem continuous_midcurve_eq:
+  "continuous_on domain midcurve_eq"
+  unfolding midcurve_eq_def using le.continuous ri.continuous
+  by (auto simp add:continuous_intros)
+    
+theorem
+  "path_connected inside"
+  unfolding path_connected_def
+proof (rule ballI, rule ballI, rename_tac z1 z2)
+  fix z1 z2
+  assume "z1 \<in> inside" and "z2 \<in> inside"
+  hence "insideP z1" and inz2: "insideP z2" using insideP_eq by auto
+  then obtain t1 where "t1 \<in> open_domain" and "z1 \<in> open_segment (curve_left t1) (curve_right t1)"
+    using insidePD by blast
+  from inz2 obtain t2 where "t2 \<in> open_domain" and "z2 \<in> open_segment (curve_left t2) (curve_right t2)"
+    using insidePD by blast  
+  obtain z1' and z2' where "z1' = midcurve_eq t1" and "z2' = midcurve_eq t2" by auto      
+  obtain path1 and path2 where path1_def: "path1 \<equiv> linepath z1 z1'" and 
+                               path2_def: "path2 \<equiv> linepath z2' z2" by auto
+  define path_mid where path_mid_def: "path_mid \<equiv> midcurve_eq \<circ> (linepath t1 t2)"    
+  define path_g where "path_g \<equiv> (path1 +++ path_mid) +++ path2"      
+    
+  have 0: "path (path1 +++ path_mid)"
+  proof (rule path_join_imp)
+    from path1_def show "path (path1)"  by auto
+  next
+    have *: "path_image (linepath t1 t2) = closed_segment t1 t2"
+      using path_image_linepath  by auto
+    from \<open>t1 \<in> open_domain\<close> and \<open>t2 \<in> open_domain\<close> have "t1 \<in> domain" and "t2 \<in> domain" 
+      unfolding open_domain_def by auto         
+    hence "closed_segment t1 t2 \<subseteq> domain" using closed_segment_subset using le.convex_domain
+      by auto
+    hence 2: "continuous_on (path_image (linepath t1 t2)) midcurve_eq" using * continuous_midcurve_eq
+      by (auto simp add: continuous_on_subset)                
+    thus "path (path_mid)" unfolding path_mid_def 
+      by (auto intro:path_continuous_image)  
+  next      
+    have "pathfinish path1 = z1'" unfolding path1_def by auto
+    moreover
+    have "pathstart path_mid = z1'" unfolding path_mid_def comp_def \<open>z1' = midcurve_eq t1\<close>
+      by (simp add: linepath_def path_defs(2))
+    ultimately show "pathfinish path1 = pathstart path_mid" by auto          
+  qed
+            
+  have pg: "path (path_g)"
+    unfolding path_g_def
+  proof (rule path_join_imp, rule 0)
+    show "path path2" using path2_def by auto
+  next
+    have "pathfinish (path1 +++ path_mid) = pathfinish path_mid" by auto
+    also have "... = z2'" unfolding path_mid_def comp_def \<open>z2' = midcurve_eq t2\<close>
+      by (metis  path_defs(3) pathfinish_linepath)
+    also have "... = pathstart path2" using path2_def by auto    
+    finally show "pathfinish (path1 +++ path_mid) = pathstart path2" by auto        
+  qed
+    
+  have 1: "path_image path1 \<subseteq> inside"
+  proof (rule subsetI, unfold insideP_eq, intro insidePI, rule \<open>t1 \<in> open_domain\<close>)
+    fix x
+    assume "x \<in> path_image path1"
+    have *: "path_image path1 = closed_segment z1 z1'" unfolding path1_def by auto
+    have "z1' \<in> open_segment (curve_left t1) (curve_right t1)" unfolding \<open>z1' = midcurve_eq t1\<close>
+      using midcurve_in_open_segment[OF  \<open>t1 \<in> open_domain\<close>] .      
+    with \<open>z1 \<in> open_segment (curve_left t1) (curve_right t1)\<close> have 
+      "closed_segment z1 z1' \<subseteq> open_segment (curve_left t1) (curve_right t1)" 
+      by (auto simp add:closed_segment_subset)  
+    with * show "x \<in> path_image path1 \<Longrightarrow> x \<in> open_segment (curve_left t1) (curve_right t1)"          
+      by auto        
+  qed    
+    
+  have "closed_segment t1 t2 \<subseteq> open_domain"      
+    using closed_segment_subset[OF \<open>t1 \<in> open_domain\<close> \<open>t2 \<in> open_domain\<close>  convex_open_domain] .          
+  hence 2: "path_image path_mid \<subseteq> inside"
+    unfolding path_mid_def path_image_def sym[OF image_comp] linepath_image_01 using midcurve_inside
+    by auto
+  
+  have 3: "path_image path2 \<subseteq> inside"
+  proof (rule subsetI, unfold insideP_eq, intro insidePI, rule \<open>t2 \<in> open_domain\<close>)
+    fix x
+    assume "x \<in> path_image path2"
+    have *: "path_image path2 = closed_segment z2' z2" unfolding path2_def by auto
+    have "z2' \<in> open_segment (curve_left t2) (curve_right t2)" unfolding \<open>z2' = midcurve_eq t2\<close>
+      using midcurve_in_open_segment[OF \<open>t2 \<in> open_domain\<close>] . 
+    with \<open>z2 \<in> open_segment (curve_left t2) (curve_right t2)\<close> have 
+      "closed_segment z2' z2 \<subseteq> open_segment (curve_left t2) (curve_right t2)"
+      by (auto simp add:closed_segment_subset)
+    with * show "x \<in> path_image path2 \<Longrightarrow> x \<in> open_segment (curve_left t2) (curve_right t2)"
+      by auto  
+  qed
+    
+  from 1 2 3 have pi: "path_image path_g \<subseteq> inside"
+    unfolding path_g_def by (simp add: subset_path_image_join path_image_join_subset)
+    
+  have ps: "pathstart path_g = z1" unfolding path_g_def using pathstart_join path1_def by auto
+  have "pathfinish path_g = z2" unfolding path_g_def using pathfinish_join path2_def by auto
+  with pg pi ps show 
+    "\<exists>g. path g \<and> path_image g \<subseteq> local.inside \<and> pathstart g = z1 \<and> pathfinish g = z2" by auto
+qed            
+end  
+    
+    
+    
         
 subsection "Multilane road"
   
