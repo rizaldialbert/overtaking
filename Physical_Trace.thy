@@ -1122,8 +1122,8 @@ locale simple_road2 =  le: simple_boundary curve_left domain +  ri: simple_bound
   \<comment>\<open>The following assumption can be easily checked with @{thm "simple_boundary.checking_strict_mono"}.\<close>
   assumes mono_x_le: "strict_mono_in le.curve_eq_x domain" 
       and mono_x_ri: "strict_mono_in ri.curve_eq_x domain"
-  assumes non_intersecting: "\<forall>t1\<in>domain. \<forall>t2\<in> domain. curve_left t1 \<noteq> curve_right t2"
-  assumes diff:"curve_right differentiable (at 0)"      
+  assumes non_intersecting: "\<forall>t\<in>domain. curve_left t \<noteq> curve_right t"      
+  assumes diff:"curve_right differentiable (at_right (Inf domain))"      
 begin
   
 theorem domain_inf_sup:
@@ -1148,29 +1148,29 @@ theorem sup_in_dom:
   "Sup domain \<in> domain"    
   using closed_contains_Sup[OF domain_nonempty le.bdd_above_domain le.closed_domain] by auto    
     
-definition tangent_at_0 where
-  "tangent_at_0 \<equiv> vector_derivative curve_right (at 0)"  
+definition tangent_at_inf where
+  "tangent_at_inf \<equiv> vector_derivative curve_right (at_right (Inf domain))"  
   
-theorem v_deriv_at_0:
-  "(curve_right has_vector_derivative tangent_at_0) (at 0)"
-  using diff by (auto simp add: vector_derivative_works tangent_at_0_def)
+theorem v_deriv_at_inf:
+  "(curve_right has_vector_derivative tangent_at_inf) (at_right (Inf domain))"
+  using diff by (auto simp add: vector_derivative_works tangent_at_inf_def)
     
 \<comment>\<open>The tangent line for the right curve at 0.\<close>  
 definition cr_tangent_line :: "real2 set" where
-  "cr_tangent_line \<equiv> {(x, y). \<exists>t>0. (x, y) = curve_right 0 + t *\<^sub>R tangent_at_0}"  
+  "cr_tangent_line \<equiv> {(x, y). \<exists>t>0. (x, y) = curve_right 0 + t *\<^sub>R tangent_at_inf}"  
   
 theorem cr_tangent_line_nonempty:
   "\<exists>x. x \<in> cr_tangent_line"
 proof -
-  obtain x and y where "(x,y) = curve_right 0 + 1 *\<^sub>R tangent_at_0" using prod.collapse by blast
-  hence "\<exists>t>0. (x, y) = curve_right 0 + t *\<^sub>R tangent_at_0" 
+  obtain x and y where "(x,y) = curve_right 0 + 1 *\<^sub>R tangent_at_inf" using prod.collapse by blast
+  hence "\<exists>t>0. (x, y) = curve_right 0 + t *\<^sub>R tangent_at_inf" 
     by (auto intro: exI[where x="1"])
   thus ?thesis unfolding cr_tangent_line_def by auto        
 qed
   
 theorem cr_tangent_line_D1:
   assumes "x \<in> cr_tangent_line"  
-  obtains t where "x = curve_right 0 + t *\<^sub>R tangent_at_0" and "0 < t"
+  obtains t where "x = curve_right 0 + t *\<^sub>R tangent_at_inf" and "0 < t"
   using assms prod.collapse unfolding cr_tangent_line_def by auto    
     
 \<comment>\<open>Basically we can use any point in the tangent line to determine the direction of the simple road.
@@ -1179,11 +1179,11 @@ theorem ccw'_on_tangent_line:
   assumes "p1 \<in> cr_tangent_line" and "p2 \<in> cr_tangent_line"    
   shows "ccw' (curve_left 0) (curve_right 0) p1 = ccw' (curve_left 0) (curve_right 0) p2"
 proof -
-  from assms obtain t1 where "p1 = curve_right 0 + t1 *\<^sub>R tangent_at_0" and "0 < t1"
+  from assms obtain t1 where "p1 = curve_right 0 + t1 *\<^sub>R tangent_at_inf" and "0 < t1"
     using cr_tangent_line_D1 by blast
-  hence "tangent_at_0 = (1 / t1) *\<^sub>R (p1 - curve_right 0)" by (auto simp add:divide_simps)      
+  hence "tangent_at_inf = (1 / t1) *\<^sub>R (p1 - curve_right 0)" by (auto simp add:divide_simps)      
   moreover    
-  from assms obtain t2 where "p2 = curve_right 0 + t2 *\<^sub>R tangent_at_0" and "0 < t2" 
+  from assms obtain t2 where "p2 = curve_right 0 + t2 *\<^sub>R tangent_at_inf" and "0 < t2" 
     using cr_tangent_line_D1 by blast
   ultimately have *: "p2 = curve_right 0 + (t2 / t1) *\<^sub>R (p1 - curve_right 0)" and "0 < t2 / t1"
     using \<open>0 < t1\<close> by (auto simp add:divide_simps)    
@@ -1193,11 +1193,11 @@ proof -
 qed
   
 definition direction_right :: "bool" where  
-  "direction_right \<equiv> (let tgt = curve_right 0 + 1 *\<^sub>R tangent_at_0 in 
+  "direction_right \<equiv> (let tgt = curve_right 0 + 1 *\<^sub>R tangent_at_inf in 
                                                            ccw' (curve_left 0) (curve_right 0) tgt)"  
 
 definition direction_left :: "bool" where
-  "direction_left \<equiv> (let tgt = curve_right 0 + 1 *\<^sub>R tangent_at_0 in 
+  "direction_left \<equiv> (let tgt = curve_right 0 + 1 *\<^sub>R tangent_at_inf in 
                                                        det3 (curve_left 0) (curve_right 0) tgt) < 0"  
 
 definition open_domain :: "real set" where

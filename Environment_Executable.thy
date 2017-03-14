@@ -66,12 +66,16 @@ locale lanelet_curve =
   assumes nonempty_points: "points \<noteq> []"  
   assumes poly_points: "polychain points"    
 begin
+  
 abbreviation points_path :: "(real \<Rightarrow> real2) list" where
   "points_path \<equiv> points_path2 points"  
   
 abbreviation curve_eq :: "real \<Rightarrow> real2" where
-  "curve_eq \<equiv> curve_eq3 points_path"        
-
+  "curve_eq \<equiv> curve_eq3 points_path"    
+  
+abbreviation first_chain :: "real2 \<times> real2" where
+  "first_chain \<equiv> hd points"  
+    
 text 
   \<open>Proof that lanelent curve is a refinement of a curve. The proof is obtained via sublocale proof.\<close>       
   
@@ -376,7 +380,7 @@ next
   show "continuous_on {0..1} curve_eq"
     using curve_eq_cont[OF nonempty_points poly_points] by auto
 qed  
-  
+
 interpretation lsc: simple_boundary "curve_eq" "{0..1}"
 proof (unfold_locales)
   show "convex {(0::real)..1}" by auto
@@ -403,6 +407,12 @@ next
       unfolding eq curve.setX_def[OF curve_eq_is_curve] by auto
   qed    
 qed  
+    
+(* making the lemma inside lsc visible for other locales extending this locale. *)  
+lemma lsc_checking_strict_mono: 
+  assumes "(curve.curve_eq_x curve_eq) 0 < (curve.curve_eq_x curve_eq) 1"
+  shows "strict_mono_in (curve.curve_eq_x curve_eq) {0..1}"
+  using lsc.checking_strict_mono assms by auto       
 end
     
 subsection "Lanelet"  
@@ -1185,7 +1195,122 @@ theorem
   unfolding vertex_chain_def using pre_post_lanelet_polygon_chv chv_lanelet_polygon by auto  
         
 definition dir_right :: "bool" where
-  "dir_right \<equiv> (case vertex_chain of (pre, x, post) \<Rightarrow> ccw' pre x post)"        
+  "dir_right \<equiv> (case vertex_chain of (pre, x, post) \<Rightarrow> ccw' pre x post)"      
+  
+interpretation sr2: simple_road2 "le.curve_eq" "ri.curve_eq" "{0..1}"
+proof 
+  show "convex {0::real..1}"   by auto
+next
+  show "compact {0::real..1}"  by auto
+next
+  show "continuous_on {0..1} le.curve_eq"
+    using curve_eq_cont[OF le.nonempty_points le.poly_points] by auto      
+next
+  show "inj_on le.curve_eq {0..1}"
+    using inj_on_curve_eq[OF le.monotone _ le.nonempty_points] by auto 
+next
+  have eq:"curve.curve_eq_x le.curve_eq = (fst \<circ> le.curve_eq)" 
+    unfolding curve.curve_eq_x_def[OF le.curve_eq_is_curve] by auto    
+  show "bij_betw (curve.curve_eq_x le.curve_eq) {0..1} (curve.setX le.curve_eq {0..1})"
+    unfolding bij_betw_def
+  proof 
+    from strict_mono_in_curve_eq3[OF le.monotone _ le.nonempty_points]
+      have "strict_mono_in (fst \<circ> le.curve_eq) {0..1}" by auto
+    hence "inj_on (fst \<circ> le.curve_eq) {0..1}" using strict_imp_inj_on by auto
+    with eq show "inj_on (curve.curve_eq_x le.curve_eq) {0..1}" by auto
+  next
+    show "curve.curve_eq_x le.curve_eq ` {0..1} = curve.setX le.curve_eq {0..1}"
+      unfolding eq curve.setX_def[OF le.curve_eq_is_curve] by auto
+  qed
+next
+  show "continuous_on {0..1} ri.curve_eq"
+    using curve_eq_cont[OF ri.nonempty_points ri.poly_points] by auto
+next
+  show "inj_on ri.curve_eq {0..1}"
+    using inj_on_curve_eq[OF ri.monotone _ ri.nonempty_points] by auto
+next
+  have eq:"curve.curve_eq_x ri.curve_eq = (fst \<circ> ri.curve_eq)" 
+    unfolding curve.curve_eq_x_def[OF ri.curve_eq_is_curve] by auto    
+  show "bij_betw (curve.curve_eq_x ri.curve_eq) {0..1} (curve.setX ri.curve_eq {0..1})"
+    unfolding bij_betw_def
+  proof 
+    from strict_mono_in_curve_eq3[OF ri.monotone _ ri.nonempty_points]
+      have "strict_mono_in (fst \<circ> ri.curve_eq) {0..1}" by auto
+    hence "inj_on (fst \<circ> ri.curve_eq) {0..1}" using strict_imp_inj_on by auto
+    with eq show "inj_on (curve.curve_eq_x ri.curve_eq) {0..1}" by auto
+  next
+    show "curve.curve_eq_x ri.curve_eq ` {0..1} = curve.setX ri.curve_eq {0..1}"
+      unfolding eq curve.setX_def[OF ri.curve_eq_is_curve] by auto
+  qed
+next
+  show "{0::real..1} \<noteq> {}" by auto
+next
+  have "curve.curve_eq_x le.curve_eq 0 < curve.curve_eq_x le.curve_eq 1 "
+    using le.monotone 
+    by (smt atLeastAtMost_iff comp_def curve.curve_eq_x_def le.curve_eq_is_curve le.nonempty_points 
+                                                        strict_mono_in_curve_eq3 strict_mono_in_def)
+  thus "strict_mono_in (curve.curve_eq_x le.curve_eq) {0..1}" using le.lsc_checking_strict_mono
+    by auto
+next
+  have "curve.curve_eq_x ri.curve_eq 0 < curve.curve_eq_x ri.curve_eq 1 "
+    using ri.monotone 
+    by (smt atLeastAtMost_iff comp_def curve.curve_eq_x_def ri.curve_eq_is_curve ri.nonempty_points 
+                                                        strict_mono_in_curve_eq3 strict_mono_in_def)                                                      
+  thus "strict_mono_in (curve.curve_eq_x ri.curve_eq) {0..1}" using ri.lsc_checking_strict_mono
+    by auto
+next
+  from non_intersecting show "\<forall>t\<in>{0..1}. le.curve_eq t \<noteq> ri.curve_eq t" by auto
+next    
+  from ri.nonempty_points obtain a where "hd points_ri = a" by blast      
+  obtain rs where "tl points_ri = [] \<or> (tl points_ri = rs \<and> rs \<noteq> [])" by blast
+  moreover
+  { assume "tl points_ri = []"
+    hence "ri.curve_eq = linepath (fst a) (snd a)"
+      using \<open>hd points_ri = a\<close> points_path2_def curve_eq3.simps
+      by (metis (no_types, lifting) hd_Cons_tl list.simps(8) list.simps(9) ri.nonempty_points)
+    hence "ri.curve_eq differentiable at_right 0" unfolding linepath_def by auto
+    hence "ri.curve_eq differentiable at_right (Inf {0::real..1})" by auto }    
+      
+  moreover
+  { assume *: "tl points_ri = rs \<and> rs \<noteq> []"
+    with \<open>hd points_ri = a\<close> have "points_ri = a # rs" using hd_Cons_tl
+      using ri.nonempty_points by fastforce
+    have "(ri.curve_eq has_vector_derivative 2 *\<^sub>R (snd a - fst a)) (at 0 within {0..})"
+    proof (rule has_vector_derivative_transform_within[where f="linepath (fst a) (snd a) \<circ> (\<lambda>x. 2 * x)"])      
+      show "(linepath (fst a) (snd a) \<circ> op * 2 has_vector_derivative 2 *\<^sub>R (snd a - fst a)) (at 0 within {0..})"   
+      proof (intro vector_diff_chain_within)                 
+        show "(op * 2 has_vector_derivative 2) (at 0 within {0..})" by (auto intro:derivative_eq_intros)
+      next
+        show "(linepath (fst a) (snd a) has_vector_derivative snd a - fst a) (at (2 * 0) within op * 2 ` {0..})"
+          using has_vector_derivative_linepath_within by auto
+      qed
+    next
+      show "0 < (0.5::real)" by auto
+    next        
+      show "(0::real) \<in> {0..}" by auto
+    next                           
+      fix x'
+      assume "x' \<in> {0::real..}"
+      assume "dist x' 0 < (0.5::real)"
+      hence "x' \<in> {0..0.5}"  using \<open>x' \<in> {0..}\<close> by auto
+      show "(linepath (fst a) (snd a) \<circ> op * 2) x' = ri.curve_eq x'" unfolding comp_def
+      proof -                                             
+        have "ri.curve_eq = curve_eq3 (points_path2 (a # rs))" using \<open>points_ri = a  #rs\<close>
+          by auto
+         also have "... = linepath (fst a) (snd a) +++ curve_eq3 (points_path2 rs)" using *            
+          by (metis (no_types, lifting) curve_eq3.simps(2) list.exhaust_sel list.simps(9) points_path2_def)
+        finally have "ri.curve_eq = linepath (fst a) (snd a) +++ curve_eq3 (points_path2 rs)"
+          by auto
+        with \<open>x' \<in> {0..0.5}\<close> have "ri.curve_eq x' = linepath (fst a) (snd a) (2 * x')"
+          unfolding joinpaths_def by auto
+        thus "linepath (fst a) (snd a) (2 * x') = ri.curve_eq x'" by auto            
+      qed        
+    qed      
+    hence "ri.curve_eq differentiable at 0 within {0..}"  by (auto intro:differentiableI_vector)
+    hence "ri.curve_eq differentiable at_right 0" by(auto intro:differentiable_subset)
+    hence "ri.curve_eq differentiable at_right (Inf {0::real..1})" by auto }
+  ultimately show "ri.curve_eq differentiable at_right (Inf {0::real..1})" by auto  
+qed  
 end
   
 (* subsection "Singe direction lane"
