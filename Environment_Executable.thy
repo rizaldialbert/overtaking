@@ -695,7 +695,11 @@ lemma element_of_polychainD:
   assumes "element_of_polychain x (y # ys)"
   shows "element_of_polychain x [y] \<or> element_of_polychain x ys"
   using assms unfolding element_of_polychain_def by auto
-  
+
+lemma element_of_polychain_app:
+  "element_of_polychain z (xs @ ys) = element_of_polychain z xs \<or> element_of_polychain z ys"
+  unfolding element_of_polychain_def by auto
+        
 lemma el_of_polychain1:    
   assumes "polychain zs" 
   assumes "convex_hull_vertex2 zs = Some z"
@@ -781,7 +785,38 @@ theorem el_of_polychain2:
 proof -
   from assms(1) have "polychain zs" unfolding polygon_def by auto
   with el_of_polychain1[OF this assms(2)] show ?thesis by auto      
-qed  
+qed
+  
+lemma element_of_polychain_nth:
+  "element_of_polychain z zs \<Longrightarrow> \<exists>i. i<length zs \<and> (z = fst (zs ! i) \<or> z = snd (zs ! i))"
+proof (induction zs)
+  case Nil
+  then show ?case unfolding element_of_polychain_def by auto
+next
+  case (Cons a zs)
+  then have "element_of_polychain z [a] \<or> element_of_polychain z zs" using element_of_polychainD by auto
+  then show ?case
+  proof
+    assume "element_of_polychain z [a]"
+    then show ?case unfolding element_of_polychain_def by auto
+  next
+    assume "element_of_polychain z zs"
+    then have "\<exists>i. i < length zs \<and> (z = fst (zs ! i) \<or> z = snd (zs ! i))" using Cons by auto
+    then show ?case by fastforce
+  qed
+qed
+  
+lemma nth_element_of_polychain:
+  "\<exists>i. i<length zs \<and> (z = fst (zs ! i) \<or> z = snd (zs ! i)) \<Longrightarrow> element_of_polychain z zs"
+proof -
+  assume "\<exists>i. i<length zs \<and> (z = fst (zs ! i) \<or> z = snd (zs ! i))"
+  then have "\<exists>i. i<length zs \<and> ((z,snd (zs ! i)) = zs ! i \<or> (fst (zs ! i),z) = zs ! i)" by auto
+  then have "\<exists>i. i<length zs \<and> (\<exists>y. (z,y) = zs ! i \<or> (y,z) = zs ! i)" by blast
+  then obtain i where "i<length zs" "\<exists>y. (z,y) = zs ! i \<or> (y,z) = zs ! i" by auto
+  then obtain y where "(z,y) = zs ! i \<or> (y,z) = zs ! i" by auto
+  then have "(z,y) \<in> set zs \<or> (y,z) \<in> set zs" using `i<length zs` nth_mem by auto
+  then show ?thesis unfolding element_of_polychain_def by blast
+qed
     
 theorem convex_hull_vertex_smallest_x:
   assumes "polychain zs"
@@ -928,7 +963,76 @@ next
     ultimately have "snd x \<le> snd y" by auto }
   ultimately show "snd x \<le> snd y" by auto
 qed
-      
+
+lemma smallest_convex_hull_vertex:
+  assumes "polychain zs"
+  assumes "element_of_polychain x zs"
+  assumes "\<And>z. element_of_polychain z zs \<Longrightarrow> fst x \<le> fst z"
+  assumes "\<And>z. element_of_polychain z zs \<Longrightarrow> fst x = fst z \<Longrightarrow> snd x \<le> snd z"
+  assumes "convex_hull_vertex3 zs = Some x'"
+  shows "x = x'"
+  using assms chv3_eq_chv2 convex_hull_vertex_smallest_x2 convex_hull_vertex_smallest_y el_of_polychain1 prod_eqI by smt  
+ 
+lemma monotone_polychain_smallest:
+  assumes "monotone_polychain zs"
+  assumes "zs \<noteq> []"
+  shows "i < length zs \<Longrightarrow> (fst (hd zs) = fst (zs ! i)  \<or> fst (fst (hd zs)) < fst (fst (zs ! i))) \<and> (fst (hd zs) = snd (zs ! i) \<or> fst (fst (hd zs)) < fst (snd (zs ! i)))"
+proof (induction i)
+  case 0
+  show ?case
+  proof
+    show "fst (hd zs) = fst (zs ! 0) \<or> fst (fst (hd zs)) < fst (fst (zs ! 0))" using assms hd_conv_nth[of zs] by auto
+  next
+    have "fst (fst (zs ! 0)) < fst (snd (zs ! 0))" using assms unfolding monotone_polychain_def hd_conv_nth[of zs] by auto
+    then show "fst (hd zs) = snd (zs ! 0) \<or> fst (fst (hd zs)) < fst (snd (zs ! 0))" using assms hd_conv_nth[of zs] by auto
+  qed
+next
+  case (Suc i)
+  have "fst (fst (hd zs)) \<le> fst (fst (zs ! i))" using Suc by auto
+  show ?case
+  proof
+    have "fst (hd zs) = snd (zs ! i) \<or> fst (fst (hd zs)) < fst (snd (zs ! i))" using Suc by auto
+    then show "fst (hd zs) = snd (zs ! Suc i) \<or> fst (fst (hd zs)) < fst (snd (zs ! Suc i))"
+    proof
+      assume "fst (hd zs) = snd (zs ! i)"
+      then have "fst (fst (hd zs)) = fst (snd (zs ! i))" by auto
+      also have "\<dots> = fst (fst (zs ! Suc i))" using Suc assms monotone_polychainD unfolding polychain_def by auto
+      also have "\<dots> < fst (snd (zs ! (Suc i)))" using Suc assms unfolding monotone_polychain_def by auto
+      finally show "fst (hd zs) = snd (zs ! Suc i) \<or> fst (fst (hd zs)) < fst (snd (zs ! Suc i))" by auto
+    next
+      assume " fst (fst (hd zs)) < fst (snd (zs ! i))"
+      also have "\<dots> = fst (fst (zs ! (Suc i)))" using Suc assms monotone_polychainD unfolding polychain_def by auto
+      also have "\<dots> < fst (snd (zs ! (Suc i)))" using Suc assms unfolding monotone_polychain_def by auto
+      finally show "fst (fst (hd zs)) < fst (snd (zs ! i)) \<Longrightarrow> fst (hd zs) = snd (zs ! Suc i) \<or> fst (fst (hd zs)) < fst (snd (zs ! Suc i))" by auto
+    qed   
+  next
+    have "fst (hd zs) = fst (zs ! i) \<or> fst (fst (hd zs)) < fst (fst (zs ! i))" using Suc by auto
+    then show "fst (hd zs) = fst (zs ! Suc i) \<or> fst (fst (hd zs)) < fst (fst (zs ! Suc i))"
+    proof
+      assume "fst (hd zs) = fst (zs ! i)"
+      then have "fst (fst (hd zs)) = fst (fst (zs ! i))" by auto
+      also have "\<dots> < fst (snd (zs ! i))" using Suc assms unfolding monotone_polychain_def by auto
+      also have "\<dots> = fst (fst (zs ! Suc i))" using Suc assms monotone_polychainD unfolding polychain_def by auto
+      finally show "fst (hd zs) = fst (zs ! Suc i) \<or> fst (fst (hd zs)) < fst (fst (zs ! Suc i))" by auto
+    next
+      assume "fst (fst (hd zs)) < fst (fst (zs ! i))"
+      also have "\<dots> < fst (snd (zs ! i))" using Suc assms unfolding monotone_polychain_def by auto
+      also have "\<dots> = fst (fst (zs ! (Suc i)))" using Suc assms monotone_polychainD unfolding polychain_def by auto
+      finally show "fst (hd zs) = fst (zs ! Suc i) \<or> fst (fst (hd zs)) < fst (fst (zs ! Suc i))" by auto
+    qed
+  qed
+qed
+  
+lemma hd_smallest:
+  assumes "zs \<noteq> []"
+  assumes "monotone_polychain zs"
+  assumes "element_of_polychain z zs"
+  shows "z = fst (hd zs) \<or> fst (fst (hd zs)) < fst z"
+proof -
+  obtain i where "i<length zs" "z = fst (zs ! i) \<or> z = snd (zs ! i)" using assms element_of_polychain_nth by blast
+  then show ?thesis using assms monotone_polychain_smallest[of zs i] by auto
+qed
+    
 (* TODO: prove that the result of convex_hull_vertex2 is an extreme point of the convex hull. *)  
   
 text \<open>Function @{term "pre_and_post_betw"} and @{term "pre_and_post"} are the functions to find 
@@ -1538,9 +1642,19 @@ theorem pre_post_lanelet_polygon_chv:
 theorem 
   "\<exists>pre x post. vertex_chain = (pre, x, post)"
   unfolding vertex_chain_def using pre_post_lanelet_polygon_chv chv_lanelet_polygon by auto  
-        
+
+lemma hd_smallest_le:
+  assumes "element_of_polychain z points_le"
+  shows "z = fst (hd points_le) \<or> fst (fst (hd points_le)) < fst z"
+  using assms hd_smallest le.monotone le.nonempty_points by blast
+
+lemma hd_smallest_ri:
+  assumes "element_of_polychain z points_ri"
+  shows "z = fst (hd points_ri) \<or> fst (fst (hd points_ri)) < fst z"
+  using assms hd_smallest ri.monotone ri.nonempty_points by blast
+    
 definition dir_right :: "bool" where
-  "dir_right \<equiv> (case vertex_chain of (pre, x, post) \<Rightarrow> ccw' pre x post)"      
+  "dir_right \<equiv> (case vertex_chain of (pre, x, post) \<Rightarrow> ccw' pre x post)"         
   
 interpretation sr: simple_road "le.curve_eq" "ri.curve_eq" "{0..1}"
 proof
@@ -1682,7 +1796,7 @@ next
   ultimately show "ri.curve_eq differentiable at_right (Inf {0::real..1})" by auto 
 next
   show " le.curve_eq differentiable at_right (Inf {0..1})" sorry
-qed  
+qed
   
 subsubsection "Point in drivable area test"
 
