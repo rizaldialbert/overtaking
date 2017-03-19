@@ -1076,18 +1076,55 @@ lemma det3_nonneg_scaleR3:
 lemma det3_nonneg_scaleR3':
   "0 < e \<Longrightarrow> det3 0 xr P \<le> 0 \<Longrightarrow> det3 0 xr (e *\<^sub>R (P - xr) + xr) \<le> 0"
   by (auto simp add: det3_def' algebra_simps)  
+    
+lemma det3_nonneg_scaleR4:    
+  assumes "0 < e"
+  assumes "det3 0 xr P > 0"
+  shows "det3 0 (xr + e *\<^sub>R xr) (P + e *\<^sub>R xr) > 0"
+proof -
+  from assms(2) have 0: "fst P * snd xr < fst xr * snd P" unfolding det3_def' 
+    by (auto simp add:algebra_simps)
+  with assms(1) have "e * (fst P * snd xr) < e * (fst xr * snd P)" by auto
+  with 0 have "fst P * snd xr + e * (fst P * snd xr) < fst xr * snd P + e * (fst xr * snd P)"      
+    by auto
+  thus ?thesis by (auto simp add:det3_def' algebra_simps)      
+qed
+          
+lemma det3_nonneg_scaleR4':    
+  assumes "0 < e"
+  assumes "det3 0 xr P \<le> 0"
+  shows "det3 0 (xr + e *\<^sub>R xr) (P + e *\<^sub>R xr) \<le> 0"
+proof -
+  from assms(2) have 0: "fst P * snd xr \<ge> fst xr * snd P" unfolding det3_def' 
+    by (auto simp add:algebra_simps)
+  with assms(1) have "e * (fst P * snd xr) \<ge> e * (fst xr * snd P)" by auto
+  with 0 have "fst P * snd xr + e * (fst P * snd xr) \<ge> fst xr * snd P + e * (fst xr * snd P)"      
+    by auto
+  thus ?thesis by (auto simp add:det3_def' algebra_simps)      
+qed
         
 lemma det3_invariant1:
   assumes "0 < e"
   assumes "det3 p q r > 0" 
   shows "det3 p q (e *\<^sub>R (r - q) + q) > 0"
   using assms
-proof -
+proof -                                                              
   from assms(2) have "det3 0 (q - p) (r - p) > 0" using det3_translate_origin by auto
   hence "det3 0 (q - p) (e *\<^sub>R ((r - p) - (q - p)) + (q - p)) > 0" 
     using det3_nonneg_scaleR3[OF assms(1), of "q - p" "r - p"] by simp 
   hence "det3 0 (q - p) (e *\<^sub>R (r - q) + (q - p)) > 0" by (auto simp add: det3_def' algebra_simps)    
   thus "det3 p q (e *\<^sub>R (r - q) + q) > 0" by (auto simp add:det3_def' algebra_simps)    
+qed
+  
+lemma det3_invariant1':
+  assumes "0 < e"
+  assumes "det3 p q r > 0"
+  shows "det3 (p - e *\<^sub>R (q - p)) q r > 0"
+  using assms  
+proof - 
+  from assms(2) have "det3 0 (q - p) (r - p) > 0" using det3_translate_origin by auto
+  from det3_nonneg_scaleR4[OF assms(1) this] show ?thesis using det3_translate_origin
+    by (metis (no_types, lifting) NO_MATCH_def add_uminus_conv_diff diff_diff_add diff_minus_eq_add)      
 qed
   
 lemma det3_invariant2:
@@ -1101,7 +1138,18 @@ proof -
   hence "det3 0 (q - p) (e *\<^sub>R (r - q) + (q - p)) \<le> 0" by (auto simp add: det3_def' algebra_simps)    
   thus "det3 p q (e *\<^sub>R (r - q) + q) \<le> 0" by (auto simp add:det3_def' algebra_simps)    
 qed
-  
+
+lemma det3_invariant2':
+  assumes "0 < e"
+  assumes "det3 p q r \<le> 0"
+  shows "det3 (p - e *\<^sub>R (q - p)) q r \<le> 0"
+  using assms  
+proof - 
+  from assms(2) have "det3 0 (q - p) (r - p) \<le> 0" using det3_translate_origin by auto
+  from det3_nonneg_scaleR4'[OF assms(1) this] show ?thesis using det3_translate_origin
+    by (metis (no_types, lifting) NO_MATCH_def add_uminus_conv_diff diff_diff_add diff_minus_eq_add)      
+qed
+
 theorem ccw_invariant:
   assumes "0 < e"
   shows "ccw' p q r = ccw' p q (e *\<^sub>R (r - q) + q)"
@@ -1115,7 +1163,119 @@ proof -
                          \<open>\<And>r q p. det3 p q r \<le> 0 \<Longrightarrow> det3 p q (e *\<^sub>R (r - q) + q) \<le> 0\<close>)
 qed  
   
+theorem ccw_invariant':
+  assumes "0 < e"
+  shows "ccw' p q r = ccw' (p - e *\<^sub>R (q - p)) q r"
+  unfolding ccw'_def
+  using det3_invariant1'[OF assms] det3_invariant2'[OF assms]    
+  by smt    
     
+lemma det3_nonneg_scaleR1_eq':
+  "0 < e \<Longrightarrow> det3 0 (e*\<^sub>Rxr) P < 0 \<longleftrightarrow> det3 0 xr P < 0"
+  by (auto simp add: det3_def' algebra_simps)
+    
+lemma det3_nonneg_scaleR1_eq'':
+  "0 < e \<Longrightarrow> det3 0 (e*\<^sub>Rxr) P = 0 \<longleftrightarrow> det3 0 xr P = 0"
+  by (auto simp add: det3_def' algebra_simps)
+    
+lemma det3_nonneg_scaleR_segment1':
+  assumes "det3 x y z < 0"
+  assumes "0 \<le> a" "a < 1"
+  shows "det3 ((1 - a) *\<^sub>R x + a *\<^sub>R y) y z < 0"
+proof -
+  from assms have "det3 0 ((1 - a) *\<^sub>R (y - x)) (z - x + (- a) *\<^sub>R (y - x)) < 0"    
+    by (subst det3_nonneg_scaleR1_eq') (auto simp add: det3_def' algebra_simps)
+  thus ?thesis
+    by (auto simp: algebra_simps det3_translate_origin)
+qed    
+  
+lemma det3_nonneg_scaleR_segment1'':
+  assumes "det3 x y z \<noteq> 0"
+  assumes "0 \<le> a" "a < 1"
+  shows "det3 ((1 - a) *\<^sub>R x + a *\<^sub>R y) y z \<noteq> 0"
+proof -
+  from assms have "det3 0 ((1 - a) *\<^sub>R (y - x)) (z - x + (- a) *\<^sub>R (y - x)) \<noteq> 0"    
+    by (subst det3_nonneg_scaleR1_eq'') (auto simp add: det3_def' algebra_simps)
+  thus ?thesis
+    by (auto simp: algebra_simps det3_translate_origin)
+qed   
+    
+theorem ccw_invariant'':
+  assumes "0 \<le> e" and "e < 1"
+  shows "ccw' p q r = ccw' ((1 - e) *\<^sub>R p + e *\<^sub>R q) q r"
+  unfolding ccw'_def    
+proof (rule iffI, rule_tac[2] contrapos_np[where Q="\<not> 0 < det3 ((1 - e) *\<^sub>R p + e *\<^sub>R q) q r"]) 
+  assume "0 < det3 p q r"
+  hence "0 \<le> det3 p q r" and "det3 p q r \<noteq> 0" by auto    
+  from det3_nonneg_scaleR_segment1[OF this(1) assms] have "0 \<le> det3 ((1 - e) *\<^sub>R p + e *\<^sub>R q) q r " 
+    by auto    
+  moreover    
+  from det3_nonneg_scaleR_segment1''[OF \<open>det3 p q r \<noteq> 0\<close> assms] have "det3 ((1 - e) *\<^sub>R p + e *\<^sub>R q) q r \<noteq> 0"
+    by auto
+  ultimately show "0 < det3 ((1 - e) *\<^sub>R p + e *\<^sub>R q) q r" by auto
+next
+  assume "0 < det3 ((1 - e) *\<^sub>R p + e *\<^sub>R q) q r"
+  thus "\<not> \<not> 0 < det3 ((1 - e) *\<^sub>R p + e *\<^sub>R q) q r" by auto
+next
+  assume "\<not> 0 < det3 p q r"
+  hence "det3 p q r \<le> 0" by auto
+  hence "det3 p q r < 0 \<or> det3 p q r = 0" by auto
+  moreover    
+  { assume "det3 p q r < 0"
+    from det3_nonneg_scaleR_segment1'[OF this assms] have " det3 ((1 - e) *\<^sub>R p + e *\<^sub>R q) q r < 0" .
+    hence "\<not> 0 < det3 ((1 - e) *\<^sub>R p + e *\<^sub>R q) q r" by auto }
+    
+  moreover
+  { assume "det3 p q r = 0"
+    with det3_nonneg_scaleR_segment1''[OF _ assms, of "p" "q" "r"] have "det3 ((1 - e) *\<^sub>R p + e *\<^sub>R q) q r = 0"
+      using assms(1) assms(2) coll_convex det3_rotate by auto
+    hence "\<not> 0 < det3 ((1 - e) *\<^sub>R p + e *\<^sub>R q) q r" by auto }
+    
+  ultimately show "\<not> 0 < det3 ((1 - e) *\<^sub>R p + e *\<^sub>R q) q r" by auto
+qed      
+    
+definition line_equation :: "real2 \<Rightarrow> real2 \<Rightarrow> real \<Rightarrow> real" where
+  "line_equation p1 p2 \<equiv> (\<lambda>x. (snd p2 - snd p1) / (fst p2 - fst p1) * (x - fst p1) + snd p1)"
+  
+lemma line_equation_alt_def:
+  "line_equation p1 p2 \<equiv> (\<lambda>x. (snd p2 - snd p1) / (fst p2 - fst p1) * x - (snd p2 - snd p1) / (fst p2 - fst p1) * fst p1 + snd p1)"
+  unfolding line_equation_def using right_diff_distrib[of "(snd p2 - snd p1) / (fst p2 - fst p1)" _ "fst p1"]
+  by auto
+            
+lemma
+  "line_equation p1 p2 (fst p1) = (snd p1)"
+  unfolding line_equation_def by (auto simp add:algebra_simps)
+    
+lemma
+  assumes "fst p1 \<noteq> fst p2"
+  shows "line_equation p1 p2 (fst p2) = (snd p2)"
+  unfolding line_equation_def using assms by (auto simp add:divide_simps) 
+    
+theorem line_eq_differentiable:
+  assumes "fst p1 \<noteq> fst p2"
+  shows "line_equation p1 p2 differentiable at x"
+  using assms unfolding line_equation_def by (auto intro:derivative_intros)    
+        
+theorem 
+  assumes "fst p1 \<noteq> fst p2"
+  shows "((line_equation) p1 p2 has_field_derivative ((snd p2 - snd p1) / (fst p2 - fst p1))) (at x within s)"
+proof -
+  have "fst p2 - fst p1 \<noteq> 0" using assms by auto   
+  hence 0: "line_equation p1 p2 \<equiv> (\<lambda>x. (snd p2 - snd p1) / (fst p2 - fst p1) * x - (snd p2 - snd p1) / (fst p2 - fst p1) * fst p1 + snd p1)"
+    unfolding line_equation_alt_def by auto
+  define const :: "real \<Rightarrow> real" where "const \<equiv> \<lambda>x. snd p1 - (snd p2 - snd p1) / (fst p2 - fst p1) * fst p1"
+  hence cdx: "const differentiable at x" using assms by (auto intro:derivative_intros)
+  define inner :: "real \<Rightarrow> real" where "inner \<equiv> \<lambda>x. (snd p2 - snd p1) / (fst p2 - fst p1) * x"
+  hence idx: "inner differentiable at x" using assms by (auto intro:derivative_intros)
+  have idx':"(inner has_field_derivative (snd p2 - snd p1) / (fst p2 - fst p1)) (at x within s)"
+    unfolding inner_def using DERIV_cmult_Id[of "(snd p2 - snd p1) / (fst p2 - fst p1)"] by blast 
+  have 1: "line_equation p1 p2 \<equiv> \<lambda>x. inner x + const x" unfolding 0 inner_def const_def 
+    by (auto simp add:algebra_simps)      
+  have "(line_equation p1 p2 has_field_derivative ((snd p2 - snd p1) / (fst p2 - fst p1)) + 0) (at x within s)"
+    unfolding 1 by (intro Deriv.field_differentiable_add) (auto simp add:idx' const_def) 
+  thus ?thesis by auto              
+qed  
+      
 locale simple_road2 =  le: simple_boundary curve_left domain +  ri: simple_boundary curve_right domain 
   for curve_left and curve_right and domain +
   assumes domain_nonempty: "domain \<noteq> {}"   
@@ -1123,9 +1283,130 @@ locale simple_road2 =  le: simple_boundary curve_left domain +  ri: simple_bound
   assumes mono_x_le: "strict_mono_in le.curve_eq_x domain" 
       and mono_x_ri: "strict_mono_in ri.curve_eq_x domain"
   assumes non_intersecting: "\<forall>t\<in>domain. curve_left t \<noteq> curve_right t"      
-  assumes diff:"curve_right differentiable (at_right (Inf domain))"      
+  assumes diff:"curve_right differentiable (at_right (Inf domain))"
+  assumes diff_le: "curve_left differentiable (at_right (Inf domain))"    
 begin
+      
+abbreviation common_setX where
+  "common_setX \<equiv> le.setX \<inter> ri.setX"    
   
+definition left_start_boundary :: "real \<Rightarrow> real2" where
+  "left_start_boundary \<equiv> (let t_inf = Inf domain; le_inf = curve_left t_inf; 
+                              ri_inf = curve_right t_inf;  le_x = fst le_inf; ri_x = fst ri_inf 
+                          in 
+                            if le_x \<le> ri_x then linepath le_inf ri_inf else linepath ri_inf le_inf)"  
+    
+theorem left_boundary_param_x_strict_mono:
+  assumes "fst (curve_left (Inf domain)) \<noteq> fst (curve_right (Inf domain))"
+  shows "strict_mono_in (fst \<circ> left_start_boundary) {0..1}"
+  unfolding comp_def left_start_boundary_def Let_def 
+proof (split if_splits, rule conjI, rule_tac[!] impI, rule_tac[!] strict_mono_inI)
+  fix x y :: real
+  assume "x \<in> {0..1}" and "y \<in> {0..1}"
+  assume "x < y"
+  hence "0 < y - x" by auto  
+  assume "fst (curve_left (Inf domain)) \<le> fst (curve_right (Inf domain))"
+  with assms have 0: "fst (curve_left (Inf domain)) < fst (curve_right (Inf domain))" by auto
+  define cli where "cli \<equiv> curve_left (Inf domain)"
+  define cri where "cri \<equiv> curve_right (Inf domain)"
+  with cli_def and 0 have "fst cli < fst cri" by auto  
+  have 1: "fst \<circ> (linepath cli cri) = (\<lambda>x. (1 - x) * (fst cli) + x * (fst cri))" 
+    unfolding comp_def linepath_def by auto
+  have "(fst \<circ> (linepath cli cri)) x < (fst \<circ> (linepath cli cri)) y"
+  proof -
+    from \<open>fst cli < fst cri\<close> have "fst cli * (y - x) < fst cri *(y - x)" (is "?lhs1 < ?rhs1")
+      using \<open>x < y\<close> mult_strict_right_mono by auto
+    hence "fst cli + ?lhs1 < fst cli + ?rhs1" by linarith
+    hence "(1 - x) * fst cli + x * fst cri < (1 - y) * fst cli + y * fst cri"
+      by (auto simp add:algebra_simps)
+    with 1 show ?thesis by auto        
+  qed
+  thus "fst (linepath (curve_left (Inf domain)) (curve_right (Inf domain)) x)
+           < fst (linepath (curve_left (Inf domain)) (curve_right (Inf domain)) y)"
+    unfolding comp_def cli_def cri_def by auto
+next
+  fix x y :: real
+  assume "x \<in> {0..1}" and "y \<in> {0..1}"
+  assume "x < y"
+  define cli where "cli \<equiv> curve_left (Inf domain)"
+  define cri where "cri \<equiv> curve_right (Inf domain)"
+  assume "\<not> fst (curve_left (Inf domain)) \<le> fst (curve_right (Inf domain))"    
+  hence "fst cli > fst cri" unfolding cli_def cri_def by auto
+  have 2: "fst \<circ> (linepath cri cli) = (\<lambda>x. (1 - x) * (fst cri) + x * (fst cli))"
+    unfolding comp_def linepath_def by auto
+  have "(fst \<circ> (linepath cri cli)) x < (fst \<circ> (linepath cri cli)) y"
+  proof -
+    from \<open>fst cri < fst cli\<close> have "fst cri * (y - x) < fst cli *(y - x)" (is "?lhs1 < ?rhs1")
+      using \<open>x < y\<close> mult_strict_right_mono by auto
+    hence "fst cri + ?lhs1 < fst cri + ?rhs1" by linarith
+    hence "(1 - x) * fst cri + x * fst cli < (1 - y) * fst cri + y * fst cli"
+      by (auto simp add:algebra_simps)
+    with 2 show ?thesis by auto        
+  qed   
+  thus " fst (linepath (curve_right (Inf domain)) (curve_left (Inf domain)) x)
+           < fst (linepath (curve_right (Inf domain)) (curve_left (Inf domain)) y)"
+    unfolding comp_def cli_def cri_def by auto
+qed
+    
+definition right_start_boundary :: "real \<Rightarrow> real2" where
+  "right_start_boundary \<equiv> (let t_sup = Sup domain; le_sup = curve_left t_sup; 
+                               ri_sup = curve_right t_sup; le_x = fst le_sup; ri_x = fst ri_sup
+                           in
+                            if ri_x \<le> le_x then linepath ri_sup le_sup else linepath le_sup ri_sup)"
+  
+theorem right_boundary_param_x_strict_mono:
+  assumes "fst (curve_left (Sup domain)) \<noteq> fst (curve_right (Sup domain))"
+  shows "strict_mono_in (fst \<circ> right_start_boundary) {0..1}"
+  unfolding comp_def right_start_boundary_def Let_def 
+proof (split if_splits, rule conjI, rule_tac[!] impI, rule_tac[!] strict_mono_inI)
+  fix x y :: real
+  assume "x \<in> {0..1}" and "y \<in> {0..1}"
+  assume "x < y"
+  hence "0 < y - x" by auto  
+  assume "fst (curve_right (Sup domain)) \<le> fst (curve_left (Sup domain))"
+  with assms have 0: "fst (curve_right (Sup domain)) < fst (curve_left (Sup domain))" by auto
+  define cls where "cls \<equiv> curve_left (Sup domain)"
+  define crs where "crs \<equiv> curve_right (Sup domain)"
+  with cls_def and 0 have "fst crs < fst cls" by auto  
+  have 1: "fst \<circ> (linepath crs cls) = (\<lambda>x. (1 - x) * (fst crs) + x * (fst cls))" 
+    unfolding comp_def linepath_def by auto
+  have "(fst \<circ> (linepath crs cls)) x < (fst \<circ> (linepath crs cls)) y"
+  proof -
+    from \<open>fst crs < fst cls\<close> have "fst crs * (y - x) < fst cls *(y - x)" (is "?lhs1 < ?rhs1")
+      using \<open>x < y\<close> mult_strict_right_mono by auto
+    hence "fst cls + ?lhs1 < fst cls + ?rhs1" by linarith
+    hence "(1 - x) * fst crs + x * fst cls < (1 - y) * fst crs + y * fst cls"
+      by (auto simp add:algebra_simps)
+    with 1 show ?thesis by auto        
+  qed
+  thus "fst (linepath (curve_right (Sup domain)) (curve_left (Sup domain)) x)
+           < fst (linepath (curve_right (Sup domain)) (curve_left (Sup domain)) y)"
+    unfolding comp_def cls_def crs_def by auto
+next
+  fix x y :: real
+  assume "x \<in> {0..1}" and "y \<in> {0..1}"
+  assume "x < y"
+  hence "0 < y - x" by auto  
+  define cls where "cls \<equiv> curve_left (Sup domain)"
+  define crs where "crs \<equiv> curve_right (Sup domain)"
+  assume "\<not> fst (curve_right (Sup domain)) \<le> fst (curve_left (Sup domain))"
+  hence "fst crs > fst cls" using cls_def crs_def by auto    
+  have 1: "fst \<circ> (linepath cls crs) = (\<lambda>x. (1 - x) * (fst cls) + x * (fst crs))" 
+    unfolding comp_def linepath_def by auto
+  have "(fst \<circ> (linepath cls crs)) x < (fst \<circ> (linepath cls crs)) y"
+  proof -
+    from \<open>fst crs > fst cls\<close> have "fst crs * (y - x) > fst cls *(y - x)" (is "?lhs1 > ?rhs1")
+      using \<open>x < y\<close> mult_strict_right_mono by auto
+    hence "fst crs + ?lhs1 > fst crs + ?rhs1" by linarith
+    hence "(1 - x) * fst cls + x * fst crs < (1 - y) * fst cls + y * fst crs"
+      by (auto simp add:algebra_simps)
+    with 1 show ?thesis by auto        
+  qed
+  thus "fst (linepath (curve_left (Sup domain)) (curve_right (Sup domain)) x)
+           < fst (linepath (curve_left (Sup domain)) (curve_right (Sup domain)) y)"
+    unfolding comp_def cls_def crs_def by auto
+qed             
+    
 theorem domain_inf_sup:
   "domain = {Inf domain .. Sup domain}"
 proof -
@@ -1133,8 +1414,8 @@ proof -
   with domain_nonempty have "a \<le> b" by auto
   with \<open>domain = {a .. b}\<close> have "Inf domain = a" and "Sup domain = b" by auto
   with \<open>domain = {a .. b}\<close> show ?thesis by auto      
-qed
-  
+qed               
+        
 theorem domain_closed_segment_inf_sup:
   "domain = closed_segment (Inf domain) (Sup domain)"
   using domain_inf_sup closed_segment_real  cInf_le_cSup[OF domain_nonempty le.bdd_above_domain 
@@ -1143,47 +1424,71 @@ theorem domain_closed_segment_inf_sup:
 theorem inf_in_dom:
   "Inf domain \<in> domain"
   using closed_contains_Inf[OF domain_nonempty le.bdd_below_domain le.closed_domain] by auto
-
+                                              
 theorem sup_in_dom:
   "Sup domain \<in> domain"    
   using closed_contains_Sup[OF domain_nonempty le.bdd_above_domain le.closed_domain] by auto    
     
-definition tangent_at_inf where
-  "tangent_at_inf \<equiv> vector_derivative curve_right (at_right (Inf domain))"  
+definition ri_tangent_at_inf where
+  "ri_tangent_at_inf \<equiv> vector_derivative curve_right (at_right (Inf domain))"  
+
+definition le_tangent_at_inf where
+  "le_tangent_at_inf \<equiv> vector_derivative curve_left (at_right (Inf domain))"
   
-theorem v_deriv_at_inf:
-  "(curve_right has_vector_derivative tangent_at_inf) (at_right (Inf domain))"
-  using diff by (auto simp add: vector_derivative_works tangent_at_inf_def)
+theorem ri_v_deriv_at_inf:
+  "(curve_right has_vector_derivative ri_tangent_at_inf) (at_right (Inf domain))"
+  using diff by (auto simp add: vector_derivative_works ri_tangent_at_inf_def)
     
+theorem le_v_deriv_at_inf:   
+  "(curve_left has_vector_derivative le_tangent_at_inf) (at_right (Inf domain))"
+  using diff_le by (auto simp add: vector_derivative_works le_tangent_at_inf_def)
+      
 \<comment>\<open>The tangent line for the right curve at 0.\<close>  
 definition cr_tangent_line :: "real2 set" where
-  "cr_tangent_line \<equiv> {(x, y). \<exists>t>0. (x, y) = curve_right 0 + t *\<^sub>R tangent_at_inf}"  
+  "cr_tangent_line \<equiv> {(x, y). \<exists>t>0. (x, y) = curve_right 0 + t *\<^sub>R ri_tangent_at_inf}"  
+  
+definition cl_tangent_line :: "real2 set" where
+  "cl_tangent_line \<equiv> {(x, y). \<exists>t>0. (x, y) = curve_left 0 + t *\<^sub>R le_tangent_at_inf}"  
   
 theorem cr_tangent_line_nonempty:
   "\<exists>x. x \<in> cr_tangent_line"
 proof -
-  obtain x and y where "(x,y) = curve_right 0 + 1 *\<^sub>R tangent_at_inf" using prod.collapse by blast
-  hence "\<exists>t>0. (x, y) = curve_right 0 + t *\<^sub>R tangent_at_inf" 
+  obtain x and y where "(x,y) = curve_right 0 + 1 *\<^sub>R ri_tangent_at_inf" using prod.collapse by blast
+  hence "\<exists>t>0. (x, y) = curve_right 0 + t *\<^sub>R ri_tangent_at_inf" 
     by (auto intro: exI[where x="1"])
   thus ?thesis unfolding cr_tangent_line_def by auto        
 qed
   
+theorem cl_tangent_line_nonempty:
+  "\<exists>x. x \<in> cl_tangent_line"  
+proof -
+  obtain x and y where "(x,y) = curve_left 0 + 1 *\<^sub>R le_tangent_at_inf" using prod.collapse by blast
+  hence "\<exists>t>0. (x, y) = curve_left 0 + t *\<^sub>R le_tangent_at_inf" 
+    by (auto intro: exI[where x="1"])
+  thus ?thesis unfolding cl_tangent_line_def by auto        
+qed
+  
 theorem cr_tangent_line_D1:
   assumes "x \<in> cr_tangent_line"  
-  obtains t where "x = curve_right 0 + t *\<^sub>R tangent_at_inf" and "0 < t"
+  obtains t where "x = curve_right 0 + t *\<^sub>R ri_tangent_at_inf" and "0 < t"
   using assms prod.collapse unfolding cr_tangent_line_def by auto    
     
+theorem cl_tangent_line_D1:
+  assumes "x \<in> cl_tangent_line"  
+  obtains t where "x = curve_left 0 + t *\<^sub>R le_tangent_at_inf" and "0 < t"
+  using assms prod.collapse unfolding cl_tangent_line_def by auto    
+      
 \<comment>\<open>Basically we can use any point in the tangent line to determine the direction of the simple road.
   To be more exact, all points in the direction of the tangent line.\<close>    
-theorem ccw'_on_tangent_line:
+theorem ri_ccw'_on_tangent_line:
   assumes "p1 \<in> cr_tangent_line" and "p2 \<in> cr_tangent_line"    
   shows "ccw' (curve_left 0) (curve_right 0) p1 = ccw' (curve_left 0) (curve_right 0) p2"
 proof -
-  from assms obtain t1 where "p1 = curve_right 0 + t1 *\<^sub>R tangent_at_inf" and "0 < t1"
+  from assms obtain t1 where "p1 = curve_right 0 + t1 *\<^sub>R ri_tangent_at_inf" and "0 < t1"
     using cr_tangent_line_D1 by blast
-  hence "tangent_at_inf = (1 / t1) *\<^sub>R (p1 - curve_right 0)" by (auto simp add:divide_simps)      
+  hence "ri_tangent_at_inf = (1 / t1) *\<^sub>R (p1 - curve_right 0)" by (auto simp add:divide_simps)      
   moreover    
-  from assms obtain t2 where "p2 = curve_right 0 + t2 *\<^sub>R tangent_at_inf" and "0 < t2" 
+  from assms obtain t2 where "p2 = curve_right 0 + t2 *\<^sub>R ri_tangent_at_inf" and "0 < t2" 
     using cr_tangent_line_D1 by blast
   ultimately have *: "p2 = curve_right 0 + (t2 / t1) *\<^sub>R (p1 - curve_right 0)" and "0 < t2 / t1"
     using \<open>0 < t1\<close> by (auto simp add:divide_simps)    
@@ -1192,6 +1497,42 @@ proof -
     by (auto simp add:algebra_simps)             
 qed
   
+thm ccw_invariant''  
+  
+theorem le_ccw'_on_tangent_line:
+  assumes "p1 \<in> cl_tangent_line" and "p2 \<in> cl_tangent_line"    
+  shows "ccw' p1 (curve_left 0) (curve_right 0) = ccw' p2 (curve_left 0) (curve_right 0)"
+proof -
+  from assms obtain t1 where t1_cond: "p1 = curve_left 0 + t1 *\<^sub>R le_tangent_at_inf" and "0 < t1"
+    using cl_tangent_line_D1 by blast
+  hence letai_def: "le_tangent_at_inf = (1 / t1) *\<^sub>R (p1 - curve_left 0)" by (auto simp add:divide_simps)          
+  from assms obtain t2 where t2_cond: "p2 = curve_left 0 + t2 *\<^sub>R le_tangent_at_inf" and "0 < t2" 
+    using cl_tangent_line_D1 by blast
+  have "t1 < t2 \<or> t1 \<ge> t2 " by auto
+  moreover    
+  { assume "t1 < t2"
+    from t1_cond and t2_cond have "p2 = p1 + (t2 - t1) *\<^sub>R le_tangent_at_inf" 
+      by (auto simp add:algebra_simps)
+    with letai_def have p2_def: "p2 = p1 + ((t2 - t1) / t1) *\<^sub>R (p1 - curve_left 0)"
+      by (auto simp add:field_simps)
+    from \<open>t1 < t2\<close> and \<open>0 < t1\<close> have "0 < (t2 - t1) / t1" by auto
+    have ?thesis unfolding p2_def
+      using ccw_invariant'[OF \<open>0 < (t2 - t1) / t1\<close>, of "p1" "curve_left 0" "curve_right 0"] 
+      by (simp add: add_diff_eq diff_diff_eq2 real_vector.scale_right_diff_distrib) }    
+  moreover    
+  { assume "t1 \<ge> t2"
+    from t1_cond and t2_cond and letai_def 
+      have "p2 = curve_left 0 + (t2 / t1) *\<^sub>R (p1 - curve_left 0)" and "0 < t2 / t1"
+      using \<open>0 < t1\<close> \<open>0 < t2\<close> by (auto simp add:divide_simps)  
+    hence *: "p2 = (1 - t2 / t1) *\<^sub>R (curve_left 0) + (t2 / t1) *\<^sub>R p1"
+      by (smt add.commute add.left_commute diff_add_cancel scaleR_add_left scaleR_add_right scaleR_one)
+    hence **: "p2 = (1 - t2 / t1) *\<^sub>R (curve_left 0) + (1 - (1 - t2 / t1)) *\<^sub>R p1" 
+      by auto
+    from \<open>0 < t2 /t1\<close> \<open>t1 \<ge> t2\<close> and \<open>0 < t1\<close> have "0 \<le> 1 - t2 / t1" and "1 - t2 / t1 < 1"  by auto 
+    from ccw_invariant''[OF this] have ?thesis using **  by (metis add.commute) }
+  ultimately show ?thesis by auto    
+qed
+    
 definition direction_right :: "bool" where  
   "direction_right \<equiv> (let tgt = curve_right 0 + 1 *\<^sub>R tangent_at_inf in 
                                                            ccw' (curve_left 0) (curve_right 0) tgt)"  
@@ -1360,7 +1701,105 @@ proof (rule ballI, rule ballI, rename_tac z1 z2)
   have "pathfinish path_g = z2" unfolding path_g_def using pathfinish_join path2_def by auto
   with pg pi ps show 
     "\<exists>g. path g \<and> path_image g \<subseteq> local.inside \<and> pathstart g = z1 \<and> pathfinish g = z2" by auto
-qed            
+qed  
+    
+definition le_lb_x :: real where
+  "le_lb_x \<equiv> le.curve_eq_x (Inf domain)"
+
+theorem le_lb_x_lower_bound:
+  "t \<in> domain \<Longrightarrow> le_lb_x \<le> le.curve_eq_x t"
+  using mono_x_le domain_inf_sup unfolding le_lb_x_def strict_mono_in_def by (smt atLeastAtMost_iff)
+  
+definition ri_lb_x :: real where
+  "ri_lb_x \<equiv> ri.curve_eq_x (Inf domain)"
+  
+theorem ri_lb_x_lower_bound:
+  "t \<in> domain \<Longrightarrow> ri_lb_x \<le> ri.curve_eq_x t"
+  using mono_x_ri domain_inf_sup unfolding ri_lb_x_def strict_mono_in_def by (smt atLeastAtMost_iff)
+
+definition lb_x :: real where
+  "lb_x \<equiv> min le_lb_x ri_lb_x"
+    
+theorem lb_x_lower_bound_le:
+  "t \<in> domain \<Longrightarrow> lb_x \<le> le.curve_eq_x t"  
+  unfolding lb_x_def min_def using le_lb_x_lower_bound by fastforce
+
+theorem rb_x_lower_bound_ri:
+  "t \<in> domain \<Longrightarrow> lb_x \<le> ri.curve_eq_x t"
+  unfolding lb_x_def min_def using ri_lb_x_lower_bound by fastforce
+  
+definition le_ub_x :: real where
+  "le_ub_x \<equiv> le.curve_eq_x (Sup domain)"
+
+theorem le_ub_x_upper_bound:
+  "t \<in> domain \<Longrightarrow> le.curve_eq_x t \<le> le_ub_x"
+  using mono_x_le domain_inf_sup unfolding le_ub_x_def strict_mono_in_def by (smt atLeastAtMost_iff)
+
+definition ri_ub_x :: real where
+  "ri_ub_x \<equiv> ri.curve_eq_x (Sup domain)"
+  
+theorem ri_ub_x_upper_bound:
+  "t \<in> domain \<Longrightarrow> ri.curve_eq_x t \<le> ri_ub_x"
+  using mono_x_ri domain_inf_sup unfolding ri_ub_x_def strict_mono_in_def by (smt atLeastAtMost_iff)
+  
+definition ub_x :: real where
+  "ub_x \<equiv> max le_ub_x ri_ub_x"
+  
+theorem ub_x_upper_bound_le:
+  "t \<in> domain \<Longrightarrow> le.curve_eq_x t \<le> ub_x"  
+  unfolding ub_x_def max_def using le_ub_x_upper_bound by fastforce
+    
+theorem ub_x_upper_bound_ri:
+  "t \<in> domain \<Longrightarrow> ri.curve_eq_x t \<le> ub_x"
+  unfolding ub_x_def max_def using ri_ub_x_upper_bound by fastforce
+    
+theorem 
+  "lb_x \<le> ub_x" 
+  using inf_in_dom lb_x_def lb_x_lower_bound_le ub_x_def ub_x_upper_bound_le by fastforce  
+    
+definition union_setX :: "real set" where
+  "union_setX \<equiv> {lb_x .. ub_x}"
+  
+theorem 
+  "common_setX \<subseteq> union_setX"
+  unfolding union_setX_def 
+  using lb_x_def lb_x_lower_bound_le le.setX_alt_def ub_x_def ub_x_upper_bound_le by auto
+  
+definition bounds :: "real \<Rightarrow> (real \<times> real) option" where
+  "bounds x \<equiv> 
+    (if x \<in> common_setX then Some (ri.f_of_x x, le.f_of_x x) 
+     else if x \<in> union_setX \<and> x > (Sup ri.setX) then 
+       Some (line_equation (curve_left (Sup domain)) (curve_right (Sup domain)) x, le.f_of_x x) 
+     else if x \<in> union_setX \<and> x < (Inf ri.setX) then 
+       Some (line_equation (curve_left (Inf domain)) (curve_right (Inf domain)) x, le.f_of_x x) 
+     else if x \<in> union_setX \<and> x > (Sup le.setX) then 
+       Some (line_equation (curve_left (Sup domain)) (curve_right (Sup domain)) x, ri.f_of_x x) 
+     else if x \<in> union_setX \<and> x < (Inf le.setX) then 
+       Some (line_equation (curve_left (Inf domain)) (curve_right (Inf domain)) x, ri.f_of_x x) 
+     else  
+       None)"    
+  
+theorem 
+  assumes "direction_right"
+  assumes "x \<in> common_setX"
+  shows "ri.f_of_x x < le.f_of_x x"    
+  
+  
+abbreviation fst_bound :: "real \<Rightarrow> real" where
+  "fst_bound \<equiv> fst \<circ> (the \<circ> bounds)"  
+                                    
+abbreviation snd_bound :: "real \<Rightarrow> real" where
+  "snd_bound \<equiv> snd \<circ> (the \<circ> bounds)"
+    
+
+
+  
+definition inside2 :: "real2 set" where
+  "inside2 \<equiv> {(x, y). x \<in> le.setX \<union> ri.setX \<and> 
+                        y \<in> {min (fst_bound x) (snd_bound x) <..< max (fst_bound x) (snd_bound x)}}"  
+             
+
+
 end  
     
     

@@ -1269,7 +1269,7 @@ next
       using \<open>hd points_ri = a\<close> points_path2_def curve_eq3.simps
       by (metis (no_types, lifting) hd_Cons_tl list.simps(8) list.simps(9) ri.nonempty_points)
     hence "ri.curve_eq differentiable at_right 0" unfolding linepath_def by auto
-    hence "ri.curve_eq differentiable at_right (Inf {0::real..1})" by auto }    
+    hence "ri.curve_eq differentiable at_right (Inf {0::real..1})" by auto  }    
       
   moreover
   { assume *: "tl points_ri = rs \<and> rs \<noteq> []"
@@ -1312,14 +1312,17 @@ next
   ultimately show "ri.curve_eq differentiable at_right (Inf {0::real..1})" by auto  
 qed  
 end
-  
-(* subsection "Singe direction lane"
-  
-locale SD_lane =
-  fixes boundaries :: "(real2 \<times> real2) list list"
-  assumes "\<forall>i. i+1 < length boundaries \<longrightarrow> lanelet (boundaries ! i) (boundaries ! (i + 1))"
     
- *)
+subsection "Lane : composition of lanelets"
+    
+locale right_hand_traffic_lane =
+  fixes boundaries :: "(real2 \<times> real2) list list"
+  fixes border :: nat  
+  assumes "2 \<le> length boundaries"
+  assumes "0 < border" and "border < length boundaries "    
+  assumes "\<forall>i. Suc i \<le> border \<longrightarrow> lanelet (boundaries ! Suc i) (boundaries ! i)"
+  assumes "\<forall>i. border \<le> i \<and> Suc i < length boundaries \<longrightarrow> lanelet (boundaries ! i) (boundaries ! Suc i)"    
+  assumes "\<forall>i j t. lanelet_curve.curve_eq (boundaries ! i) t \<noteq> lanelet_curve.curve_eq (boundaries ! j) t"
   
   
 
