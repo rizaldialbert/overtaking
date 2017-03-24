@@ -236,9 +236,7 @@ proof -
   thus ?thesis 
     by (smt atLeastatMost_empty bot_set_def that)
 qed  
-    
-type_synonym real2 = "real \<times> real"
-         
+             
 section "Trace"    
 \<comment> \<open>Represent the state of a (dynamic) road user as a record.\<close>
 
@@ -579,7 +577,7 @@ lemma inv_x_cont: "continuous_on setX inv_curve_x"
        
 definition f_of_x where
   "f_of_x \<equiv> curve_eq_y \<circ> inv_curve_x"
-    
+      
 theorem domain_and_range_f_of_x: "f_of_x \<in> setX \<rightarrow> setY"
 proof (rule funcsetI)
   fix x
@@ -590,6 +588,20 @@ proof (rule funcsetI)
   also have "... \<in> setY" unfolding setY_def using curve_eq_y_def inv_curve_x_def 0 1
     by (metis (no_types, lifting)  bij_betw bij_betwE bij_betw_the_inv_into image_eqI)
   finally show "f_of_x x \<in> setY" by auto      
+qed  
+
+theorem f_of_x_curve_eq:
+  assumes "x \<in> setX"
+  assumes "f_of_x x = y"
+  shows "\<exists>t \<in> domain. curve_eq t = (x,y)"  
+proof -
+  from \<open>x \<in> setX\<close> obtain t where "t \<in> domain \<and> (fst \<circ> curve_eq) t = x"
+    unfolding setX_def comp_def by auto
+  from assms have "y \<in> setY" using domain_and_range_f_of_x by auto
+  from assms(2) have "(snd \<circ> curve_eq) t = y" unfolding f_of_x_def 
+    by (metis \<open>t \<in> domain \<and> (fst \<circ> curve_eq) t = x\<close> bij_betw bij_betw_imp_inj_on comp_def 
+                  curve.curve_eq_y_def curve_axioms curve_eq_x_def inv_curve_x_def the_inv_into_f_f)
+  with \<open>t \<in> domain \<and> (fst \<circ> curve_eq) t = x\<close> show ?thesis by(auto intro:bexI[where x="t"])                
 qed  
   
 theorem cont_f_of_x: "continuous_on setX f_of_x"
@@ -630,16 +642,15 @@ parametrised further with two simple boundaries, for left and right boundary.\<c
 (* TODO: add @{term"common_setX \<noteq> {}"} as one of the assumption in the locale. It simplifies 
   the theorem inside. *)
 
-
-
 locale simple_road =  le: simple_boundary curve_left domain +  ri: simple_boundary curve_right domain 
   for curve_left and curve_right and domain +
-  assumes above': "x \<in> le.setX \<inter> ri.setX \<Longrightarrow> ri.f_of_x x < le.f_of_x x"
+  assumes nonempty: "le.setX \<inter> ri.setX \<noteq> {}"
+  assumes above': "x \<in> le.setX \<inter> ri.setX \<Longrightarrow> ri.f_of_x x \<noteq> le.f_of_x x"
 begin
-  
+    
 abbreviation common_setX where
   "common_setX \<equiv> le.setX \<inter> ri.setX"  
-
+  
 lemma inverse_image_common_left: 
   "le.inv_curve_x ` common_setX \<subseteq> domain"
   using le.image_inverse  by (simp add: subset_eq)  
@@ -648,9 +659,9 @@ lemma inverse_image_common_right:
   "ri.inv_curve_x ` common_setX \<subseteq> domain"
   using ri.image_inverse by (simp add:subset_eq)
     
-abbreviation between_setY where
-  "between_setY x \<equiv> {(ri.f_of_x x) <..< (le.f_of_x x)}"
-
+definition between_setY where
+  "between_setY x \<equiv> {min (ri.f_of_x x) (le.f_of_x x) <..< max (ri.f_of_x x) (le.f_of_x x)}"
+  
 lemma convex_common_setX: "convex (common_setX)"
   using le.convex_setX  ri.convex_setX convex_Int by auto
 
@@ -675,10 +686,10 @@ lemma bdd_above_common:
 \<comment> \<open>lower bound and upper bound of @{term "common_setX"}.\<close>    
 definition lb_x where
   "lb_x \<equiv> Inf common_setX"
-    
+        
 lemma common_contains_lb: 
-  "common_setX \<noteq> {} \<Longrightarrow> lb_x \<in> common_setX"
-  using compact_common_setX bdd_below_common  closed_contains_Inf
+  "lb_x \<in> common_setX"
+  using compact_common_setX bdd_below_common  closed_contains_Inf nonempty
   unfolding lb_x_def compact_eq_bounded_closed
   by meson  
         
@@ -686,20 +697,103 @@ definition ub_x where
   "ub_x \<equiv> Sup common_setX"
   
 lemma common_contains_ub: 
-  "common_setX \<noteq> {} \<Longrightarrow> ub_x \<in> common_setX"  
-  using compact_common_setX bdd_above_common closed_contains_Sup
+  "ub_x \<in> common_setX"  
+  using compact_common_setX bdd_above_common closed_contains_Sup nonempty
   unfolding ub_x_def compact_eq_bounded_closed
   by meson  
         
+theorem common_setX_interval2:
+  "common_setX = {lb_x .. ub_x}"
+  using common_setX_interval lb_x_def nonempty ub_x_def by force
+
+definition direction_right :: bool where
+  "direction_right \<equiv> ri.f_of_x lb_x < le.f_of_x lb_x"  
+  
+definition direction_left :: bool where
+  "direction_left \<equiv> ri.f_of_x lb_x > le.f_of_x lb_x"  
+  
+theorem direction_right_neq_left[simp]:
+  "\<not> direction_left \<longleftrightarrow> direction_right"
+  unfolding direction_right_def direction_left_def using above' common_contains_lb
+  by fastforce
+    
+lemma direction_right_cond:
+  assumes "direction_right"
+  shows "\<forall>x \<in> common_setX. ri.f_of_x x < le.f_of_x x"
+proof (rule ccontr)
+  assume "\<not> (\<forall>x \<in> common_setX. ri.f_of_x x < le.f_of_x x)"
+  from this obtain x where "x \<in> common_setX" and "le.f_of_x x \<le> ri.f_of_x x" by fastforce
+  from \<open>x \<in> common_setX\<close> have "lb_x \<le> x" and "x \<le> ub_x" using common_setX_interval2 by auto
+  define f where "f \<equiv> \<lambda>x. ri.f_of_x x - le.f_of_x x" 
+  from assms have 0: "f lb_x \<le> 0" unfolding f_def direction_right_def by auto
+  from \<open>le.f_of_x x \<le> ri.f_of_x x\<close> have 1: "f x \<ge> 0" unfolding f_def by auto
+  from le.cont_f_of_x and ri.cont_f_of_x have "continuous_on common_setX le.f_of_x" and 
+    "continuous_on common_setX ri.f_of_x" by (auto intro:continuous_on_subset)    
+  hence cont: "continuous_on common_setX f" unfolding f_def by (auto intro:continuous_on_diff)
+  from \<open>lb_x \<le> x\<close> and \<open>x \<le> ub_x\<close> have "{lb_x .. x} \<subseteq> common_setX" using common_setX_interval2
+    by auto
+  with cont have 2: "continuous_on {lb_x .. x} f" by (auto intro:continuous_on_subset)      
+  from IVT'[where f="f" and a="lb_x" and y="0" and b="x", OF 0 1 \<open>lb_x \<le> x\<close> 2] obtain x' where
+    "lb_x \<le> x'" and "x' \<le> x" and "f x' = 0" by blast   
+  hence "x' \<in> common_setX" using \<open>x \<le> ub_x\<close> and common_setX_interval2 by auto
+  with \<open>f x' = 0\<close> and above'[OF this] show "False" unfolding f_def by auto    
+qed
+  
+lemma direction_left_cond:
+  assumes "direction_left"
+  shows "\<forall>x \<in> common_setX. ri.f_of_x x > le.f_of_x x"
+proof (rule ccontr)
+  assume "\<not> (\<forall>x \<in> common_setX. ri.f_of_x x > le.f_of_x x)"
+  from this obtain x where "x \<in> common_setX" and "le.f_of_x x \<ge> ri.f_of_x x" by fastforce
+  from \<open>x \<in> common_setX\<close> have "lb_x \<le> x" and "x \<le> ub_x" using common_setX_interval2 by auto
+  define f where "f \<equiv> \<lambda>x. le.f_of_x x - ri.f_of_x x" 
+  from assms have 0: "f lb_x \<le> 0" unfolding f_def direction_left_def by auto
+  from \<open>le.f_of_x x \<ge> ri.f_of_x x\<close> have 1: "f x \<ge> 0" unfolding f_def by auto
+  from le.cont_f_of_x and ri.cont_f_of_x have "continuous_on common_setX le.f_of_x" and 
+    "continuous_on common_setX ri.f_of_x" by (auto intro:continuous_on_subset)    
+  hence cont: "continuous_on common_setX f" unfolding f_def by (auto intro:continuous_on_diff)
+  from \<open>lb_x \<le> x\<close> and \<open>x \<le> ub_x\<close> have "{lb_x .. x} \<subseteq> common_setX" using common_setX_interval2
+    by auto
+  with cont have 2: "continuous_on {lb_x .. x} f" by (auto intro:continuous_on_subset)      
+  from IVT'[where f="f" and a="lb_x" and y="0" and b="x", OF 0 1 \<open>lb_x \<le> x\<close> 2] obtain x' where
+    "lb_x \<le> x'" and "x' \<le> x" and "f x' = 0" by blast   
+  hence "x' \<in> common_setX" using \<open>x \<le> ub_x\<close> and common_setX_interval2 by auto
+  with \<open>f x' = 0\<close> and above'[OF this] show "False" unfolding f_def by auto    
+qed
+
+theorem between_setY_right_def:
+  assumes "direction_right"
+  assumes "x \<in> common_setX"
+  shows "between_setY x = {ri.f_of_x x <..< le.f_of_x x}"
+  using assms unfolding between_setY_def using direction_right_cond[OF assms(1)]  by force  
+
+theorem between_setY_left_def:
+  assumes "direction_left"
+  assumes "x \<in> common_setX"
+  shows "between_setY x = {le.f_of_x x <..< ri.f_of_x x}"
+  using assms unfolding between_setY_def using direction_left_cond above'[OF assms(2)]   by force
+        
 lemma between_setY_nonempty: "x \<in> common_setX \<Longrightarrow> between_setY x \<noteq> {}"
-proof -  
+proof (cases direction_right)
+  case True
   assume "x \<in> common_setX"
-  with above' have "ri.f_of_x x < le.f_of_x x" 
-    using le.domain_and_range_f_of_x ri.domain_and_range_f_of_x by auto
+  with direction_right_cond[OF True] have "ri.f_of_x x < le.f_of_x x" by auto    
   from Rats_dense_in_real[OF this] obtain r where "r \<in> between_setY x" 
+    unfolding between_setY_right_def[OF True \<open>x \<in> common_setX\<close>]
     using greaterThanLessThan_iff by blast      
-  thus "between_setY x \<noteq> {}" using ex_in_conv by auto    
-qed     
+  thus "between_setY x \<noteq> {}" using ex_in_conv 
+    unfolding between_setY_right_def[OF True \<open>x \<in> common_setX\<close>] by auto    
+next
+  case False
+  hence "direction_left" using direction_right_neq_left  by blast  
+  assume "x \<in> common_setX"
+  with direction_left_cond[OF \<open>direction_left\<close>] have "ri.f_of_x x > le.f_of_x x" by auto    
+  from Rats_dense_in_real[OF this] obtain r where "r \<in> between_setY x" 
+    unfolding between_setY_left_def[OF \<open>direction_left\<close> \<open>x \<in> common_setX\<close>]
+    using greaterThanLessThan_iff by blast     
+  thus "between_setY x \<noteq> {}" using ex_in_conv 
+    unfolding between_setY_left_def[OF \<open>direction_left\<close> \<open>x \<in> common_setX\<close>] by auto    
+qed  
     
 definition drivable_area :: "real2 set" where
   "drivable_area \<equiv> {(x,y). x \<in> common_setX \<and> y \<in> between_setY x}"  
@@ -783,16 +877,31 @@ lemma snd_path_image':
   defines "lb \<equiv> min (snd z1) (snd z2)"
   defines "ub \<equiv> max (snd z1) (snd z2)"    
   shows "snd ` (path_image g) \<subseteq> between_setY (fst z2)"
-proof -
+proof (cases "direction_right")
+  case True
   from snd_path_image have "snd ` (path_image g) \<subseteq> {lb .. ub}"
     using assms by auto
   moreover from assms(2-3) have "ri.f_of_x (fst z1) < snd z1" and "snd z2 < le.f_of_x (fst z2)"
-    unfolding drivable_area_def by auto
+    unfolding drivable_area_def using between_setY_right_def[OF True] by auto
   moreover from assms(2-3) have "ri.f_of_x (fst z2) < snd z2" and "snd z1 < le.f_of_x (fst z1)"
-    unfolding drivable_area_def by auto
-  ultimately show ?thesis using assms(1) unfolding lb_def ub_def     
-    by fastforce
-qed  
+    unfolding drivable_area_def using between_setY_right_def[OF True] by auto
+  ultimately show ?thesis using assms(1) between_setY_right_def[OF True] unfolding lb_def ub_def     
+    by (smt assms(3) atLeastAtMost_iff drivable_areaD1 greaterThanLessThan_iff subset_eq)
+next
+  case False
+  from snd_path_image have "snd ` (path_image g) \<subseteq> {lb .. ub}"
+    using assms by auto
+  moreover from assms(2-3) have "ri.f_of_x (fst z1) > snd z1" 
+    unfolding drivable_area_def using between_setY_left_def False by fastforce 
+  moreover from assms(2-3) have "snd z2 > le.f_of_x (fst z2)" 
+    unfolding drivable_area_def using between_setY_left_def False by fastforce       
+  moreover from assms(2-3) have "ri.f_of_x (fst z2) > snd z2" 
+    unfolding drivable_area_def using between_setY_left_def False by fastforce
+  moreover from assms(2-3) have "snd z1 > le.f_of_x (fst z1)" 
+    unfolding drivable_area_def using between_setY_left_def False by fastforce       
+  ultimately show ?thesis using assms(1) between_setY_left_def False unfolding lb_def ub_def     
+      by (smt assms(3) atLeastAtMost_iff direction_right_neq_left drivable_areaD1 greaterThanLessThan_iff subset_eq)
+qed
     
 definition midcurve_points :: "real2 set" where
   "midcurve_points \<equiv> {(x,y) . x \<in> common_setX \<and> y = (le.f_of_x x + ri.f_of_x x) / 2}"
@@ -812,7 +921,8 @@ proof (rule subsetI, rename_tac "z")
   with 0 have 2: "x \<in> common_setX \<and> y = (le.f_of_x x + ri.f_of_x x) / 2" 
     unfolding midcurve_points_def by auto
   hence "y \<in> between_setY x"
-    using simple_road.between_setY_nonempty simple_road_axioms by fastforce
+    using simple_road.between_setY_nonempty simple_road_axioms  between_setY_left_def 
+    between_setY_right_def direction_right_neq_left by fastforce
   with 2 have "z \<in> Sigma common_setX between_setY" using 1 by auto
   thus "z \<in> drivable_area" using drivable_area_alt_def by auto      
 qed
@@ -1496,9 +1606,7 @@ proof -
     using ccw_invariant[OF \<open>0 < t2 / t1\<close>, of "curve_left 0" "curve_right 0" "p1"] 
     by (auto simp add:algebra_simps)             
 qed
-  
-thm ccw_invariant''  
-  
+    
 theorem le_ccw'_on_tangent_line:
   assumes "p1 \<in> cl_tangent_line" and "p2 \<in> cl_tangent_line"    
   shows "ccw' p1 (curve_left 0) (curve_right 0) = ccw' p2 (curve_left 0) (curve_right 0)"
@@ -1533,14 +1641,30 @@ proof -
   ultimately show ?thesis by auto    
 qed
     
-definition direction_right :: "bool" where  
-  "direction_right \<equiv> (let tgt = curve_right 0 + 1 *\<^sub>R tangent_at_inf in 
-                                                           ccw' (curve_left 0) (curve_right 0) tgt)"  
+definition direction_right :: bool where
+  "direction_right \<equiv> (let 
+                           inf_dom = Inf domain; 
+                           cl_inf = curve_left inf_dom;  cr_inf = curve_right inf_dom; 
+                           tgt_ri = cr_inf + 1 *\<^sub>R ri_tangent_at_inf;
+                           tgt_le = cl_inf + 1 *\<^sub>R le_tangent_at_inf  
+                      in 
+                           if min2D cr_inf cl_inf = cr_inf then 
+                             ccw' cl_inf cr_inf tgt_ri 
+                           else 
+                             ccw' tgt_le cl_inf cr_inf)"  
 
-definition direction_left :: "bool" where
-  "direction_left \<equiv> (let tgt = curve_right 0 + 1 *\<^sub>R tangent_at_inf in 
-                                                       det3 (curve_left 0) (curve_right 0) tgt) < 0"  
-
+definition direction_left :: bool where
+  "direction_left \<equiv> (let 
+                           inf_dom = Inf domain; 
+                           cl_inf = curve_left inf_dom;  cr_inf = curve_right inf_dom; 
+                           tgt_ri = cr_inf + 1 *\<^sub>R ri_tangent_at_inf;
+                           tgt_le = cl_inf + 1 *\<^sub>R le_tangent_at_inf  
+                      in 
+                           if min2D cr_inf cl_inf = cr_inf then 
+                             det3 cl_inf cr_inf tgt_ri < 0
+                           else 
+                             det3 tgt_le cl_inf cr_inf < 0)"  
+    
 definition open_domain :: "real set" where
   "open_domain \<equiv> domain - {Inf domain, Sup domain}"
   
@@ -1764,7 +1888,8 @@ theorem
   "common_setX \<subseteq> union_setX"
   unfolding union_setX_def 
   using lb_x_def lb_x_lower_bound_le le.setX_alt_def ub_x_def ub_x_upper_bound_le by auto
-  
+
+(*    
 definition bounds :: "real \<Rightarrow> (real \<times> real) option" where
   "bounds x \<equiv> 
     (if x \<in> common_setX then Some (ri.f_of_x x, le.f_of_x x) 
@@ -1798,13 +1923,13 @@ definition inside2 :: "real2 set" where
   "inside2 \<equiv> {(x, y). x \<in> le.setX \<union> ri.setX \<and> 
                         y \<in> {min (fst_bound x) (snd_bound x) <..< max (fst_bound x) (snd_bound x)}}"  
              
-
+ *)
 
 end  
     
     
     
-        
+(*        
 subsection "Multilane road"
   
 locale multilane_road = simple_road curve_left curve_right domain 
@@ -1835,8 +1960,8 @@ theorem li:
   assumes "i < length lds - 1"
   shows "simple_road (ld_idx (i + 1)) (ld_idx i) domain"  
   unfolding simple_road_def
-proof (rule conjI, rule_tac[2] conjI, unfold simple_road_axioms_def, rule_tac[3] allI, 
-       rule_tac[3] impI)
+proof (rule conjI, rule_tac[2] conjI, unfold simple_road_axioms_def, rule_tac[3] conjI, rule_tac[4] allI, 
+       rule_tac[4] impI)
   show "simple_boundary (ld_idx (i + 1)) domain" using sb[of "ld_idx (i+1)"] using assms by auto
 next
   show "simple_boundary (ld_idx i) domain" using sb[of "ld_idx i"] using assms by auto
@@ -2155,7 +2280,7 @@ proof
     by auto
 qed
   
-(*
+
 definition partition_between where
   "partition_between x \<equiv> {l0.between_setY x, ll.between_setY x} \<union> 
     {ran . \<exists>i>0. i < length lds \<and> ran = simple_road.between_setY (ld_idx i) (ld_idx (i-1)) domain x}"  
@@ -2279,8 +2404,9 @@ next
       drivable_areaD2 by auto                    
   qed    
 qed  
-*)  
 end  
+*)
+
 end  
   
 

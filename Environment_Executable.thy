@@ -15,7 +15,27 @@ fun curve_eq3 :: "(real \<Rightarrow> real2) list \<Rightarrow> real \<Rightarro
     
 theorem pathstart_curve_eq:
   "pathstart (curve_eq3 (x # xs)) = pathstart x"  
-  by (metis (no_types, lifting) curve_eq3.elims list.discI list.sel(1) pathstart_join)    
+  by (metis (no_types, lifting) curve_eq3.elims list.discI list.sel(1) pathstart_join)
+
+theorem pathfinish_curve_eq:
+  assumes "xs \<noteq> []"
+  shows "pathfinish (curve_eq3 xs) = pathfinish (last xs)"
+  using assms
+proof (induction xs rule:curve_eq3.induct)
+  case (1 x)
+  then show ?case by auto
+next
+  case (2 x v va)
+  note case_two = this
+  have "pathfinish (curve_eq3 (x # v # va)) = pathfinish (curve_eq3 (v # va))"
+    by auto
+  moreover have "pathfinish (last (x # v # va)) = pathfinish (last (v # va))"
+    by auto
+  ultimately show ?case using case_two by auto      
+next
+  case 3
+  then show ?case by auto
+qed
       
 theorem curve_eq_cont:
   fixes points :: "(real2 \<times> real2) list"
@@ -75,6 +95,15 @@ abbreviation curve_eq :: "real \<Rightarrow> real2" where
   
 abbreviation first_chain :: "real2 \<times> real2" where
   "first_chain \<equiv> hd points"  
+  
+abbreviation first_point :: "real2" where
+  "first_point \<equiv> fst first_chain"  
+  
+abbreviation last_chain :: "real2 \<times> real2" where
+  "last_chain \<equiv> last points"
+
+abbreviation last_point :: "real2" where
+  "last_point \<equiv> snd last_chain"  
     
 text 
   \<open>Proof that lanelent curve is a refinement of a curve. The proof is obtained via sublocale proof.\<close>       
@@ -87,7 +116,7 @@ next
 next
   show "continuous_on {0..1} curve_eq"
     using curve_eq_cont[OF nonempty_points poly_points] by auto      
-qed 
+qed   
 end
      
 subsection "Lanelet's simple boundary"
@@ -117,7 +146,25 @@ lemma monotone_polychainD:
   assumes "monotone_polychain xs"
   shows "polychain xs"
   using assms unfolding monotone_polychain_def by auto
-          
+    
+lemma monotone_polychain_fst_last:
+  assumes "monotone_polychain (x # xs)"
+  shows "fst (fst x) < fst (snd (last (x # xs)))"
+  using assms
+proof (induction xs arbitrary:x)
+  case Nil
+  then show ?case unfolding monotone_polychain_def by auto
+next
+  case (Cons a xs)
+  note case_cons = this  
+  hence "monotone_polychain (a # xs)" using monotone_polychain_ConsD by auto    
+  with case_cons(1)[OF this] have *:"fst (fst a) < fst (snd (last (a # xs)))" by auto
+  from case_cons have **: "fst (fst x) < fst (snd x)" unfolding monotone_polychain_def by auto
+  from case_cons(2) have "snd x = fst a" unfolding monotone_polychain_def polychain_def
+    by auto
+  with * and ** show ?case by auto        
+qed
+            
 lemma strict_mono_in_joinpaths:
   assumes "strict_mono_in f {0..1}"
   assumes "strict_mono_in g {0..1}"
@@ -365,6 +412,64 @@ proof -
   hence "inj_on (fst \<circ> curve_eq) {0..1}" using strict_imp_inj_on assms by auto    
   thus ?thesis  using inj_on_imageI2 by blast    
 qed
+      
+theorem joinpaths_image_01:
+  assumes "pathfinish f = pathstart g"
+  shows "(f +++ g) ` {0 .. 1} = f ` {0 .. 1} \<union> g ` {0 .. 1}" 
+proof (rule equalityI, rule_tac[!] subsetI)
+  fix x
+  assume "x \<in> (f +++ g) ` {0 .. 1}"
+  then obtain t where "(f +++ g) t = x" and "t \<in> {0..1}" unfolding image_iff by auto
+  consider "t \<le> 0.5" | "t > 0.5" by linarith      
+  thus "x \<in> f ` {0..1} \<union> g ` {0..1}"    
+  proof (cases)
+    case 1
+    note case_one = this
+    hence "f (2 * t) = x" using \<open>(f +++ g) t = x\<close> unfolding joinpaths_def by auto  
+    from case_one have "2 * t \<in> {0 .. 1}" using \<open>t \<in> {0 .. 1}\<close> by auto
+    hence "x \<in> f ` {0 .. 1}" using \<open>f (2 * t) = x\<close> image_iff by auto        
+    then show ?thesis by auto
+  next
+    case 2
+    note case_two = this
+    hence "g (2 * t - 1) = x" using \<open>(f +++ g) t = x\<close> unfolding joinpaths_def by auto
+    from case_two have "2 * t - 1 \<in> {0 .. 1}" using \<open>t \<in> {0..1}\<close> by auto
+    hence "x \<in> g ` {0 .. 1}" using \<open>g (2 * t - 1) = x\<close> image_iff by auto        
+    then show ?thesis by auto
+  qed    
+next    
+  fix x
+  assume "x \<in> f ` {0..1} \<union> g ` {0..1}"
+  hence "x \<in> f ` {0..1} \<or> x \<in> g ` {0..1}" by auto
+  moreover    
+  { assume "x \<in> f ` {0..1}"
+    then obtain t where "f t = x" and "t \<in> {0 .. 1}" using image_iff by auto  
+    hence "f (2 * (t / 2)) = x" and "t / 2 \<le> 0.5" and "t / 2 \<in> {0..1}" by auto                
+    hence "x \<in> (f +++ g) ` {0..1}"  unfolding joinpaths_def image_iff 
+      by (smt \<open>t \<in> {0..1}\<close> atLeastAtMost_iff divide_right_mono) }
+  moreover
+  { assume "x \<in> g ` {0..1}"
+    then obtain t where "g t = x" and "t \<in> {0..1}" using image_iff by auto
+    consider "t = 0" | "t \<noteq> 0" by auto
+    hence "x \<in> (f +++ g) ` {0 .. 1}"
+    proof (cases)
+      case 1
+      hence "g 0 = x" using \<open>g t = x\<close> by auto
+      with assms have "f 1 = x" unfolding pathfinish_def pathstart_def by auto
+      thus "x \<in> (f +++ g) `{0..1}" unfolding image_iff joinpaths_def
+        by (auto intro: bexI[where x="0.5"])          
+    next
+      case 2 
+      hence "t \<in> {0 <..1}" using \<open>t \<in> {0..1}\<close> by auto
+      hence g_cond: "g (2 * ((t + 1)/ 2) - 1) = x" using \<open>g t = x\<close> by (auto simp add:divide_simps)
+      from \<open>t \<in> {0<..1}\<close> have "(t + 1) / 2 > 0.5" and "(t + 1) / 2 \<in> {0..1}" by auto           
+      thus ?thesis unfolding image_iff joinpaths_def using g_cond
+        by (auto intro: bexI[where x="(t+1)/2"])          
+    qed }
+   ultimately show "x \<in> (f +++ g) ` {0..1}" by auto    
+qed
+  
+  
         
 locale lanelet_simple_boundary = lanelet_curve +
   assumes monotone: "monotone_polychain points"  
@@ -380,8 +485,9 @@ next
   show "continuous_on {0..1} curve_eq"
     using curve_eq_cont[OF nonempty_points poly_points] by auto
 qed  
-
-interpretation lsc: simple_boundary "curve_eq" "{0..1}"
+  
+theorem simple_boundary_curve_eq_01:
+  "simple_boundary curve_eq {0..1}" 
 proof (unfold_locales)
   show "convex {(0::real)..1}" by auto
 next      
@@ -406,13 +512,109 @@ next
     show "curve.curve_eq_x curve_eq ` {0..1} = curve.setX curve_eq {0..1}"
       unfolding eq curve.setX_def[OF curve_eq_is_curve] by auto
   qed    
-qed  
-    
+qed    
+
+interpretation lsc: simple_boundary "curve_eq" "{0..1}"
+  using simple_boundary_curve_eq_01 by auto
+       
+lemma lsc_f_of_x_curve_eq:
+  assumes "x \<in> curve.setX curve_eq {0..1} "
+  assumes "simple_boundary.f_of_x curve_eq {0..1} x = y"
+  shows "\<exists>t\<in>{0..1}. curve_eq t = (x, y)"
+  using assms lsc.f_of_x_curve_eq by auto  
+        
 (* making the lemma inside lsc visible for other locales extending this locale. *)  
 lemma lsc_checking_strict_mono: 
   assumes "(curve.curve_eq_x curve_eq) 0 < (curve.curve_eq_x curve_eq) 1"
   shows "strict_mono_in (curve.curve_eq_x curve_eq) {0..1}"
   using lsc.checking_strict_mono assms by auto       
+    
+theorem curve_setX_interval:
+  " curve.setX curve_eq {0..1} = {fst first_point .. fst last_point}"
+  using nonempty_points monotone curve_eq_is_curve
+proof (induction points)
+  case Nil
+  then show ?case by auto
+next
+  case (Cons a points)
+  note case_cons = this  
+  obtain a' and points' where "points = [] \<or> points = a' # points'"  by (metis hd_Cons_tl)  
+  moreover
+  { assume "points = []"
+    hence 0: "curve.setX (curve_eq3 (points_path2 (a # points))) {0..1} = 
+           curve.setX (curve_eq3 (points_path2  [a])) {0..1}" and 
+      "{fst (fst (hd (a # points)))..fst (snd (last (a # points)))} =  {fst (fst a)..fst (snd a)}"
+      by auto
+    have 1: "points_path2 [a] = [linepath (fst a) (snd a)]" unfolding points_path2_def by auto        
+    hence 2: "curve_eq3 (points_path2 [a]) = linepath (fst a) (snd a)" by auto
+    have "curve.setX (linepath (fst a) (snd a)) {0..1} = fst ` closed_segment (fst a) (snd a)"
+      using linepath_image_01 curve.setX_def
+      by (simp add: linepath_image_01 continuous_on_linepath curve.intro)
+    also have "... = closed_segment (fst (fst a)) (fst (snd a))" 
+      using fst_closed_segment by auto
+    finally have "curve.setX (linepath (fst a) (snd a)) {0..1} = 
+                                                         closed_segment (fst (fst a)) (fst (snd a))"
+      by auto
+    moreover     
+    from case_cons(3) have "fst (fst a) < fst (snd a)" unfolding monotone_polychain_def by auto
+    ultimately have "curve.setX (linepath (fst a) (snd a)) {0..1} = {fst (fst a) .. fst (snd a)}"
+      using closed_segment_real by auto
+    hence "curve.setX (curve_eq3 (points_path2 (a # points))) {0..1} = 
+                                       {fst (fst (hd (a # points)))..fst (snd (last (a # points)))}"
+      using \<open>points = []\<close> 0 1 2 by auto }
+  
+  moreover
+  { assume "points = a' # points'"
+    hence psce3: "pathstart (curve_eq3 (points_path2 points)) = fst a'"
+      unfolding \<open>points = a' # points'\<close> points_path2_def
+      using pathstart_curve_eq pathstart_linepath by auto 
+    from \<open>monotone_polychain (a # points)\<close> have "snd a = fst a'"
+      unfolding \<open>points = a' # points'\<close> monotone_polychain_def polychain_def by auto
+    from \<open>monotone_polychain (a # points)\<close> have t1: "monotone_polychain points" 
+      using monotone_polychain_ConsD by auto
+    from case_cons(4) have t2: "curve (curve_eq3 (points_path2 points)) {0..1}"
+      unfolding curve_def using \<open>monotone_polychain points\<close> \<open>points = a' # points'\<close> curve_eq_cont 
+      monotone_polychain_def by blast 
+    from \<open>points = a' # points'\<close> case_cons(1)[OF _ t1 t2] 
+    have ind: "curve.setX (curve_eq3 (points_path2 points)) {0..1} = 
+                                                  {fst (fst (hd points))..fst (snd (last points))} "
+      by auto
+    have "points_path2 (a # points) = linepath (fst a) (snd a) # points_path2 points"
+      unfolding points_path2_def by auto
+    hence "curve_eq3 (points_path2 (a # points)) = 
+                                       linepath (fst a) (snd a) +++ curve_eq3 (points_path2 points)"
+      using \<open>points = a' # points'\<close> by (simp add: points_path2_def)
+    hence "curve_eq3 (points_path2 (a # points)) ` {0..1} = closed_segment (fst a) (snd a) \<union> 
+                                                            curve_eq3 (points_path2 points) ` {0 .. 1}"
+      using joinpaths_image_01 psce3 pathfinish_linepath \<open>snd a = fst a'\<close> 
+      by (simp add: joinpaths_image_01 linepath_image_01)
+    hence "curve.setX (curve_eq3 (points_path2 (a # points))) {0 .. 1} = 
+          fst ` closed_segment (fst a) (snd a) \<union> curve.setX (curve_eq3 (points_path2 points)) {0..1}"
+      using curve.setX_def[OF case_cons(4)] curve.setX_def[OF t2]  by (simp add: image_Un)
+    with ind have "curve.setX (curve_eq3 (points_path2 (a # points))) {0 .. 1} =
+          fst `closed_segment (fst a) (snd a) \<union> {fst (fst a') .. fst (snd (last points))}" 
+      unfolding \<open>points = a' # points'\<close> by auto
+    also have "... = closed_segment (fst (fst a)) (fst (snd a)) \<union> {fst (fst a') .. fst (snd (last points))}"
+      by auto
+    finally have *: "curve.setX (curve_eq3 (points_path2 (a # points))) {0 .. 1} = 
+             closed_segment (fst (fst a)) (fst (snd a)) \<union> {fst (fst a') .. fst (snd (last points))}"        
+      by auto
+    have "fst (fst a) < fst (snd a)" using \<open>monotone_polychain (a # points)\<close>
+      unfolding monotone_polychain_def by auto
+    hence "closed_segment (fst (fst a)) (fst (snd a)) = {fst (fst a) .. fst (snd a)}" 
+      using closed_segment_real by auto
+    with * have **: "curve.setX (curve_eq3 (points_path2 (a # points))) {0..1} = 
+             {fst (fst a) .. fst (snd a)} \<union> {fst (fst a') .. fst (snd (last points))}" 
+      by auto
+    have "fst (snd a) = fst (fst a')" using \<open>snd a = fst a'\<close> by (auto simp add:prod.collapse)
+    moreover have "fst (fst a) < fst (snd a)" using \<open>monotone_polychain (a # points)\<close> unfolding 
+      monotone_polychain_def by auto
+    moreover have "fst (fst a') < fst (snd (last points))" 
+      using \<open>points = a' # points'\<close> monotone_polychain_fst_last t1 by blast                    
+    ultimately have "curve.setX (curve_eq3 (points_path2 (a # points))) {0..1} = 
+             {fst (fst a) .. fst (snd (last points))}" using ivl_disj_un(26) ** by auto }
+  ultimately show ?case using last_ConsR by auto  
+qed    
 end
     
 subsection "Lanelet"  
@@ -423,33 +625,7 @@ polygon from these two polychains, and then find the vertex (point) which is gua
 the point in its convex hull. To find this vertex, we only need to find the points with the smallest
 @{term "x"} value, and if there are more than one, we choose the one with the smallest @{term "y"}
 values. The following function min2D does this job.\<close> 
- 
-definition min2D :: "real2 \<Rightarrow> real2 \<Rightarrow> real2" where
-  "min2D z1 z2 = (let x1 = fst z1; x2 = fst z2; y1 = snd z1; y2 = snd z2 in
-                    if x1 < x2 then z1 else
-                    if x1 = x2 then (if y1 \<le> y2 then z1 else z2) else
-                    (* x1 > x2 *)   z2)"
-  
-theorem min2D_D:
-  assumes "min2D x y = z"
-  shows "fst z \<le> fst x \<and> fst z \<le> fst y"
-  using assms unfolding min2D_def by smt
-    
-theorem min2D_D2:
-  assumes "min2D x y = z"
-  shows "z = x \<or> z = y"
-  using assms unfolding min2D_def by presburger
-
-theorem min2D_D3:
-  assumes "min2D x y = x"
-  shows "fst x < fst y \<or> (fst x = fst y \<and> snd x \<le> snd y)"
-  using assms unfolding min2D_def by smt  
-    
-theorem min2D_D4:
-  assumes "min2D x y = y"
-  shows "fst y < fst x \<or> (fst x = fst y \<and> snd y \<le> snd x)"
-  using assms unfolding min2D_def by smt 
-      
+       
 definition
   "polygon xs \<longleftrightarrow> (polychain xs \<and> (xs \<noteq> [] \<longrightarrow> fst (hd xs) = snd (last xs)))"
      
@@ -1112,9 +1288,78 @@ qed
   
 locale lanelet = le: lanelet_simple_boundary points_le + ri: lanelet_simple_boundary points_ri
   for points_le and points_ri +
-  assumes non_intersecting: "\<forall>t \<in> {0..1}. le.curve_eq t \<noteq> ri.curve_eq t" 
+  assumes non_intersecting: "\<forall>t1 \<in> {0..1}. \<forall>t2 \<in> {0..1}. le.curve_eq t1 \<noteq> ri.curve_eq t2"
+  assumes same_init_x: "fst (pathstart le.curve_eq) = fst (pathstart ri.curve_eq)"
+  assumes same_final_x: "fst (pathfinish le.curve_eq) = fst (pathfinish ri.curve_eq)"    
 begin  
+    
+lemma same_init_x_alt_def:
+  "fst (fst le.first_chain) = fst (fst ri.first_chain)"
+proof -
+  from le.nonempty_points obtain f and fs where "points_le = f # fs" using 
+    linorder_list0.selsort.cases by blast
+  hence "le.first_chain = f" by auto
+  have "le.curve_eq = curve_eq3 (map (\<lambda>p. linepath (fst p) (snd p)) points_le)" 
+    unfolding points_path2_def by auto
+  with \<open>points_le = f # fs\<close> 
+  have "le.curve_eq = curve_eq3 (map (\<lambda>p. linepath (fst p) (snd p)) (f # fs))" by auto
+  hence "pathstart le.curve_eq = pathstart (linepath (fst f) (snd f))" 
+    by (simp add: pathstart_curve_eq)
+  also have "... = fst f" by auto
+  finally have "pathstart le.curve_eq = fst f" by auto      
+  hence 0: "fst le.first_chain = pathstart le.curve_eq" using \<open>points_le = f # fs\<close>
+    by auto
+      
+  from ri.nonempty_points obtain f' and fs' where "points_ri = f' # fs'" using 
+    linorder_list0.selsort.cases by blast
+  hence "ri.first_chain = f'" by auto
+  have "ri.curve_eq = curve_eq3 (map (\<lambda>p. linepath (fst p) (snd p)) points_ri)" 
+    unfolding points_path2_def by auto
+  with \<open>points_ri = f' # fs'\<close> 
+  have "ri.curve_eq = curve_eq3 (map (\<lambda>p. linepath (fst p) (snd p)) (f' # fs'))" by auto
+  hence "pathstart ri.curve_eq = pathstart (linepath (fst f') (snd f'))" 
+    by (simp add: pathstart_curve_eq)
+  also have "... = fst f'" by auto
+  finally have "pathstart ri.curve_eq = fst f'" by auto      
+  hence 1: "fst ri.first_chain = pathstart ri.curve_eq" using \<open>points_ri = f' # fs'\<close>
+    by auto
+      
+  from 0 and 1 show ?thesis using same_init_x  by auto   
+qed
+    
+lemma same_final_x_alt_def:
+  "fst (snd (last points_le)) = fst (snd (last points_ri))"
+proof -
+  have "le.curve_eq = curve_eq3 (map (\<lambda>p. linepath (fst p) (snd p)) points_le)" 
+    unfolding points_path2_def by auto
+  have "pathfinish le.curve_eq = pathfinish (linepath (fst (last points_le)) (snd (last points_le)))"
+    using pathfinish_curve_eq le.nonempty_points  by (simp add: last_map points_path2_def)      
+  also have "... = snd (last points_le)" by auto                                             
+  finally have 0: "pathfinish le.curve_eq = snd (last points_le)" by auto
 
+  have "ri.curve_eq = curve_eq3 (map (\<lambda>p. linepath (fst p) (snd p)) points_ri)" 
+    unfolding points_path2_def by auto
+  have "pathfinish ri.curve_eq = pathfinish (linepath (fst (last points_ri)) (snd (last points_ri)))"
+    using pathfinish_curve_eq ri.nonempty_points  by (simp add: last_map points_path2_def)      
+  also have "... = snd (last points_ri)" by auto                                             
+  finally have 1: "pathfinish ri.curve_eq = snd (last points_ri)" by auto        
+  from 0 and 1 show ?thesis using same_final_x by auto      
+qed
+ 
+theorem equal_curve_setX:
+  "curve.setX le.curve_eq {0..1} = curve.setX ri.curve_eq {0..1}"
+  using le.curve_setX_interval ri.curve_setX_interval same_init_x same_final_x
+  same_init_x_alt_def same_final_x_alt_def by auto
+    
+theorem curve_setX_nonempty: 
+    "curve.setX le.curve_eq {0 .. 1} \<noteq> {}"
+proof -    
+  have "fst le.first_point < fst le.last_point"
+    by (metis hd_Cons_tl monotone_polychain_fst_last ri.monotone ri.nonempty_points 
+        same_final_x_alt_def same_init_x_alt_def) 
+  with le.curve_setX_interval show ?thesis by auto
+qed
+    
 text "Reversing the direction of the left polychain"  
   
 definition reverse_le where
@@ -1197,8 +1442,8 @@ theorem
 definition dir_right :: "bool" where
   "dir_right \<equiv> (case vertex_chain of (pre, x, post) \<Rightarrow> ccw' pre x post)"      
   
-interpretation sr2: simple_road2 "le.curve_eq" "ri.curve_eq" "{0..1}"
-proof 
+interpretation sr: simple_road "le.curve_eq" "ri.curve_eq" "{0..1}"
+proof
   show "convex {0::real..1}"   by auto
 next
   show "compact {0::real..1}"  by auto
@@ -1243,6 +1488,31 @@ next
       unfolding eq curve.setX_def[OF ri.curve_eq_is_curve] by auto
   qed
 next
+  show "curve.setX le.curve_eq {0..1} \<inter> curve.setX ri.curve_eq {0..1} \<noteq> {}"
+  using curve_setX_nonempty equal_curve_setX by blast  
+next    
+  fix x
+  assume "x \<in> curve.setX le.curve_eq {0 .. 1} \<inter> curve.setX ri.curve_eq {0..1}"
+  hence le: "x \<in> curve.setX le.curve_eq {0..1}" and ri: "x \<in> curve.setX ri.curve_eq {0..1}"
+    by auto
+  show "simple_boundary.f_of_x ri.curve_eq {0..1} x \<noteq> simple_boundary.f_of_x le.curve_eq {0..1} x"    
+  proof (rule ccontr)
+    assume "\<not> (simple_boundary.f_of_x ri.curve_eq {0..1} x \<noteq> simple_boundary.f_of_x le.curve_eq {0..1} x)"
+    hence "simple_boundary.f_of_x ri.curve_eq {0..1} x = simple_boundary.f_of_x le.curve_eq {0..1} x"
+      by auto
+    then obtain y where ri_f: "simple_boundary.f_of_x ri.curve_eq {0..1} x = y" and
+                        le_f: "simple_boundary.f_of_x le.curve_eq {0..1} x = y"
+      using \<open>simple_boundary.f_of_x ri.curve_eq {0..1} x = simple_boundary.f_of_x le.curve_eq {0..1} x\<close> 
+      by blast
+    then obtain t1 and t2 where "t1 \<in> {0..1} \<and> ri.curve_eq t1 = (x,y)" and 
+                                "t2 \<in> {0..1} \<and> le.curve_eq t2 = (x,y)"
+      using ri.lsc_f_of_x_curve_eq[OF ri ri_f] le.lsc_f_of_x_curve_eq[OF le le_f] by auto
+    with non_intersecting show "False" by force        
+  qed    
+qed  
+    
+interpretation sr2: simple_road2 "le.curve_eq" "ri.curve_eq" "{0..1}"
+proof 
   show "{0::real..1} \<noteq> {}" by auto
 next
   have "curve.curve_eq_x le.curve_eq 0 < curve.curve_eq_x le.curve_eq 1 "
@@ -1309,7 +1579,9 @@ next
     hence "ri.curve_eq differentiable at 0 within {0..}"  by (auto intro:differentiableI_vector)
     hence "ri.curve_eq differentiable at_right 0" by(auto intro:differentiable_subset)
     hence "ri.curve_eq differentiable at_right (Inf {0::real..1})" by auto }
-  ultimately show "ri.curve_eq differentiable at_right (Inf {0::real..1})" by auto  
+  ultimately show "ri.curve_eq differentiable at_right (Inf {0::real..1})" by auto 
+next
+  
 qed  
 end
     
