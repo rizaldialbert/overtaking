@@ -1284,8 +1284,108 @@ next
     thus "polygon (a # xs)" using \<open>polychain (a # xs)\<close> unfolding polygon_def using \<open>a # xs \<noteq> []\<close>
       by auto
   qed    
-qed    
+qed
   
+(* Auxiliary functions for point-in-drivable-area test *)  
+         
+fun find_segment :: "(real2 \<times> real2) list \<Rightarrow> real \<Rightarrow> (real2 \<times> real2) option" where
+  "find_segment [] x       = None" | 
+  "find_segment (c # cs) x = (if fst (fst c) \<le> x \<and> x \<le> fst (snd c) then Some c 
+                              else find_segment cs x)" 
+
+theorem find_segment_correctness:
+  assumes "cs \<noteq> []"
+  assumes "monotone_polychain cs"  
+  assumes "fst (fst (hd cs)) < x" and "x < fst (snd (last cs))"
+  shows "\<exists>end1 end2. find_segment cs x = Some (end1, end2) \<and> List.member cs (end1, end2) \<and> 
+                                         fst end1 \<le> x \<and> x \<le> fst end2"
+  using assms
+proof (induction cs)
+  case Nil
+  then show ?case by auto
+next
+  case (Cons a cs)
+  note case_cons = this
+  from \<open>monotone_polychain (a # cs)\<close> have "monotone_polychain cs" using monotone_polychain_ConsD
+    by auto      
+  obtain a' cs' where "cs = [] \<or> cs = a' # cs'"  using list.exhaust_sel by blast
+  moreover
+  { assume "cs = []"
+    with case_cons have "find_segment (a # cs) x = Some (fst a, snd a) \<and> List.member (a # cs) a \<and> 
+                                    fst (fst a) \<le> x \<and> x \<le> fst (snd a)"
+      by (auto simp add: List.member_rec)
+    hence "\<exists>end1 end2. find_segment (a # cs) x = Some (end1, end2) \<and> List.member (a # cs) (end1, end2) \<and> 
+                                fst end1 \<le> x \<and> x \<le> fst end2"
+      by (metis prod.collapse) }
+  
+  moreover
+  { assume "cs = a' # cs'"
+    consider "fst (fst a) \<le> x \<and> x \<le> fst (snd a)" | "\<not> (fst (fst a) \<le> x \<and> x \<le> fst (snd a))" by auto
+    hence "\<exists>end1 end2. find_segment (a # cs) x = Some (end1, end2) \<and> List.member (a # cs) (end1, end2) \<and> 
+                                fst end1 \<le> x \<and> x \<le> fst end2"
+    proof (cases)
+      case 1
+      then show ?thesis by (metis find_segment.simps(2) member_rec(1) prod.collapse)
+    next
+      case 2
+      hence "x < (fst (fst a)) \<or> fst (snd a) < x" by auto
+      with case_cons(4) have "fst (snd a) < x" by auto
+      from \<open>monotone_polychain (a # cs)\<close> \<open>cs = a' # cs'\<close>  have "snd a = fst a'"
+        unfolding monotone_polychain_def polychain_def by auto
+      with \<open>fst (snd a) < x\<close> and \<open>cs = a' # cs'\<close> have 0: "fst (fst (hd cs)) < x" by auto
+      from case_cons(5) and \<open>cs = a' # cs'\<close> have 1: "x < fst (snd (last cs))" by auto
+      with case_cons(1)[OF _ \<open>monotone_polychain cs\<close> 0 1] and \<open>cs = a' # cs'\<close> show ?thesis 
+        using 2 by (metis calculation(2) find_segment.simps(2) member_rec(1))
+    qed }      
+  ultimately show ?case by auto 
+qed    
+      
+fun above_and_inside_polychains :: "(real2 \<times> real2) list \<Rightarrow> real2 \<Rightarrow> bool" where
+  "above_and_inside_polychains [] p = False" | 
+  "above_and_inside_polychains cs p = 
+                           (if fst p \<le> fst (fst (hd cs)) \<or> fst p \<ge> fst (snd (last (cs))) then False 
+                            else (case find_segment cs (fst p) of 
+                                                            Some (end1, end2) \<Rightarrow> ccw' p end1 end2))"
+  
+theorem above_inside_poly_correctness1:
+  assumes "above_and_inside_polychains cs p"
+  shows "fst p \<in> {fst (fst (hd cs)) <..< fst (snd (last cs))}"    
+proof -
+  from assms have "cs \<noteq> []" by auto  
+  with assms have "\<not> (fst p \<le> fst (fst (hd cs)) \<or> fst p \<ge> fst (snd (last (cs))))"
+    using above_and_inside_polychains.elims(2) by fastforce
+  thus ?thesis by auto    
+qed
+  
+term "linepath"  
+
+theorem 
+  assumes "ccw' p end1 end2"
+  assumes "fst end1 \<le> fst p" and "fst p \<le> fst end2"
+  shows "line_equation end1 end2 (fst p) < snd p"  
+  
+theorem above_inside_poly_correctness2:
+  assumes "monotone_polychain cs"
+  assumes "above_and_inside_polychains cs p"
+  shows "\<exists>chain. List.member cs chain \<and> fst (fst chain) \<le> fst p \<and> fst p \<le> fst (snd chain)"    
+  using assms  
+proof (induction cs)
+  case Nil
+  hence "False" by auto  
+  then show ?case by auto
+next
+  case (Cons a cs)
+  note case_cons = this
+  hence "fst (fst (hd (a # cs))) <  fst p \<and> fst p < fst (snd (last (a # cs)))"
+    using above_inside_poly_correctness1[OF case_cons(3)] by auto       
+  then show ?case using find_segment_correctness[of "a # cs" "fst p", OF _ case_cons(2)]
+    by auto
+qed
+
+
+    
+(* TODO: prove correctness of this function *)  
+    
 locale lanelet = le: lanelet_simple_boundary points_le + ri: lanelet_simple_boundary points_ri
   for points_le and points_ri +
   assumes non_intersecting: "\<forall>t1 \<in> {0..1}. \<forall>t2 \<in> {0..1}. le.curve_eq t1 \<noteq> ri.curve_eq t2"
@@ -1359,7 +1459,7 @@ proof -
         same_final_x_alt_def same_init_x_alt_def) 
   with le.curve_setX_interval show ?thesis by auto
 qed
-    
+        
 text "Reversing the direction of the left polychain"  
   
 definition reverse_le where
@@ -1581,8 +1681,45 @@ next
     hence "ri.curve_eq differentiable at_right (Inf {0::real..1})" by auto }
   ultimately show "ri.curve_eq differentiable at_right (Inf {0::real..1})" by auto 
 next
-  
+  show " le.curve_eq differentiable at_right (Inf {0..1})" sorry
 qed  
+  
+subsubsection "Point in drivable area test"
+
+thm find_segment.simps
+thm above_and_inside_polychains.simps  
+thm sr.common_setX_def
+  
+definition point_in_drivable_area :: "real2 \<Rightarrow> bool" where
+  "point_in_drivable_area p \<equiv>   above_and_inside_polychains points_ri p \<and> 
+                              \<not> above_and_inside_polychains points_le p"
+
+theorem 
+  assumes "point_in_drivable_area (x,y)"
+  shows "(x,y) \<in> sr.drivable_area"
+proof (rule sr.drivable_areaI)
+  have "sr.common_setX = sr.ri.setX" using equal_curve_setX sr.common_setX_def by auto   
+  have "fst ri.first_point < fst ri.last_point"
+    by (metis hd_Cons_tl monotone_polychain_fst_last ri.monotone ri.nonempty_points 
+        same_final_x_alt_def same_init_x_alt_def)             
+  with \<open>sr.common_setX = sr.ri.setX\<close> have  sr_eq: "sr.open_common_setX = {fst ri.first_point <..< fst ri.last_point}"
+    unfolding sr.lb_x_def sr.ub_x_def ri.curve_setX_interval 
+    using Inf_atLeastAtMost Sup_atLeastAtMost atLeastAtMost_diff_ends by auto
+  with above_inside_poly_correctness1 and assms have "x \<in> {fst ri.first_point <..< fst ri.last_point}"
+    unfolding point_in_drivable_area_def by auto
+  with sr_eq show "x \<in> sr.open_common_setX" by auto        
+next
+  thm sr.between_setY_def
+  thm sr.ri.f_of_x_def  
+  thm sr.ri.curve_eq_y_def
+  thm sr.ri.inv_curve_x_def
+  thm ri.curve_eq_def  
+    
+    
+qed  
+
+  
+  
 end
     
 subsection "Lane : composition of lanelets"

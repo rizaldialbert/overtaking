@@ -648,25 +648,25 @@ locale simple_road =  le: simple_boundary curve_left domain +  ri: simple_bounda
   assumes above': "x \<in> le.setX \<inter> ri.setX \<Longrightarrow> ri.f_of_x x \<noteq> le.f_of_x x"
 begin
     
-abbreviation common_setX where
+definition common_setX where
   "common_setX \<equiv> le.setX \<inter> ri.setX"  
-  
+      
 lemma inverse_image_common_left: 
   "le.inv_curve_x ` common_setX \<subseteq> domain"
-  using le.image_inverse  by (simp add: subset_eq)  
+  using le.image_inverse  by (simp add: subset_eq common_setX_def)  
 
 lemma inverse_image_common_right:
   "ri.inv_curve_x ` common_setX \<subseteq> domain"
-  using ri.image_inverse by (simp add:subset_eq)
+  using ri.image_inverse by (simp add:subset_eq common_setX_def)
     
 definition between_setY where
   "between_setY x \<equiv> {min (ri.f_of_x x) (le.f_of_x x) <..< max (ri.f_of_x x) (le.f_of_x x)}"
   
 lemma convex_common_setX: "convex (common_setX)"
-  using le.convex_setX  ri.convex_setX convex_Int by auto
+  using le.convex_setX  ri.convex_setX convex_Int common_setX_def by auto
 
 lemma compact_common_setX: "compact (common_setX)"
-  using le.compact_setX ri.compact_setX le.closed_setX compact_Int
+  using le.compact_setX ri.compact_setX le.closed_setX compact_Int common_setX_def
   by auto
     
 theorem common_setX_interval: 
@@ -690,22 +690,55 @@ definition lb_x where
 lemma common_contains_lb: 
   "lb_x \<in> common_setX"
   using compact_common_setX bdd_below_common  closed_contains_Inf nonempty
-  unfolding lb_x_def compact_eq_bounded_closed
+  unfolding lb_x_def compact_eq_bounded_closed common_setX_def
   by meson  
-        
+            
 definition ub_x where
   "ub_x \<equiv> Sup common_setX"
   
 lemma common_contains_ub: 
   "ub_x \<in> common_setX"  
   using compact_common_setX bdd_above_common closed_contains_Sup nonempty
-  unfolding ub_x_def compact_eq_bounded_closed
+  unfolding ub_x_def compact_eq_bounded_closed common_setX_def
   by meson  
         
 theorem common_setX_interval2:
   "common_setX = {lb_x .. ub_x}"
-  using common_setX_interval lb_x_def nonempty ub_x_def by force
+  unfolding common_setX_def
+  using common_setX_interval lb_x_def nonempty ub_x_def 
+  by (metis atLeastatMost_empty' cInf_atLeastAtMost cSup_atLeastAtMost common_setX_def)
+    
+lemma lb_x_leq_ub_x:
+  "lb_x \<le> ub_x"
+  unfolding lb_x_def ub_x_def using common_setX_def bdd_below_common bdd_above_common
+  by (auto intro!: cInf_le_cSup simp add: common_setX_def nonempty)
+          
+lemma common_setX_closed_segment:
+  "common_setX = closed_segment lb_x ub_x"
+  using lb_x_leq_ub_x common_setX_interval2 closed_segment_real by auto
 
+abbreviation open_common_setX where
+  "open_common_setX \<equiv> common_setX - {lb_x, ub_x}"
+    
+lemma open_common_setX_open_segment:
+  "open_common_setX = open_segment lb_x ub_x"
+  unfolding open_segment_def using common_setX_closed_segment by auto
+      
+lemma lb_x_extreme_point:
+  "lb_x extreme_point_of common_setX" 
+  unfolding common_setX_closed_segment
+  using extreme_point_of_segment by auto
+
+lemma ub_x_extreme_point:
+  "ub_x extreme_point_of common_setX"
+  unfolding common_setX_closed_segment
+  using extreme_point_of_segment by auto
+        
+lemma convex_open_common_setX: "convex (open_common_setX)"
+  using lb_x_extreme_point ub_x_extreme_point extreme_point_of_stillconvex convex_common_setX
+  common_contains_ub common_contains_lb 
+  by (simp add: open_common_setX_open_segment)
+    
 definition direction_right :: bool where
   "direction_right \<equiv> ri.f_of_x lb_x < le.f_of_x lb_x"  
   
@@ -714,7 +747,7 @@ definition direction_left :: bool where
   
 theorem direction_right_neq_left[simp]:
   "\<not> direction_left \<longleftrightarrow> direction_right"
-  unfolding direction_right_def direction_left_def using above' common_contains_lb
+  unfolding direction_right_def direction_left_def using above' common_contains_lb common_setX_def
   by fastforce
     
 lemma direction_right_cond:
@@ -728,7 +761,7 @@ proof (rule ccontr)
   from assms have 0: "f lb_x \<le> 0" unfolding f_def direction_right_def by auto
   from \<open>le.f_of_x x \<le> ri.f_of_x x\<close> have 1: "f x \<ge> 0" unfolding f_def by auto
   from le.cont_f_of_x and ri.cont_f_of_x have "continuous_on common_setX le.f_of_x" and 
-    "continuous_on common_setX ri.f_of_x" by (auto intro:continuous_on_subset)    
+    "continuous_on common_setX ri.f_of_x" by (auto intro:continuous_on_subset simp add:common_setX_def)    
   hence cont: "continuous_on common_setX f" unfolding f_def by (auto intro:continuous_on_diff)
   from \<open>lb_x \<le> x\<close> and \<open>x \<le> ub_x\<close> have "{lb_x .. x} \<subseteq> common_setX" using common_setX_interval2
     by auto
@@ -736,7 +769,7 @@ proof (rule ccontr)
   from IVT'[where f="f" and a="lb_x" and y="0" and b="x", OF 0 1 \<open>lb_x \<le> x\<close> 2] obtain x' where
     "lb_x \<le> x'" and "x' \<le> x" and "f x' = 0" by blast   
   hence "x' \<in> common_setX" using \<open>x \<le> ub_x\<close> and common_setX_interval2 by auto
-  with \<open>f x' = 0\<close> and above'[OF this] show "False" unfolding f_def by auto    
+  with \<open>f x' = 0\<close> and above' show "False" unfolding f_def common_setX_def by auto    
 qed
   
 lemma direction_left_cond:
@@ -750,7 +783,7 @@ proof (rule ccontr)
   from assms have 0: "f lb_x \<le> 0" unfolding f_def direction_left_def by auto
   from \<open>le.f_of_x x \<ge> ri.f_of_x x\<close> have 1: "f x \<ge> 0" unfolding f_def by auto
   from le.cont_f_of_x and ri.cont_f_of_x have "continuous_on common_setX le.f_of_x" and 
-    "continuous_on common_setX ri.f_of_x" by (auto intro:continuous_on_subset)    
+    "continuous_on common_setX ri.f_of_x" by (auto intro:continuous_on_subset simp add:common_setX_def)    
   hence cont: "continuous_on common_setX f" unfolding f_def by (auto intro:continuous_on_diff)
   from \<open>lb_x \<le> x\<close> and \<open>x \<le> ub_x\<close> have "{lb_x .. x} \<subseteq> common_setX" using common_setX_interval2
     by auto
@@ -758,7 +791,7 @@ proof (rule ccontr)
   from IVT'[where f="f" and a="lb_x" and y="0" and b="x", OF 0 1 \<open>lb_x \<le> x\<close> 2] obtain x' where
     "lb_x \<le> x'" and "x' \<le> x" and "f x' = 0" by blast   
   hence "x' \<in> common_setX" using \<open>x \<le> ub_x\<close> and common_setX_interval2 by auto
-  with \<open>f x' = 0\<close> and above'[OF this] show "False" unfolding f_def by auto    
+  with \<open>f x' = 0\<close> and above' show "False" unfolding f_def using common_setX_def by fastforce    
 qed
 
 theorem between_setY_right_def:
@@ -771,7 +804,7 @@ theorem between_setY_left_def:
   assumes "direction_left"
   assumes "x \<in> common_setX"
   shows "between_setY x = {le.f_of_x x <..< ri.f_of_x x}"
-  using assms unfolding between_setY_def using direction_left_cond above'[OF assms(2)]   by force
+  using assms unfolding between_setY_def using direction_left_cond above' by force
         
 lemma between_setY_nonempty: "x \<in> common_setX \<Longrightarrow> between_setY x \<noteq> {}"
 proof (cases direction_right)
@@ -794,12 +827,15 @@ next
   thus "between_setY x \<noteq> {}" using ex_in_conv 
     unfolding between_setY_left_def[OF \<open>direction_left\<close> \<open>x \<in> common_setX\<close>] by auto    
 qed  
-    
+  
+lemma between_setY_nonempty': "x \<in> open_common_setX \<Longrightarrow> between_setY x \<noteq> {}"
+  using between_setY_nonempty by auto
+        
 definition drivable_area :: "real2 set" where
-  "drivable_area \<equiv> {(x,y). x \<in> common_setX \<and> y \<in> between_setY x}"  
+  "drivable_area \<equiv> {(x,y). x \<in> open_common_setX \<and> y \<in> between_setY x}"  
   
 lemma drivable_areaI:
-  assumes "x \<in> common_setX"
+  assumes "x \<in> open_common_setX"
   assumes "y \<in> between_setY x"
   shows "(x,y) \<in> drivable_area"
 using assms unfolding drivable_area_def by auto
@@ -807,38 +843,41 @@ using assms unfolding drivable_area_def by auto
 lemma drivable_areaD1: "z \<in> drivable_area \<Longrightarrow> fst z \<in> common_setX"
   by (auto simp add:drivable_area_def)
     
+lemma drivable_areaD1' : "z \<in> drivable_area \<Longrightarrow> fst z \<in> open_common_setX"
+  by (auto simp add:drivable_area_def)
+    
 lemma drivable_areaD2: "z \<in> drivable_area \<Longrightarrow> snd z \<in> between_setY (fst z)"
   by (auto simp add:drivable_area_def)
        
 lemma drivable_area_alt_def: 
-  "drivable_area = Sigma common_setX between_setY"
+  "drivable_area = Sigma open_common_setX between_setY"
 proof (unfold set_eq_subset, rule conjI, rule_tac [!] subsetI)  
   fix x
   assume "x \<in> drivable_area"
-  hence 0: "fst x \<in> common_setX \<and> snd x \<in> between_setY (fst x)"
+  hence 0: "fst x \<in> open_common_setX \<and> snd x \<in> between_setY (fst x)"
     unfolding drivable_area_def by auto
-  have "(fst x, snd x) \<in> Sigma common_setX between_setY"    
+  have "(fst x, snd x) \<in> Sigma open_common_setX between_setY"    
     apply (rule SigmaI)  using 0 by auto
-  thus "x \<in> Sigma common_setX between_setY"
-    using surjective_pairing by auto
+  thus "x \<in> Sigma open_common_setX between_setY"
+    using surjective_pairing by auto 
 next
   fix x
-  assume 1: "x \<in> Sigma common_setX between_setY"
+  assume 1: "x \<in> Sigma open_common_setX between_setY"
   show "x \<in> drivable_area"
-  proof (rule SigmaE2[of "fst x" "snd x" "common_setX" "between_setY"])    
-    from 1 show "(fst x, snd x) \<in> Sigma common_setX between_setY"
+  proof (rule SigmaE2[of "fst x" "snd x" "open_common_setX" "between_setY"])    
+    from 1 show "(fst x, snd x) \<in> Sigma open_common_setX between_setY"
       using surjective_pairing by auto
   next
-    assume "fst x \<in> common_setX" and "snd x \<in> between_setY (fst x)"
+    assume "fst x \<in> open_common_setX" and "snd x \<in> between_setY (fst x)"
     thus "x \<in> drivable_area" unfolding drivable_area_def by auto
   qed
 qed  
     
-theorem drivable_area_nonempty: "common_setX \<noteq> {} \<Longrightarrow> drivable_area \<noteq> {}"  
-  unfolding drivable_area_alt_def
-  using Sigma_empty_iff between_setY_nonempty
-  by (smt disjoint_iff_not_equal inf_left_idem)
-
+theorem drivable_area_nonempty: "open_common_setX \<noteq> {} \<Longrightarrow> drivable_area \<noteq> {}"  
+  unfolding drivable_area_alt_def common_setX_def
+  using Sigma_empty_iff between_setY_nonempty' common_setX_def
+  by fastforce
+      
 lemma fst_path_image:
   assumes "fst z1 = fst z2"
   defines "g \<equiv> linepath z1 z2"
@@ -904,10 +943,10 @@ next
 qed
     
 definition midcurve_points :: "real2 set" where
-  "midcurve_points \<equiv> {(x,y) . x \<in> common_setX \<and> y = (le.f_of_x x + ri.f_of_x x) / 2}"
+  "midcurve_points \<equiv> {(x,y) . x \<in> open_common_setX \<and> y = (le.f_of_x x + ri.f_of_x x) / 2}"
   
 lemma midcurve_pointsI:
-  assumes "x \<in> common_setX"
+  assumes "x \<in> open_common_setX"
   assumes "y =(le.f_of_x x + ri.f_of_x x) * inverse 2 "
   shows "(x, y) \<in> midcurve_points"
   unfolding midcurve_points_def using assms by auto    
@@ -918,12 +957,12 @@ proof (rule subsetI, rename_tac "z")
   fix z :: real2
   assume 0: "z \<in> midcurve_points"
   from this obtain x y where 1: "z = (x,y)" by fastforce
-  with 0 have 2: "x \<in> common_setX \<and> y = (le.f_of_x x + ri.f_of_x x) / 2" 
+  with 0 have 2: "x \<in> open_common_setX \<and> y = (le.f_of_x x + ri.f_of_x x) / 2" 
     unfolding midcurve_points_def by auto
   hence "y \<in> between_setY x"
     using simple_road.between_setY_nonempty simple_road_axioms  between_setY_left_def 
     between_setY_right_def direction_right_neq_left by fastforce
-  with 2 have "z \<in> Sigma common_setX between_setY" using 1 by auto
+  with 2 have "z \<in> Sigma open_common_setX between_setY" using 1 by auto
   thus "z \<in> drivable_area" using drivable_area_alt_def by auto      
 qed
 
@@ -931,14 +970,15 @@ definition midcurve_fun :: "real \<Rightarrow> real" where
   "midcurve_fun x = (le.f_of_x x + ri.f_of_x x) * inverse 2"  
   
 lemma midcurve_fun_midcurve_points:
-  "x \<in> common_setX \<Longrightarrow> (x, midcurve_fun x) \<in> midcurve_points"
+  "x \<in> open_common_setX \<Longrightarrow> (x, midcurve_fun x) \<in> midcurve_points"
   using mem_Collect_eq midcurve_fun_def midcurve_points_def by auto
 
 lemma midcurve_fun_inside_drivable_area:
-  "x \<in> common_setX \<Longrightarrow> (x, midcurve_fun x) \<in> drivable_area"
+  "x \<in> open_common_setX \<Longrightarrow> (x, midcurve_fun x) \<in> drivable_area"
   using midcurve_fun_midcurve_points midcurve_points_inside_drivable_area
   by auto
           
+\<comment> \<open>Use @{term "linepath"} instead.\<close>    
 definition rep_mid :: "real \<Rightarrow> real \<Rightarrow> real \<Rightarrow> real" where
   "rep_mid start end \<equiv> (\<lambda>s. start + (end - start) * s)"
         
@@ -973,12 +1013,12 @@ proof (rule continuous_on_mult_right, rule continuous_on_add)
   from convex_common_setX have "{start .. end} \<subseteq> common_setX"
     by (metis assms atLeastAtMost_iff atLeastatMost_subset_iff common_setX_interval)
   thus "continuous_on {start .. end} le.f_of_x"
-    using le.cont_f_of_x assms continuous_on_subset by auto
+    using le.cont_f_of_x assms continuous_on_subset common_setX_def by auto
 next
   from convex_common_setX have "{start .. end} \<subseteq> common_setX"
     by (metis assms atLeastAtMost_iff atLeastatMost_subset_iff common_setX_interval)
   thus "continuous_on {start .. end} ri.f_of_x"
-    using ri.cont_f_of_x assms continuous_on_subset by auto
+    using ri.cont_f_of_x assms continuous_on_subset common_setX_def by auto
 qed  
 
 lemma path_mid_path:
@@ -1022,40 +1062,40 @@ lemma pathfinish_mid_path:
 
 lemma rep_mid_in_common_setX:
   assumes "s \<in> {0 .. 1}"
-  assumes "start \<in> common_setX" and "end \<in> common_setX"      
-  shows "rep_mid start end s \<in> common_setX"
+  assumes "start \<in> open_common_setX" and "end \<in> open_common_setX"      
+  shows "rep_mid start end s \<in> open_common_setX"    
 proof (cases "start \<le> end")
   case True
   hence "rep_mid start end ` {0 .. 1} = {start .. end}"
     using image_rep_mid[OF True] by auto
-  also have "... \<subseteq> common_setX" using convex_common_setX assms(2 - 3) 
-    by (metis atLeastAtMost_iff atLeastatMost_subset_iff common_setX_interval)
-  finally show "rep_mid start end s \<in> common_setX" using assms by auto    
+  also have "... \<subseteq> open_common_setX" using convex_open_common_setX assms(2 - 3)   
+  by (metis True closed_segment_eq_real_ivl convex_contains_segment)      
+  finally show "rep_mid start end s \<in> open_common_setX" using assms(1) by blast      
 next
   case False
   hence False2: "end \<le> start" by auto
   hence "rep_mid start end ` {0 .. 1} = {end .. start}" 
     using image_rep_mid2[OF False2] by auto
-  also have "... \<subseteq> common_setX" using convex_common_setX assms(2 - 3)
-    by (metis atLeastAtMost_iff atLeastatMost_subset_iff common_setX_interval)
-  finally show "rep_mid start end s \<in> common_setX" using assms by auto      
+  also have "... \<subseteq> open_common_setX" using convex_open_common_setX assms(2 - 3)
+    by (metis False closed_segment_eq_real_ivl convex_contains_segment)      
+  finally show "rep_mid start end s \<in> open_common_setX" using assms(1) by blast     
 qed
   
 lemma mid_path_in_midcurve_points:
   assumes "s \<in> {0 .. 1}"
-  assumes "start \<in> common_setX" and "end \<in> common_setX"  
+  assumes "start \<in> open_common_setX" and "end \<in> open_common_setX"  
   shows "mid_path start end s \<in> midcurve_points"
-  unfolding mid_path_def midcurve_fun_def using rep_mid_in_common_setX[OF assms]
-  by (rule midcurve_pointsI) (auto)
-    
+  unfolding mid_path_def midcurve_fun_def using rep_mid_in_common_setX assms    
+  by (auto intro: midcurve_pointsI) 
+     
 lemma mid_path_in_midcurve_points2:
-  assumes "x1 \<in> common_setX" and "x2 \<in> common_setX"
+  assumes "x1 \<in> open_common_setX" and "x2 \<in> open_common_setX"
   shows "mid_path x1 x2 ` {0 .. 1} \<subseteq> midcurve_points"
   using assms mid_path_in_midcurve_points
   unfolding mid_path_def by auto
     
 lemma path_image_mid_path:
-  assumes "x1 \<in> common_setX" and "x2 \<in> common_setX"  
+  assumes "x1 \<in> open_common_setX" and "x2 \<in> open_common_setX"  
   shows "path_image (mid_path x1 x2) \<subseteq> drivable_area"
   using assms mid_path_in_midcurve_points2 midcurve_points_inside_drivable_area 
   unfolding path_image_def by auto
@@ -1068,7 +1108,7 @@ proof (rule ballI, rule ballI, rename_tac z1 z2)
   assume z1_d:"z1 \<in> drivable_area" and z2_d:"z2 \<in> drivable_area"
   from this obtain x1 y1 x2 y2 where z1: "z1 = (x1, y1)" and z2: "z2 = (x2, y2)"    
     using drivable_area_def by auto
-  note z1z2 = z1 z1_d z2 z2_d drivable_areaD1     
+  note z1z2 = z1 z1_d z2 z2_d drivable_areaD1 drivable_areaD1'    
   show "\<exists>g. path g \<and> path_image g \<subseteq> drivable_area \<and> pathstart g = z1 \<and> pathfinish g = z2"
   proof (cases "x1 = x2")
     case True
@@ -1087,11 +1127,11 @@ proof (rule ballI, rule ballI, rename_tac z1 z2)
       from fst_path_image[of "z1" "z2"] have "fst ` (path_image g) = {x2}"
         unfolding g_def using z1 z2 True by auto
       with 0 and 1 have "x = x2"  by (metis Domain.DomainI Domain_fst singletonD)
-      with z2 have 2: "x \<in> common_setX" using drivable_areaD1[OF z2_d] by auto           
+      with z2 have 2: "x \<in> open_common_setX" using drivable_areaD1'[OF z2_d] by auto           
       moreover from snd_path_image'[of "z1" "z2"] have "y \<in> between_setY x"
         using z1_d z2_d z1 z2 True 0 1 g_def \<open>x = x2\<close> image_subset_iff by auto          
-      ultimately show "case z of (x,y) \<Rightarrow> x \<in> common_setX \<and> y \<in> between_setY x"           
-        using 1 by auto        
+      ultimately show "case z of (x,y) \<Rightarrow> x \<in> open_common_setX \<and> y \<in> between_setY x"           
+        using 1 by auto      
     qed
       
     ultimately show ?thesis using pathstart_linepath pathfinish_linepath g_def
@@ -1144,18 +1184,18 @@ proof (rule ballI, rule ballI, rename_tac z1 z2)
       from fst_path_image[of "z1" "(x1, midcurve_fun x1)"] have "fst ` (path_image g1) = {x1}"
         unfolding g1_def using z1  by auto
       with 0 and 1 have "x = x1" by (metis Domain.DomainI Domain_fst singletonD)
-      with z1 have 2: "x \<in> common_setX" using drivable_areaD1[OF z1_d] by auto           
+      with z1 have 2: "x \<in> open_common_setX" using drivable_areaD1'[OF z1_d] by auto           
       moreover from snd_path_image'[of "z1" "(x1, midcurve_fun x1)"] have "y \<in> between_setY x1"
         using z1_d z1 0 1 g1_def \<open>x = x1\<close> image_subset_iff midcurve_fun_inside_drivable_area
         calculation by auto
-      ultimately show "case z of (x,y) \<Rightarrow> x \<in> common_setX \<and> y \<in> between_setY x"           
+      ultimately show "case z of (x,y) \<Rightarrow> x \<in> open_common_setX \<and> y \<in> between_setY x"           
         using 1 \<open>x = x1\<close> by auto
     next
       fix z
       assume "z \<in> path_image g2"
       hence "z \<in> drivable_area" unfolding g2_def
         using path_image_mid_path[of "x1" "x2"] using z1z2 by auto
-      thus "case z of (x,y) \<Rightarrow> x \<in> common_setX \<and> y \<in> between_setY x"  
+      thus "case z of (x,y) \<Rightarrow> x \<in> open_common_setX \<and> y \<in> between_setY x"  
         unfolding drivable_area_alt_def by auto
     next
       fix z
@@ -1164,11 +1204,11 @@ proof (rule ballI, rule ballI, rename_tac z1 z2)
       from fst_path_image[of "z2" "(x2, midcurve_fun x2)"] have "fst ` (path_image g3) = {x2}"
         unfolding g3_def using z2 by auto
       with 0 and 1 have "x = x2" by (metis Domain.DomainI Domain_fst singletonD)
-      with z2 have 2: "x \<in> common_setX" using drivable_areaD1[OF z2_d] by auto
+      with z2 have 2: "x \<in> open_common_setX" using drivable_areaD1'[OF z2_d] by auto
       moreover from snd_path_image'[of "z2" "(x2, midcurve_fun x2)"] have "y \<in> between_setY x2"
         using z2_d z2 0 1 g3_def \<open>x = x2\<close> image_subset_iff midcurve_fun_inside_drivable_area
         by (metis (no_types, lifting) calculation fst_conv snd_conv snd_path_image')
-      ultimately show "case z of (x,y) \<Rightarrow> x \<in> common_setX \<and> y \<in> between_setY x" 
+      ultimately show "case z of (x,y) \<Rightarrow> x \<in> open_common_setX \<and> y \<in> between_setY x" 
         using 1 \<open>x=x2\<close> by auto
     qed      
     thus ?thesis using \<open>path g\<close> \<open>pathstart g = z1\<close> \<open>pathfinish g = z2\<close> by auto
