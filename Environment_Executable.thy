@@ -92,7 +92,7 @@ abbreviation points_path :: "(real \<Rightarrow> real2) list" where
   
 abbreviation curve_eq :: "real \<Rightarrow> real2" where
   "curve_eq \<equiv> curve_eq3 points_path"    
-  
+
 abbreviation first_chain :: "real2 \<times> real2" where
   "first_chain \<equiv> hd points"  
   
@@ -104,10 +104,21 @@ abbreviation last_chain :: "real2 \<times> real2" where
 
 abbreviation last_point :: "real2" where
   "last_point \<equiv> snd last_chain" 
-  
+
+theorem curve_eq0: "curve_eq 0 = first_point"
+proof -
+  have "curve_eq 0 = pathstart curve_eq" unfolding pathstart_def by auto
+  also have "\<dots> = pathstart (curve_eq3 (map (\<lambda>p. linepath (fst p) (snd p)) points))"  unfolding points_path2_def by auto
+  also have "\<dots> = pathstart (curve_eq3 (linepath (fst (hd points)) (snd (hd points)) # (map (\<lambda>p. linepath (fst p) (snd p)) (tl points))))"
+  using nonempty_points hd_Cons_tl[of points] list.map(2)[of "(\<lambda>p. linepath (fst p) (snd p))" "hd points" "tl points"] by auto
+  also have "\<dots> = pathstart (linepath (fst (hd points)) (snd (hd points)))" using pathstart_curve_eq by auto
+  also have "\<dots> =  fst (hd points)" using pathstart_linepath by auto
+  finally show ?thesis .
+qed
+
 text
   \<open>Proof that lanelet curve has a vector derivative from right at first point\<close>
-
+  
 theorem curve_eq_has_vector_derivative:
   shows "tl points = [] \<Longrightarrow> (curve_eq has_vector_derivative (snd (hd points) - fst (hd points))) (at_right (Inf {0..1}))"
     and "tl points \<noteq> [] \<Longrightarrow> (curve_eq has_vector_derivative 2 *\<^sub>R (snd (hd points) - fst (hd points))) (at_right (Inf {0..1}))"
@@ -1704,7 +1715,48 @@ next
   show "ri.curve_eq differentiable at_right (Inf {0::real..1})" using ri.curve_eq_has_vector_derivative by (auto intro:differentiableI_vector)
 next
   show "le.curve_eq differentiable at_right (Inf {0..1})" using le.curve_eq_has_vector_derivative by (auto intro:differentiableI_vector)
-qed  
+qed 
+
+lemma "snd (hd points_ri) \<in> sr2.cr_tangent_line"
+proof -
+  have "\<exists>t>0. snd (hd points_ri) = ri.curve_eq 0 + t *\<^sub>R vector_derivative ri.curve_eq (at_right (Inf {0..1}))"
+  proof (cases "tl points_ri = []")
+    case True
+    have "\<exists>t>0. snd (hd points_ri) = ri.curve_eq 0 + t *\<^sub>R ((snd (hd points_ri)) - (fst (hd points_ri)))"
+    proof -
+      have "ri.curve_eq 0 + 1 *\<^sub>R ((snd (hd points_ri)) - (fst (hd points_ri))) = snd (hd points_ri)" using ri.curve_eq0 by auto
+      moreover have "0<(1::real)" by auto
+      ultimately show ?thesis by fastforce
+    qed
+    moreover have "(SOME f'. (ri.curve_eq has_vector_derivative f') (at_right (Inf {0..1}))) = snd (hd points_ri) - fst (hd points_ri)"
+    proof -
+      have "(ri.curve_eq has_vector_derivative (snd (hd points_ri)) - (fst (hd points_ri))) (at_right (Inf {0..1}))"
+        using True ri.curve_eq_has_vector_derivative by auto
+      moreover then have "\<And>f'. (ri.curve_eq has_vector_derivative f') (at_right (Inf {0..1})) \<Longrightarrow> f' = snd (hd points_ri) - fst (hd points_ri)"
+        using vector_derivative_unique_within[of "Inf {0..1}" "{Inf {0..1} <..}"] by auto
+      ultimately show ?thesis using Hilbert_Choice.some_equality by blast
+    qed
+    ultimately show ?thesis unfolding vector_derivative_def by auto
+  next
+    case False
+    have "\<exists>t>0. snd (hd points_ri) = ri.curve_eq 0 + t *\<^sub>R 2 *\<^sub>R ((snd (hd points_ri)) - (fst (hd points_ri)))"
+    proof -
+      have "ri.curve_eq 0 + 0.5 *\<^sub>R 2 *\<^sub>R ((snd (hd points_ri)) - (fst (hd points_ri))) = snd (hd points_ri)" using ri.curve_eq0 by auto
+      moreover have "0<(0.5::real)" by auto
+      ultimately show ?thesis by fastforce
+    qed
+    moreover have "(SOME f'. (ri.curve_eq has_vector_derivative f') (at_right (Inf {0..1}))) = 2 *\<^sub>R (snd (hd points_ri) - fst (hd points_ri))"
+    proof -
+      have "(ri.curve_eq has_vector_derivative 2 *\<^sub>R (snd (hd points_ri) - fst (hd points_ri))) (at_right (Inf {0..1}))"
+        using False ri.curve_eq_has_vector_derivative by auto
+      moreover then have "\<And>f'. (ri.curve_eq has_vector_derivative f') (at_right (Inf {0..1})) \<Longrightarrow> f' = 2 *\<^sub>R (snd (hd points_ri) - fst (hd points_ri))"
+        using vector_derivative_unique_within[of "Inf {0..1}" "{Inf {0..1} <..}"] by auto
+      ultimately show ?thesis using Hilbert_Choice.some_equality by blast
+    qed
+    ultimately show ?thesis unfolding vector_derivative_def by auto
+  qed
+  then show ?thesis unfolding sr2.cr_tangent_line_def sr2.ri_tangent_at_inf_def by auto
+qed
   
 subsubsection "Point in drivable area test"
 
