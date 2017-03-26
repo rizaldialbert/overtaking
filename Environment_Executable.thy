@@ -103,10 +103,80 @@ abbreviation last_chain :: "real2 \<times> real2" where
   "last_chain \<equiv> last points"
 
 abbreviation last_point :: "real2" where
-  "last_point \<equiv> snd last_chain"  
+  "last_point \<equiv> snd last_chain" 
+  
+text
+  \<open>Proof that lanelet curve has a vector derivative from right at first point\<close>
+
+theorem curve_eq_has_vector_derivative:
+  shows "tl points = [] \<Longrightarrow> (curve_eq has_vector_derivative (snd (hd points) - fst (hd points))) (at_right (Inf {0..1}))"
+    and "tl points \<noteq> [] \<Longrightarrow> (curve_eq has_vector_derivative 2 *\<^sub>R (snd (hd points) - fst (hd points))) (at_right (Inf {0..1}))"
+proof -
+  assume *: "tl points = []"
+  have "(curve_eq has_vector_derivative (snd (hd points) - fst (hd points))) (at 0 within {0..})"
+  proof (rule has_vector_derivative_transform_within[where f="linepath (fst (hd points)) (snd (hd points))"])
+    show "(linepath (fst (hd points)) (snd (hd points)) has_vector_derivative (snd (hd points) - fst (hd points))) (at 0 within {0..})"
+      using has_vector_derivative_linepath_within by auto
+  next
+    show "0 < (0.5::real)" by auto
+  next
+    show "(0::real) \<in> {0..}" by auto
+  next
+    fix x'
+    assume "x' \<in> {0::real..}"
+    assume "dist x' 0 < (0.5::real)"
+    hence "x' \<in> {0..0.5}"  using \<open>x' \<in> {0..}\<close> by auto
+    show "(linepath (fst (hd points)) (snd (hd points))) x' = curve_eq x'"
+    proof -
+      have "curve_eq = curve_eq3 (points_path2 (hd points # tl points))" using nonempty_points by auto
+      also have "\<dots> = curve_eq3 (points_path2 ([hd points]))" using * by auto
+      also have "\<dots> = linepath (fst (hd points)) (snd (hd points))"
+        unfolding points_path2_def using curve_eq3.simps by auto
+      finally show "(linepath (fst (hd points)) (snd (hd points))) x' = curve_eq x'" by auto
+    qed
+  qed
+  moreover have "{0::real <..} \<subseteq> {0::real..}" by auto 
+  ultimately show "(curve_eq has_vector_derivative (snd (hd points) - fst (hd points))) (at_right (Inf {0..1}))"
+    unfolding has_vector_derivative_def using has_derivative_subset by auto
+next
+  assume *: "tl points \<noteq> []"
+  have "(curve_eq has_vector_derivative 2 *\<^sub>R (snd (hd points) - fst (hd points))) (at 0 within {0..})"
+  proof (rule has_vector_derivative_transform_within[where f="linepath (fst (hd points)) (snd (hd points)) \<circ> (\<lambda>x. 2 * x)"])
+    show "(linepath (fst (hd points)) (snd (hd points)) \<circ> op * 2 has_vector_derivative 2 *\<^sub>R (snd (hd points) - fst (hd points))) (at 0 within {0..})"
+    proof (intro vector_diff_chain_within)
+      show "(op * 2 has_vector_derivative 2) (at 0 within {0..})" by (auto intro:derivative_eq_intros)
+    next
+      show "(linepath (fst (hd points)) (snd (hd points)) has_vector_derivative snd (hd points) - fst (hd points)) (at (2 * 0) within op * 2 ` {0..})"
+        using has_vector_derivative_linepath_within by auto
+    qed
+  next
+    show "0 < (0.5::real)" by auto
+  next
+    show "(0::real) \<in> {0..}" by auto
+  next
+    fix x'
+    assume "x' \<in> {0::real..}"
+    assume "dist x' 0 < (0.5::real)"
+    hence "x' \<in> {0..0.5}"  using \<open>x' \<in> {0..}\<close> by auto
+    show "(linepath (fst (hd points)) (snd (hd points)) \<circ> op * 2) x' = curve_eq x'" unfolding comp_def
+    proof -
+      have "curve_eq = curve_eq3 (points_path2 (hd points # tl points))" using nonempty_points by auto
+      also have "... = linepath (fst (hd points)) (snd (hd points)) +++ curve_eq3 (points_path2 (tl points))"
+        using * by (metis (no_types, lifting) curve_eq3.simps(2) list.exhaust_sel list.simps(9) points_path2_def)
+      finally have "curve_eq = linepath (fst (hd points)) (snd (hd points)) +++ curve_eq3 (points_path2 (tl points))"
+        by auto
+      with \<open>x' \<in> {0..0.5}\<close> have "curve_eq x' = linepath (fst (hd points)) (snd (hd points)) (2 * x')"
+        unfolding joinpaths_def by auto
+      thus "linepath (fst (hd points)) (snd (hd points)) (2 * x') = curve_eq x'" by auto
+    qed
+  qed
+  moreover have "{0::real <..} \<subseteq> {0::real..}" by auto 
+  ultimately show "(curve_eq has_vector_derivative 2 *\<^sub>R (snd (hd points) - fst (hd points))) (at_right (Inf {0..1}))"
+    unfolding has_vector_derivative_def using has_derivative_subset by auto
+qed
     
 text 
-  \<open>Proof that lanelent curve is a refinement of a curve. The proof is obtained via sublocale proof.\<close>       
+  \<open>Proof that lanelet curve is a refinement of a curve. The proof is obtained via sublocale proof.\<close>       
   
 interpretation lc: curve "curve_eq" "{0..1}" 
 proof (unfold_locales)
@@ -1541,7 +1611,7 @@ theorem
         
 definition dir_right :: "bool" where
   "dir_right \<equiv> (case vertex_chain of (pre, x, post) \<Rightarrow> ccw' pre x post)"      
-  
+
 interpretation sr: simple_road "le.curve_eq" "ri.curve_eq" "{0..1}"
 proof
   show "convex {0::real..1}"   by auto
@@ -1609,8 +1679,8 @@ next
       using ri.lsc_f_of_x_curve_eq[OF ri ri_f] le.lsc_f_of_x_curve_eq[OF le le_f] by auto
     with non_intersecting show "False" by force        
   qed    
-qed  
-    
+qed
+
 interpretation sr2: simple_road2 "le.curve_eq" "ri.curve_eq" "{0..1}"
 proof 
   show "{0::real..1} \<noteq> {}" by auto
@@ -1631,57 +1701,9 @@ next
 next
   from non_intersecting show "\<forall>t\<in>{0..1}. le.curve_eq t \<noteq> ri.curve_eq t" by auto
 next    
-  from ri.nonempty_points obtain a where "hd points_ri = a" by blast      
-  obtain rs where "tl points_ri = [] \<or> (tl points_ri = rs \<and> rs \<noteq> [])" by blast
-  moreover
-  { assume "tl points_ri = []"
-    hence "ri.curve_eq = linepath (fst a) (snd a)"
-      using \<open>hd points_ri = a\<close> points_path2_def curve_eq3.simps
-      by (metis (no_types, lifting) hd_Cons_tl list.simps(8) list.simps(9) ri.nonempty_points)
-    hence "ri.curve_eq differentiable at_right 0" unfolding linepath_def by auto
-    hence "ri.curve_eq differentiable at_right (Inf {0::real..1})" by auto  }    
-      
-  moreover
-  { assume *: "tl points_ri = rs \<and> rs \<noteq> []"
-    with \<open>hd points_ri = a\<close> have "points_ri = a # rs" using hd_Cons_tl
-      using ri.nonempty_points by fastforce
-    have "(ri.curve_eq has_vector_derivative 2 *\<^sub>R (snd a - fst a)) (at 0 within {0..})"
-    proof (rule has_vector_derivative_transform_within[where f="linepath (fst a) (snd a) \<circ> (\<lambda>x. 2 * x)"])      
-      show "(linepath (fst a) (snd a) \<circ> op * 2 has_vector_derivative 2 *\<^sub>R (snd a - fst a)) (at 0 within {0..})"   
-      proof (intro vector_diff_chain_within)                 
-        show "(op * 2 has_vector_derivative 2) (at 0 within {0..})" by (auto intro:derivative_eq_intros)
-      next
-        show "(linepath (fst a) (snd a) has_vector_derivative snd a - fst a) (at (2 * 0) within op * 2 ` {0..})"
-          using has_vector_derivative_linepath_within by auto
-      qed
-    next
-      show "0 < (0.5::real)" by auto
-    next        
-      show "(0::real) \<in> {0..}" by auto
-    next                           
-      fix x'
-      assume "x' \<in> {0::real..}"
-      assume "dist x' 0 < (0.5::real)"
-      hence "x' \<in> {0..0.5}"  using \<open>x' \<in> {0..}\<close> by auto
-      show "(linepath (fst a) (snd a) \<circ> op * 2) x' = ri.curve_eq x'" unfolding comp_def
-      proof -                                             
-        have "ri.curve_eq = curve_eq3 (points_path2 (a # rs))" using \<open>points_ri = a  #rs\<close>
-          by auto
-         also have "... = linepath (fst a) (snd a) +++ curve_eq3 (points_path2 rs)" using *            
-          by (metis (no_types, lifting) curve_eq3.simps(2) list.exhaust_sel list.simps(9) points_path2_def)
-        finally have "ri.curve_eq = linepath (fst a) (snd a) +++ curve_eq3 (points_path2 rs)"
-          by auto
-        with \<open>x' \<in> {0..0.5}\<close> have "ri.curve_eq x' = linepath (fst a) (snd a) (2 * x')"
-          unfolding joinpaths_def by auto
-        thus "linepath (fst a) (snd a) (2 * x') = ri.curve_eq x'" by auto            
-      qed        
-    qed      
-    hence "ri.curve_eq differentiable at 0 within {0..}"  by (auto intro:differentiableI_vector)
-    hence "ri.curve_eq differentiable at_right 0" by(auto intro:differentiable_subset)
-    hence "ri.curve_eq differentiable at_right (Inf {0::real..1})" by auto }
-  ultimately show "ri.curve_eq differentiable at_right (Inf {0::real..1})" by auto 
+  show "ri.curve_eq differentiable at_right (Inf {0::real..1})" using ri.curve_eq_has_vector_derivative by (auto intro:differentiableI_vector)
 next
-  show " le.curve_eq differentiable at_right (Inf {0..1})" sorry
+  show "le.curve_eq differentiable at_right (Inf {0..1})" using le.curve_eq_has_vector_derivative by (auto intro:differentiableI_vector)
 qed  
   
 subsubsection "Point in drivable area test"
