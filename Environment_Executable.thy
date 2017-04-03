@@ -11,8 +11,21 @@ definition points_path2 :: "(real2 \<times> real2) list \<Rightarrow> (real \<Ri
     
 fun curve_eq3 :: "(real \<Rightarrow> real2) list \<Rightarrow> real \<Rightarrow> real2" where
   "curve_eq3 [x] = x" | 
-  "curve_eq3 (x # xs) = x +++ curve_eq3 xs"
-    
+  "curve_eq3 (x # xs) = x +++ curve_eq3 xs"  
+
+theorem curve_eq_cons:
+  "ps \<noteq> [] \<Longrightarrow> curve_eq3 (points_path2 (p # ps)) = (linepath (fst p) (snd p)) +++ curve_eq3 (points_path2 ps)"
+  "ps = [] \<Longrightarrow> curve_eq3 (points_path2 (p # ps)) = linepath (fst p) (snd p)" 
+proof -
+  assume "ps \<noteq> []"
+  then have "points_path2 ps \<noteq> []" using points_path2_def by auto
+  moreover have "points_path2 (p # ps) = (linepath (fst p) (snd p)) # points_path2 ps" using points_path2_def by auto
+  ultimately show "curve_eq3 (points_path2 (p # ps)) = (linepath (fst p) (snd p)) +++ curve_eq3 (points_path2 ps)" using hd_Cons_tl by force
+next
+  assume "ps = []"
+  then show "curve_eq3 (points_path2 (p # ps)) = linepath (fst p) (snd p)" unfolding points_path2_def by auto
+qed
+  
 theorem pathstart_curve_eq:
   "pathstart (curve_eq3 (x # xs)) = pathstart x"  
   by (metis (no_types, lifting) curve_eq3.elims list.discI list.sel(1) pathstart_join)
@@ -91,8 +104,88 @@ abbreviation points_path :: "(real \<Rightarrow> real2) list" where
   "points_path \<equiv> points_path2 points"  
   
 abbreviation curve_eq :: "real \<Rightarrow> real2" where
-  "curve_eq \<equiv> curve_eq3 points_path"    
+  "curve_eq \<equiv> curve_eq3 points_path" 
+
+lemma curve_eq_imp_linepath': "points \<noteq> [] \<Longrightarrow> t \<in> {0..1} \<Longrightarrow> \<exists>i < length points. \<exists>t' \<in> {0..1}. curve_eq t = linepath (fst (points ! i)) (snd (points ! i)) t'" 
+proof (induction points arbitrary: t)
+  case (Cons p ps)
+  {
+    assume "ps = []"
+    then have "curve_eq3 (points_path2 (p # ps)) t = linepath (fst ((p # ps) ! 0)) (snd ((p # ps) ! 0)) t" using curve_eq_cons by auto
+    then have ?case using Cons by blast
+  }
+  moreover {
+    assume "ps \<noteq> []"
+    {
+      assume "t \<le> 1/2"
+      then have "curve_eq3 (points_path2 (p # ps)) t = linepath (fst ((p # ps) ! 0)) (snd ((p # ps) ! 0)) (2*t)"
+        using `ps \<noteq> []` curve_eq_cons unfolding joinpaths_def by auto
+      moreover have "2*t \<in> {0..1}" using `t \<le> 1/2` Cons by auto
+      ultimately have ?case by blast
+    }
+    moreover {
+      assume "\<not>t \<le> 1/2"
+      then have "2 * t - 1 \<in> {0..1}" using Cons by auto 
+      then obtain i t' where "i < length ps" "t' \<in> {0..1}" "curve_eq3 (points_path2 ps) (2 * t - 1) = linepath (fst (ps ! i)) (snd (ps ! i)) t'"
+        using Cons `ps \<noteq> []` by blast
+      moreover have "curve_eq3 (points_path2 (p # ps)) t = curve_eq3 (points_path2 ps) (2 * t - 1)"
+        using  `\<not>t \<le> 1/2` `ps \<noteq> []` curve_eq_cons points_path2_def unfolding joinpaths_def by auto
+      ultimately have ?case by fastforce
+    }
+    ultimately have ?case by blast
+  }
+  ultimately show ?case by blast
+qed auto
   
+lemma linepath_imp_curve_eq': "polychain points \<Longrightarrow> points \<noteq> [] \<Longrightarrow> i < length points \<Longrightarrow> t \<in> {0..1} \<Longrightarrow> \<exists>t' \<in> {0..1}. curve_eq3 (points_path2 points) t' = linepath (fst (points ! i)) (snd (points ! i)) t"
+proof (induction i arbitrary: points)
+  case 0
+  then obtain p ps where *: "points = p # ps" using nonempty_points hd_Cons_tl by metis
+  {
+    assume "ps = []"
+    then have "curve_eq3 (points_path2 points) t = linepath (fst p) (snd p) t" using * curve_eq_cons by auto
+    then have ?case using * 0 by auto
+  }
+  moreover {
+    assume "ps \<noteq> []"
+    moreover have "t/2 \<le> 1/2" using 0 by auto
+    ultimately have "curve_eq3 (points_path2 (p # ps)) (t/2) = linepath (fst p) (snd p) t" using curve_eq_cons unfolding joinpaths_def by auto
+    then have ?case using * 0 by auto
+  }
+  ultimately show ?case by auto
+next
+  case (Suc i)
+  then obtain p ps where *: "points = p # ps" using nonempty_points hd_Cons_tl by metis
+  then have "ps \<noteq> []" using Suc by auto
+      
+  have "i < length ps" using * Suc by auto
+  moreover have "polychain ps" using * polychain_Cons[of p] Suc `ps \<noteq> []` by auto
+  ultimately obtain t' where t': "t' \<in> {0..1}" "curve_eq3 (points_path2 ps) t' = linepath (fst (ps ! i)) (snd (ps ! i)) t" using Suc `ps \<noteq> []` by blast
+      
+  {
+    assume "(t'+1)/2 > 1/2"
+    then have "curve_eq3 (points_path2 points) ((t'+1)/2) = curve_eq3 (points_path2 ps) (2 * ((t' + 1) / 2) - 1)" using `ps \<noteq> []` * curve_eq_cons unfolding joinpaths_def by auto
+    also have "\<dots> = curve_eq3 (points_path2 ps) t'" by argo
+    finally have ?case using * t' by auto
+  }
+  moreover {
+    assume "\<not>(t'+1)/2 > 1/2"
+    then have "(t'+1)/2 = 1/2" using `t' \<in> {0..1}` by auto
+    then have "curve_eq3 (points_path2 points) ((t'+1)/2) = pathfinish (linepath (fst p) (snd p))" using `ps \<noteq> []` * curve_eq_cons unfolding joinpaths_def pathfinish_def by auto
+    also have "\<dots> = fst (hd ps)" using polychain_Cons[of p ps] `ps \<noteq> []` Suc * hd_conv_nth[of ps] by auto
+    also have "\<dots> = pathstart (linepath (fst (hd ps)) (snd (hd ps)))" by auto
+    also have "\<dots> = curve_eq3 (points_path2 ps) 0" unfolding joinpaths_def pathstart_def using `ps\<noteq>[]` by (metis (no_types, lifting) hd_Cons_tl list.simps(9) pathstart_curve_eq pathstart_def points_path2_def)
+    finally have ?case using * t' `(t'+1)/2 = 1/2` by auto
+  }
+  ultimately show ?case by auto
+qed
+  
+theorem curve_eq_imp_linepath: "t \<in> {0..1} \<Longrightarrow> \<exists>i < length points. \<exists>t' \<in> {0..1}. curve_eq t = linepath (fst (points ! i)) (snd (points ! i)) t'"
+  using curve_eq_imp_linepath' nonempty_points by auto
+
+theorem linepath_imp_curve_eq: "i < length points \<Longrightarrow> t \<in> {0..1} \<Longrightarrow> \<exists>t' \<in> {0..1}. curve_eq3 (points_path2 points) t' = linepath (fst (points ! i)) (snd (points ! i)) t"
+  using linepath_imp_curve_eq' nonempty_points poly_points by auto
+
 abbreviation first_chain :: "real2 \<times> real2" where
   "first_chain \<equiv> hd points"  
   
@@ -1382,10 +1475,109 @@ next
     by auto
 qed
 
+(* TODO: prove correctness of this function *)
 
+(* polygonal chain intersection *)
+
+(* intersects two line segments *)  
+fun intersect :: "(real2 \<times> real2) \<Rightarrow> (real2 \<times> real2) \<Rightarrow> real2 option" where
+  "intersect line1 line2 = undefined"
+
+abbreviation intersect' :: "(real2 \<times> real2) \<Rightarrow> (real2 \<times> real2) \<Rightarrow> real2 list" where
+  "intersect' line1 line2 \<equiv> (case intersect line1 line2 of None \<Rightarrow> []
+                                                         | Some x \<Rightarrow> [x])"
     
-(* TODO: prove correctness of this function *)  
+(* intersection is a point on both lines *)
+lemma intersect_some_imp_intersection:
+  assumes "intersect line1 line2 = Some x"
+  shows "\<exists>t \<in> {0..1}. linepath (fst line1) (snd line1) t = x"
+    and "\<exists>t \<in> {0..1}. linepath (fst line2) (snd line2) t = x"
+  sorry
+
+lemma intersection_imp_intersect_some:
+  assumes "\<exists>t \<in> {0..1}. linepath (fst line1) (snd line1) t = x"
+  assumes "\<exists>t \<in> {0..1}. linepath (fst line2) (snd line2) t = x"
+  shows "intersect line1 line2 = Some x"
+  sorry
     
+lemma intersect_none:
+  assumes "intersect line1 line2 = None"
+  shows "\<forall>t \<in> {0..1}. \<forall>t' \<in> {0..1}. linepath (fst line1) (snd line1) t \<noteq> linepath (fst line2) (snd line2) t'"
+  sorry
+
+(* intersects two lanes *)
+fun intersect_lanes' :: "(real2 \<times> real2) list \<Rightarrow> (real2 \<times> real2) list \<Rightarrow> (real2 \<times> real2) option \<Rightarrow> (real2 \<times> real2) option \<Rightarrow> real2 list" where
+  "intersect_lanes' [] [] (Some l') (Some r') = intersect' l' r'"
+| "intersect_lanes' [] _ None _ = []"
+| "intersect_lanes' [] (r # ri) (Some l') (Some r') = (intersect' l' r') @ (intersect_lanes' [] ri (Some l') (Some r))"
+| "intersect_lanes' [] (r # ri) (Some l') None = intersect_lanes' [] ri (Some l') (Some r)"  
+| "intersect_lanes' _ [] _ None = []"
+| "intersect_lanes' (l # le) [] (Some l') (Some r') = (intersect' l' r') @ (intersect_lanes' le [] (Some l) (Some r'))"
+| "intersect_lanes' (l # le) [] None (Some r') = intersect_lanes' le [] (Some l) (Some r')"
+| "intersect_lanes' (l # le) (r # ri) None None = (if fst (fst l) \<le> fst (fst r)
+    then intersect_lanes' le (r # ri) (Some l) None
+    else intersect_lanes' (l # le) ri None (Some r))"
+| "intersect_lanes' (l # le) (r # ri) None (Some r') = (if fst (fst l) \<le> fst (fst r)
+    then intersect_lanes' le (r # ri) (Some l) (Some r')
+    else intersect_lanes' (l # le) ri None (Some r))"
+| "intersect_lanes' (l # le) (r # ri) (Some l') None = (if fst (fst l) \<le> fst (fst r)
+    then intersect_lanes' le (r # ri) (Some l) None
+    else intersect_lanes' (l # le) ri (Some l') (Some r))" 
+| "intersect_lanes' (l # le) (r # ri) (Some l') (Some r') = (if fst (fst l) \<le> fst (fst r)
+    then (intersect' l' r') @ (intersect_lanes' le (r # ri) (Some l) (Some r'))
+    else (intersect' l' r') @ (intersect_lanes' (l # le) ri (Some l') (Some r)))" 
+
+fun intersect_lanes :: "(real2 \<times> real2) list \<Rightarrow> (real2 \<times> real2) list \<Rightarrow> real2 list" where
+  "intersect_lanes le ri = intersect_lanes' le ri None None"
+  
+locale generalized_lanelet = le: lanelet_simple_boundary points_le + ri: lanelet_simple_boundary points_ri
+  for points_le and points_ri
+begin
+
+lemma
+  assumes "fst (p :: real2 \<times> real2) < snd p"
+  assumes "fst q < snd q"
+  assumes "fst (fst p) > fst (snd q)"
+  assumes "t \<in> {0..1}"
+  assumes "t' \<in> {0..1}"
+  shows "linepath (fst p) (snd p) t \<noteq> linepath (fst q) (snd q) t'"
+proof -
+  have "fst (linepath (fst q) (snd q) t') = fst ((1 - t') *\<^sub>R fst q + t' *\<^sub>R snd q)" unfolding linepath_def by auto
+  also have "\<dots> \<le> fst (snd q)" sorry
+  also have "\<dots> < fst (fst p)" using assms by auto
+  also have "\<dots> \<le> fst (linepath (fst p) (snd p) t)" sorry
+  finally show "linepath (fst p) (snd p) t \<noteq> linepath (fst q) (snd q) t'" by auto
+qed
+  
+theorem non_intersecting_iff_line_segments_non_intersecting:
+  "(\<forall>t \<in> {0..1}. \<forall>t' \<in> {0..1}. le.curve_eq t \<noteq> ri.curve_eq t') \<longleftrightarrow> (\<forall>i < length points_le. \<forall>i' < length points_ri. \<forall>t \<in> {0..1}. \<forall>t' \<in> {0..1}. linepath (fst (points_le ! i)) (snd (points_le ! i)) t \<noteq> linepath (fst (points_ri ! i')) (snd (points_ri ! i')) t')"
+proof -
+  have "(\<exists>t \<in> {0..1}. \<exists>t' \<in> {0..1}. le.curve_eq t = ri.curve_eq t') \<longleftrightarrow> (\<exists>i < length points_le. \<exists>i' < length points_ri. \<exists>t \<in> {0..1}. \<exists>t' \<in> {0..1}. linepath (fst (points_le ! i)) (snd (points_le ! i)) t = linepath (fst (points_ri ! i')) (snd (points_ri ! i')) t')"
+  proof
+    assume "\<exists>t \<in> {0..1}. \<exists>t' \<in> {0..1}. le.curve_eq t = ri.curve_eq t'"
+    then obtain t t' where *: "t \<in> {0..1}" "t' \<in> {0..1}" "le.curve_eq t = ri.curve_eq t'" by auto
+    have "\<exists>i < length points_le. \<exists>t' \<in> {0..1}. le.curve_eq t = linepath (fst (points_le ! i)) (snd (points_le ! i)) t'"
+      using le.curve_eq_imp_linepath[of t] * by auto
+    moreover have "\<exists>i < length points_ri. \<exists>t'' \<in> {0..1}. ri.curve_eq t' = linepath (fst (points_ri ! i)) (snd (points_ri ! i)) t''"
+      using ri.curve_eq_imp_linepath[of t'] * by auto
+    ultimately show "\<exists>i < length points_le. \<exists>i' < length points_ri. \<exists>t \<in> {0..1}. \<exists>t' \<in> {0..1}. linepath (fst (points_le ! i)) (snd (points_le ! i)) t = linepath (fst (points_ri ! i')) (snd (points_ri ! i')) t'"
+      using * by metis
+  next
+    assume "\<exists>i < length points_le. \<exists>i' < length points_ri. \<exists>t \<in> {0..1}. \<exists>t' \<in> {0..1}. linepath (fst (points_le ! i)) (snd (points_le ! i)) t = linepath (fst (points_ri ! i')) (snd (points_ri ! i')) t'"
+    then obtain i i' t t' where *: "i < length points_le" "i' < length points_ri" "t \<in> {0..1}" "t' \<in> {0..1}" "linepath (fst (points_le ! i)) (snd (points_le ! i)) t = linepath (fst (points_ri ! i')) (snd (points_ri ! i')) t'"
+      by auto
+    have "\<exists>t' \<in> {0..1}. le.curve_eq t' = linepath (fst (points_le ! i)) (snd (points_le ! i)) t"
+      using le.linepath_imp_curve_eq[of i t] * by auto
+    moreover have "\<exists>t \<in> {0..1}. ri.curve_eq t = linepath (fst (points_ri ! i')) (snd (points_ri ! i')) t'"
+      using ri.linepath_imp_curve_eq[of i' t'] * by auto
+    ultimately show "\<exists>t \<in> {0..1}. \<exists>t' \<in> {0..1}. le.curve_eq t = ri.curve_eq t'"
+      using * by metis
+  qed
+  then show ?thesis by auto
+qed
+  
+end
+
 locale lanelet = le: lanelet_simple_boundary points_le + ri: lanelet_simple_boundary points_ri
   for points_le and points_ri +
   assumes non_intersecting: "\<forall>t1 \<in> {0..1}. \<forall>t2 \<in> {0..1}. le.curve_eq t1 \<noteq> ri.curve_eq t2"
