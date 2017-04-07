@@ -240,12 +240,12 @@ qed
 section "Trace"    
 \<comment> \<open>Represent the state of a (dynamic) road user as a record.\<close>
 
-record state = 
-  position     :: "real2"        (* position vector     *)
+datatype vehicle = Pedestrian | Cyclist | Motorised
+
+record raw_state = rectangle +
   velocity     :: "real2"        (* velocity vector     *)
   acceleration :: "real2"        (* acceleration vector *)
-  occupancy    :: "real2 set"    (* occupied space      *)
-
+    
 \<comment> \<open>predicate to check whether a number is the supremum in a dimension.\<close>  
 definition is_sup :: "(real2 \<Rightarrow> real) \<Rightarrow> real \<Rightarrow> real2 set \<Rightarrow> bool" where
   "is_sup sel r occ \<equiv> (\<forall>p \<in> occ. sel p \<le> r)"  
@@ -255,7 +255,10 @@ definition is_sup_x :: "real \<Rightarrow> real2 set \<Rightarrow> bool" where
 
 definition is_sup_y :: "real \<Rightarrow> real2 set \<Rightarrow> bool" where
   "is_sup_y \<equiv> is_sup snd"
-        
+  
+type_synonym runs = "vehicle \<times> raw_state list"    
+type_synonym black_boxes = "runs list"  
+  
 section "Environment"
 
 text "At the moment, we focus on highway (freeway) scenario first without forks and joints. There 
@@ -741,7 +744,7 @@ lemma convex_open_common_setX: "convex (open_common_setX)"
     
 definition direction_right :: bool where
   "direction_right \<equiv> ri.f_of_x lb_x < le.f_of_x lb_x"  
-  
+    
 definition direction_left :: bool where
   "direction_left \<equiv> ri.f_of_x lb_x > le.f_of_x lb_x"  
   
@@ -1425,6 +1428,12 @@ proof -
     unfolding 1 by (intro Deriv.field_differentiable_add) (auto simp add:idx' const_def) 
   thus ?thesis by auto              
 qed  
+  
+lemma line_equation_closed_segment:
+  assumes "p \<in> closed_segment p1 p2"
+  assumes "fst p1 \<noteq> fst p2"  
+  shows "line_equation p1 p2 (fst p) = snd q"
+  sorry
       
 locale simple_road2 =  le: simple_boundary curve_left domain +  ri: simple_boundary curve_right domain 
   for curve_left and curve_right and domain +
