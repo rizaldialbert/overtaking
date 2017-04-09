@@ -196,11 +196,20 @@ theorem curve_eq_imp_linepath:
    \<exists>i < length points. \<exists>t' \<in> {0..1}. curve_eq t = linepath (fst (points ! i)) (snd (points ! i)) t'"
   using curve_eq_imp_linepath' nonempty_points by auto
 
+theorem curve_eq_imp_closed_segment:
+  "t \<in> {0..1} \<Longrightarrow> 
+   \<exists>i < length points. curve_eq t \<in> closed_segment (fst (points ! i)) (snd (points ! i))"
+  using curve_eq_imp_linepath[of t] atLeastAtMost_iff unfolding linepath_def closed_segment_def by blast
+    
 theorem linepath_imp_curve_eq: 
   "i < length points \<Longrightarrow> t \<in> {0..1} \<Longrightarrow> 
   \<exists>t' \<in> {0..1}. curve_eq3 (points_path2 points) t' = linepath (fst (points ! i)) (snd (points ! i)) t"
   using linepath_imp_curve_eq' nonempty_points poly_points by auto
 
+theorem closed_segment_imp_curve_eq:
+  "i < length points \<Longrightarrow> \<exists>t \<in> {0..1}. curve_eq3 (points_path2 points) t \<in> closed_segment (fst (points ! i)) (snd (points ! i))"
+  using linepath_imp_curve_eq[of i] unfolding linepath_def closed_segment_def by fastforce
+    
 abbreviation first_chain :: "real2 \<times> real2" where
   "first_chain \<equiv> hd points"  
   
@@ -1966,107 +1975,6 @@ fun below_and_inside_polychains :: "(real2 \<times> real2) list \<Rightarrow> re
 
 (* TODO: prove correctness of this function *)
 
-(* polygonal chain intersection *)
-
-(* intersects two line segments *)  
-fun intersect :: "(real2 \<times> real2) \<Rightarrow> (real2 \<times> real2) \<Rightarrow> real2 option" where
-  "intersect line1 line2 = undefined"
-
-abbreviation intersect' :: "(real2 \<times> real2) \<Rightarrow> (real2 \<times> real2) \<Rightarrow> real2 list" where
-  "intersect' line1 line2 \<equiv> (case intersect line1 line2 of None \<Rightarrow> []
-                                                         | Some x \<Rightarrow> [x])"
-    
-(* intersection is a point on both lines *)
-lemma intersect_some_imp_intersection:
-  assumes "intersect line1 line2 = Some x"
-  shows "\<exists>t \<in> {0..1}. linepath (fst line1) (snd line1) t = x"
-    and "\<exists>t \<in> {0..1}. linepath (fst line2) (snd line2) t = x"
-  sorry
-
-lemma intersection_imp_intersect_some:
-  assumes "\<exists>t \<in> {0..1}. linepath (fst line1) (snd line1) t = x"
-  assumes "\<exists>t \<in> {0..1}. linepath (fst line2) (snd line2) t = x"
-  shows "intersect line1 line2 = Some x"
-  sorry
-    
-lemma intersect_none:
-  assumes "intersect line1 line2 = None"
-  shows "\<forall>t \<in> {0..1}. \<forall>t' \<in> {0..1}. linepath (fst line1) (snd line1) t \<noteq> linepath (fst line2) (snd line2) t'"
-  sorry
-
-(* intersects two lanes *)
-fun intersect_lanes' :: "(real2 \<times> real2) list \<Rightarrow> (real2 \<times> real2) list \<Rightarrow> (real2 \<times> real2) option \<Rightarrow> (real2 \<times> real2) option \<Rightarrow> real2 list" where
-  "intersect_lanes' [] [] (Some l') (Some r') = intersect' l' r'"
-| "intersect_lanes' [] _ None _ = []"
-| "intersect_lanes' [] (r # ri) (Some l') (Some r') = (intersect' l' r') @ (intersect_lanes' [] ri (Some l') (Some r))"
-| "intersect_lanes' [] (r # ri) (Some l') None = intersect_lanes' [] ri (Some l') (Some r)"  
-| "intersect_lanes' _ [] _ None = []"
-| "intersect_lanes' (l # le) [] (Some l') (Some r') = (intersect' l' r') @ (intersect_lanes' le [] (Some l) (Some r'))"
-| "intersect_lanes' (l # le) [] None (Some r') = intersect_lanes' le [] (Some l) (Some r')"
-| "intersect_lanes' (l # le) (r # ri) None None = (if fst (fst l) \<le> fst (fst r)
-    then intersect_lanes' le (r # ri) (Some l) None
-    else intersect_lanes' (l # le) ri None (Some r))"
-| "intersect_lanes' (l # le) (r # ri) None (Some r') = (if fst (fst l) \<le> fst (fst r)
-    then intersect_lanes' le (r # ri) (Some l) (Some r')
-    else intersect_lanes' (l # le) ri None (Some r))"
-| "intersect_lanes' (l # le) (r # ri) (Some l') None = (if fst (fst l) \<le> fst (fst r)
-    then intersect_lanes' le (r # ri) (Some l) None
-    else intersect_lanes' (l # le) ri (Some l') (Some r))" 
-| "intersect_lanes' (l # le) (r # ri) (Some l') (Some r') = (if fst (fst l) \<le> fst (fst r)
-    then (intersect' l' r') @ (intersect_lanes' le (r # ri) (Some l) (Some r'))
-    else (intersect' l' r') @ (intersect_lanes' (l # le) ri (Some l') (Some r)))" 
-
-fun intersect_lanes :: "(real2 \<times> real2) list \<Rightarrow> (real2 \<times> real2) list \<Rightarrow> real2 list" where
-  "intersect_lanes le ri = intersect_lanes' le ri None None"
-  
-locale generalized_lanelet = le: lanelet_simple_boundary points_le + ri: lanelet_simple_boundary points_ri
-  for points_le and points_ri
-begin
-
-lemma
-  assumes "fst (p :: real2 \<times> real2) < snd p"
-  assumes "fst q < snd q"
-  assumes "fst (fst p) > fst (snd q)"
-  assumes "t \<in> {0..1}"
-  assumes "t' \<in> {0..1}"
-  shows "linepath (fst p) (snd p) t \<noteq> linepath (fst q) (snd q) t'"
-proof -
-  have "fst (linepath (fst q) (snd q) t') = fst ((1 - t') *\<^sub>R fst q + t' *\<^sub>R snd q)" unfolding linepath_def by auto
-  also have "\<dots> \<le> fst (snd q)" sorry
-  also have "\<dots> < fst (fst p)" using assms by auto
-  also have "\<dots> \<le> fst (linepath (fst p) (snd p) t)" sorry
-  finally show "linepath (fst p) (snd p) t \<noteq> linepath (fst q) (snd q) t'" by auto
-qed
-  
-theorem non_intersecting_iff_line_segments_non_intersecting:
-  "(\<forall>t \<in> {0..1}. \<forall>t' \<in> {0..1}. le.curve_eq t \<noteq> ri.curve_eq t') \<longleftrightarrow> (\<forall>i < length points_le. \<forall>i' < length points_ri. \<forall>t \<in> {0..1}. \<forall>t' \<in> {0..1}. linepath (fst (points_le ! i)) (snd (points_le ! i)) t \<noteq> linepath (fst (points_ri ! i')) (snd (points_ri ! i')) t')"
-proof -
-  have "(\<exists>t \<in> {0..1}. \<exists>t' \<in> {0..1}. le.curve_eq t = ri.curve_eq t') \<longleftrightarrow> (\<exists>i < length points_le. \<exists>i' < length points_ri. \<exists>t \<in> {0..1}. \<exists>t' \<in> {0..1}. linepath (fst (points_le ! i)) (snd (points_le ! i)) t = linepath (fst (points_ri ! i')) (snd (points_ri ! i')) t')"
-  proof
-    assume "\<exists>t \<in> {0..1}. \<exists>t' \<in> {0..1}. le.curve_eq t = ri.curve_eq t'"
-    then obtain t t' where *: "t \<in> {0..1}" "t' \<in> {0..1}" "le.curve_eq t = ri.curve_eq t'" by auto
-    have "\<exists>i < length points_le. \<exists>t' \<in> {0..1}. le.curve_eq t = linepath (fst (points_le ! i)) (snd (points_le ! i)) t'"
-      using le.curve_eq_imp_linepath[of t] * by auto
-    moreover have "\<exists>i < length points_ri. \<exists>t'' \<in> {0..1}. ri.curve_eq t' = linepath (fst (points_ri ! i)) (snd (points_ri ! i)) t''"
-      using ri.curve_eq_imp_linepath[of t'] * by auto
-    ultimately show "\<exists>i < length points_le. \<exists>i' < length points_ri. \<exists>t \<in> {0..1}. \<exists>t' \<in> {0..1}. linepath (fst (points_le ! i)) (snd (points_le ! i)) t = linepath (fst (points_ri ! i')) (snd (points_ri ! i')) t'"
-      using * by metis
-  next
-    assume "\<exists>i < length points_le. \<exists>i' < length points_ri. \<exists>t \<in> {0..1}. \<exists>t' \<in> {0..1}. linepath (fst (points_le ! i)) (snd (points_le ! i)) t = linepath (fst (points_ri ! i')) (snd (points_ri ! i')) t'"
-    then obtain i i' t t' where *: "i < length points_le" "i' < length points_ri" "t \<in> {0..1}" "t' \<in> {0..1}" "linepath (fst (points_le ! i)) (snd (points_le ! i)) t = linepath (fst (points_ri ! i')) (snd (points_ri ! i')) t'"
-      by auto
-    have "\<exists>t' \<in> {0..1}. le.curve_eq t' = linepath (fst (points_le ! i)) (snd (points_le ! i)) t"
-      using le.linepath_imp_curve_eq[of i t] * by auto
-    moreover have "\<exists>t \<in> {0..1}. ri.curve_eq t = linepath (fst (points_ri ! i')) (snd (points_ri ! i')) t'"
-      using ri.linepath_imp_curve_eq[of i' t'] * by auto
-    ultimately show "\<exists>t \<in> {0..1}. \<exists>t' \<in> {0..1}. le.curve_eq t = ri.curve_eq t'"
-      using * by metis
-  qed
-  then show ?thesis by auto
-qed
-  
-end
-
 theorem below_inside_poly_correctness1:
   assumes "below_and_inside_polychains cs p"
   shows "fst p \<in> {fst (fst (hd cs)) <..< fst (snd (last cs))}"
@@ -3678,6 +3586,127 @@ next
     from case_cons(1)[OF this] show ?thesis by (meson list.set_intros)
   qed    
 qed
+
+(* polygonal chain intersection *)
+
+(* checks if two line segments intersect *)
+fun segments_intersect :: "(real2 \<times> real2) option \<Rightarrow> (real2 \<times> real2) option \<Rightarrow> bool" where
+  "segments_intersect (Some l1) (Some l2) = segment_intersection l1 l2"
+| "segments_intersect _ _ = False"
+    
+lemma intersects_correctness:
+  assumes "segments_intersect (Some l1) (Some l2)"
+  shows "\<exists>t1 \<in> {0..1}. \<exists>t2 \<in> {0..1}. linepath (fst l1) (snd l1) t1 = linepath (fst l2) (snd l2) t2"
+proof -
+  have "\<exists>p. p \<in> closed_segment (fst l1) (snd l1) \<and> p \<in> closed_segment (fst l2) (snd l2)" using assms segment_intersection_correctness by auto
+  then show ?thesis unfolding closed_segment_def linepath_def by force
+qed
+    
+lemma intersects_completeness:
+  assumes "\<not>segments_intersect (Some l1) (Some l2)"
+  shows "\<forall>t1 \<in> {0..1}. \<forall>t2 \<in> {0..1}. linepath (fst l1) (snd l1) t1 \<noteq> linepath (fst l2) (snd l2) t2"
+proof -
+  have "\<not>(\<exists>p. p \<in> closed_segment (fst l1) (snd l1) \<and> p \<in> closed_segment (fst l2) (snd l2))" using assms segment_intersection_completeness by auto
+  then have "\<forall>p. p \<notin> closed_segment (fst l1) (snd l1) \<or> p \<notin> closed_segment (fst l2) (snd l2)" by auto
+  then show ?thesis unfolding closed_segment_def linepath_def sorry (* TODO if needed *)
+qed
+  
+fun lanes_intersect' :: "(real2 \<times> real2) list \<Rightarrow> (real2 \<times> real2) list \<Rightarrow> (real2 \<times> real2) option \<Rightarrow> (real2 \<times> real2) option \<Rightarrow> bool" where
+  "lanes_intersect' [] [] l1 l2 \<longleftrightarrow> segments_intersect l1 l2"
+| "lanes_intersect' (l # le) [] l1 l2 \<longleftrightarrow> segments_intersect l1 l2 \<or> lanes_intersect' le [] (Some l) l2"
+| "lanes_intersect' [] (r # ri) l1 l2 \<longleftrightarrow> segments_intersect l1 l2 \<or> lanes_intersect' [] ri l1 (Some r)"
+| "lanes_intersect' (l # le) (r # ri) l1 l2 \<longleftrightarrow> segments_intersect l1 l2 \<or> (
+    if fst (fst l) \<le> fst (fst r) then lanes_intersect' le (r # ri) (Some l) l2
+                                  else lanes_intersect' (l # le) ri l1 (Some r))"
+
+(* checks if two lanes intersect *)
+fun lanes_intersect :: "(real2 \<times> real2) list \<Rightarrow> (real2 \<times> real2) list \<Rightarrow> bool" where
+  "lanes_intersect le ri = lanes_intersect' le ri None None"
+
+(* we only need to check line segments that have a common x value *)
+fun segments_relevant :: "(real2 \<times> real2) \<Rightarrow> (real2 \<times> real2) \<Rightarrow> bool" where
+  "segments_relevant l1 l2 \<longleftrightarrow> (fst (fst l1) \<le> fst (fst l2) \<and> fst (fst l2) \<le> fst (snd l1)) \<or> (fst (fst l2) \<le> fst (fst l1) \<and> fst (fst l1) \<le> fst (snd l2))"
+
+lemma segments_non_relevant_imp_segments_non_intersecting:
+  assumes "\<not>segments_relevant l1 l2"
+  assumes "fst (fst l1) < fst (snd l1)"
+  assumes "fst (fst l2) < fst (snd l2)"
+  shows "\<not>(\<exists>p. p \<in> closed_segment (fst l1) (snd l1) \<and> p \<in> closed_segment (fst l2) (snd l2))"
+proof -
+  have "fst (fst l1) > fst (fst l2) \<or> fst (fst l2) > fst (snd l1)" "fst (fst l2) > fst (fst l1) \<or> fst (fst l1) > fst (snd l2)"
+    using assms by auto
+  moreover {
+    fix l1 l2 :: "real2 \<times> real2"
+    assume *: "fst (fst l1) < fst (snd l1)" "fst (fst l2) < fst (snd l2)" "fst (fst l2) > fst (snd l1)"
+    {
+      fix p1 p2 :: real2
+      assume p1: "p1 \<in> closed_segment (fst l1) (snd l1)"
+      assume p2: "p2 \<in> closed_segment (fst l2) (snd l2)"
+        
+      obtain t1 where t1: "t1 \<in> {0..1}" "p1 = (1 - t1) *\<^sub>R fst l1 + t1 *\<^sub>R snd l1" using p1 unfolding closed_segment_def by auto
+      obtain t2 where t2: "t2 \<in> {0..1}" "p2 = (1 - t2) *\<^sub>R fst l2 + t2 *\<^sub>R snd l2" using p2 unfolding closed_segment_def by auto
+      
+      have "fst p1 = fst ((1 - t1) *\<^sub>R fst l1 + t1 *\<^sub>R snd l1)" using t1 by auto
+      also have "\<dots> \<le> fst (snd l1)" using t1 * by (smt atLeastAtMost_iff fst_add fst_scaleR scaleR_collapse scaleR_left_mono)
+      also have "\<dots> < fst (fst l2)" using * by auto
+      also have "\<dots> \<le> fst ((1 - t2) *\<^sub>R fst l2 + t2 *\<^sub>R snd l2)" using t2 * by (smt atLeastAtMost_iff fst_add fst_scaleR scaleR_collapse scaleR_left_mono)
+      also have "\<dots> = fst p2" using t2 by auto
+      finally have "fst p1 \<noteq> fst p2" by auto
+    }
+    then have "\<not>(\<exists>p. p \<in> closed_segment (fst l1) (snd l1) \<and> p \<in> closed_segment (fst l2) (snd l2))" by auto
+  }
+  ultimately show ?thesis using assms by smt
+qed
+ 
+locale generalized_lanelet = le: lanelet_simple_boundary points_le + ri: lanelet_simple_boundary points_ri
+  for points_le and points_ri
+begin  
+
+theorem lanes_non_intersecting_iff_segments_non_intersecting:
+  "(\<forall>t1 \<in> {0..1}. \<forall>t2 \<in> {0..1}. le.curve_eq t1 \<noteq> ri.curve_eq t2) \<longleftrightarrow> (\<forall>i1 < length points_le. \<forall>i2 < length points_ri. \<not>(\<exists>p. p \<in> closed_segment (fst (points_le ! i1)) (snd (points_le ! i1)) \<and> p \<in> closed_segment (fst (points_ri ! i2)) (snd (points_ri ! i2))))"
+proof -
+  have "(\<exists>t1 \<in> {0..1}. \<exists>t2 \<in> {0..1}. le.curve_eq t1 = ri.curve_eq t2) \<longleftrightarrow> (\<exists>i1 < length points_le. \<exists>i2 < length points_ri. \<exists>p. p \<in> closed_segment (fst (points_le ! i1)) (snd (points_le ! i1)) \<and> p \<in> closed_segment (fst (points_ri ! i2)) (snd (points_ri ! i2)))"
+  proof
+    assume "\<exists>t1 \<in> {0..1}. \<exists>t2 \<in> {0..1}. le.curve_eq t1 = ri.curve_eq t2"
+    then obtain t1 t2 where *: "t1 \<in> {0..1}" "t2 \<in> {0..1}" "le.curve_eq t1 = ri.curve_eq t2" by auto
+    have "\<exists>i1 < length points_le. le.curve_eq t1 \<in> closed_segment (fst (points_le ! i1)) (snd (points_le ! i1))"
+      using le.curve_eq_imp_closed_segment[of t1] * by auto
+    moreover have "\<exists>i2 < length points_ri. ri.curve_eq t2 \<in> closed_segment (fst (points_ri ! i2)) (snd (points_ri ! i2))"
+      using ri.curve_eq_imp_closed_segment[of t2] * by auto
+    ultimately show "\<exists>i1 < length points_le. \<exists>i2 < length points_ri. \<exists>p. p \<in> closed_segment (fst (points_le ! i1)) (snd (points_le ! i1)) \<and> p \<in> closed_segment (fst (points_ri ! i2)) (snd (points_ri ! i2))"
+      using * by metis
+  next
+    assume "\<exists>i1 < length points_le. \<exists>i2 < length points_ri. \<exists>p. p \<in> closed_segment (fst (points_le ! i1)) (snd (points_le ! i1)) \<and> p \<in> closed_segment (fst (points_ri ! i2)) (snd (points_ri ! i2))"
+    then obtain i1 i2 p where *: "i1 < length points_le" "i2 < length points_ri" "p \<in> closed_segment (fst (points_le ! i1)) (snd (points_le ! i1)) \<and> p \<in> closed_segment (fst (points_ri ! i2)) (snd (points_ri ! i2))"
+      by auto
+    then obtain t1 t2 where **: "t1 \<in> {0..1}" "t2 \<in> {0..1}" "linepath (fst (points_le ! i1)) (snd (points_le ! i1)) t1 = linepath (fst (points_ri ! i2)) (snd (points_ri ! i2)) t2"
+      unfolding closed_segment_def linepath_def by auto
+    have "\<exists>t1' \<in> {0..1}. le.curve_eq t1' = linepath (fst (points_le ! i1)) (snd (points_le ! i1)) t1"
+      using le.linepath_imp_curve_eq[of i1 t1] * ** by auto
+    moreover have "\<exists>t2' \<in> {0..1}. ri.curve_eq t2' = linepath (fst (points_ri ! i2)) (snd (points_ri ! i2)) t2"
+      using ri.linepath_imp_curve_eq[of i2 t2] * ** by auto
+    ultimately show "\<exists>t1 \<in> {0..1}. \<exists>t2 \<in> {0..1}. le.curve_eq t1 = ri.curve_eq t2" using ** by metis
+  qed
+  then show ?thesis by auto
+qed  
+
+theorem segments_non_intersecting_iff_relevant_segments_non_intersecting:
+  "(\<forall>i1 < length points_le. \<forall>i2 < length points_ri. \<not>(\<exists>p. p \<in> closed_segment (fst (points_le ! i1)) (snd (points_le ! i1)) \<and> p \<in> closed_segment (fst (points_ri ! i2)) (snd (points_ri ! i2)))) \<longleftrightarrow>
+  (\<forall>i1 < length points_le. \<forall>i2 < length points_ri. segments_relevant (points_le ! i1) (points_ri ! i2) \<longrightarrow> \<not>(\<exists>p. p \<in> closed_segment (fst (points_le ! i1)) (snd (points_le ! i1)) \<and> p \<in> closed_segment (fst (points_ri ! i2)) (snd (points_ri ! i2))))"
+proof
+  assume "\<forall>i1 < length points_le. \<forall>i2 < length points_ri. segments_relevant (points_le ! i1) (points_ri ! i2) \<longrightarrow> \<not>(\<exists>p. p \<in> closed_segment (fst (points_le ! i1)) (snd (points_le ! i1)) \<and> p \<in> closed_segment (fst (points_ri ! i2)) (snd (points_ri ! i2)))"
+  moreover {
+    fix i1 i2
+    assume *: "i1 < length points_le" "i2 < length points_ri"
+    assume "segments_relevant (points_le ! i1) (points_ri ! i2) \<longrightarrow> \<not>(\<exists>p. p \<in> closed_segment (fst (points_le ! i1)) (snd (points_le ! i1)) \<and> p \<in> closed_segment (fst (points_ri ! i2)) (snd (points_ri ! i2)))"
+    moreover have "\<not>segments_relevant (points_le ! i1) (points_ri ! i2) \<longrightarrow> \<not>(\<exists>p. p \<in> closed_segment (fst (points_le ! i1)) (snd (points_le ! i1)) \<and> p \<in> closed_segment (fst (points_ri ! i2)) (snd (points_ri ! i2)))"
+      using * le.monotone ri.monotone segments_non_relevant_imp_segments_non_intersecting unfolding monotone_polychain_def by auto
+    ultimately have "\<not>(\<exists>p. p \<in> closed_segment (fst (points_le ! i1)) (snd (points_le ! i1)) \<and> p \<in> closed_segment (fst (points_ri ! i2)) (snd (points_ri ! i2)))" by auto
+  }
+  ultimately show "\<forall>i1 < length points_le. \<forall>i2 < length points_ri. \<not>(\<exists>p. p \<in> closed_segment (fst (points_le ! i1)) (snd (points_le ! i1)) \<and> p \<in> closed_segment (fst (points_ri ! i2)) (snd (points_ri ! i2)))" by auto
+qed auto
+
+end  
   
 subsection "Lanelet"
   
