@@ -3593,23 +3593,6 @@ qed
 fun segments_intersect :: "(real2 \<times> real2) option \<Rightarrow> (real2 \<times> real2) option \<Rightarrow> bool" where
   "segments_intersect (Some l1) (Some l2) = segment_intersection l1 l2"
 | "segments_intersect _ _ = False"
-    
-lemma intersects_correctness:
-  assumes "segments_intersect (Some l1) (Some l2)"
-  shows "\<exists>t1 \<in> {0..1}. \<exists>t2 \<in> {0..1}. linepath (fst l1) (snd l1) t1 = linepath (fst l2) (snd l2) t2"
-proof -
-  have "\<exists>p. p \<in> closed_segment (fst l1) (snd l1) \<and> p \<in> closed_segment (fst l2) (snd l2)" using assms segment_intersection_correctness by auto
-  then show ?thesis unfolding closed_segment_def linepath_def by force
-qed
-    
-lemma intersects_completeness:
-  assumes "\<not>segments_intersect (Some l1) (Some l2)"
-  shows "\<forall>t1 \<in> {0..1}. \<forall>t2 \<in> {0..1}. linepath (fst l1) (snd l1) t1 \<noteq> linepath (fst l2) (snd l2) t2"
-proof -
-  have "\<not>(\<exists>p. p \<in> closed_segment (fst l1) (snd l1) \<and> p \<in> closed_segment (fst l2) (snd l2))" using assms segment_intersection_completeness by auto
-  then have "\<forall>p. p \<notin> closed_segment (fst l1) (snd l1) \<or> p \<notin> closed_segment (fst l2) (snd l2)" by auto
-  then show ?thesis unfolding closed_segment_def linepath_def sorry (* TODO if needed *)
-qed
   
 fun lanes_intersect' :: "(real2 \<times> real2) list \<Rightarrow> (real2 \<times> real2) list \<Rightarrow> (real2 \<times> real2) option \<Rightarrow> (real2 \<times> real2) option \<Rightarrow> bool" where
   "lanes_intersect' [] [] l1 l2 \<longleftrightarrow> segments_intersect l1 l2"
@@ -3705,6 +3688,215 @@ proof
   }
   ultimately show "\<forall>i1 < length points_le. \<forall>i2 < length points_ri. \<not>(\<exists>p. p \<in> closed_segment (fst (points_le ! i1)) (snd (points_le ! i1)) \<and> p \<in> closed_segment (fst (points_ri ! i2)) (snd (points_ri ! i2)))" by auto
 qed auto
+  
+theorem relevant_segments_intersecting_imp_lanes_intersect:
+  "(points_le = [] \<or> monotone_polychain points_le) \<Longrightarrow> (points_ri = [] \<or> monotone_polychain points_ri) \<Longrightarrow> \<not>lanes_intersect' points_le points_ri l1 l2 \<Longrightarrow> (\<not>segments_intersect l1 l2)
+    \<and> (case l1 of None \<Rightarrow> True | Some l \<Rightarrow> (\<forall>i2 < length points_ri. segments_relevant l (points_ri ! i2) \<longrightarrow> \<not>(\<exists>p. p \<in> closed_segment (fst l) (snd l) \<and> p \<in> closed_segment (fst (points_ri ! i2)) (snd (points_ri ! i2)))))
+    \<and> (case l2 of None \<Rightarrow> True | Some r \<Rightarrow> (\<forall>i1 < length points_le. segments_relevant (points_le ! i1) r \<longrightarrow> \<not>(\<exists>p. p \<in> closed_segment (fst (points_le ! i1)) (snd (points_le ! i1)) \<and> p \<in> closed_segment (fst r) (snd r))))
+    \<and> (\<forall>i1 < length points_le. \<forall>i2 < length points_ri. segments_relevant (points_le ! i1) (points_ri ! i2) \<longrightarrow> \<not>(\<exists>p. p \<in> closed_segment (fst (points_le ! i1)) (snd (points_le ! i1)) \<and> p \<in> closed_segment (fst (points_ri ! i2)) (snd (points_ri ! i2))))"
+proof (induction points_le points_ri _ _ rule: lanes_intersect'.induct)
+  case (1 l1 l2)
+  then show ?case by (auto simp add: option.split)
+next
+  case (2 l le l1' l2')
+  moreover {
+    fix i1 l2
+    assume *: "l2' = Some l2"
+              "i1 < length (l # le)"
+              "segments_relevant ((l # le) ! i1) l2"
+    then have IH: "\<not>segments_intersect (Some l) (Some l2)"
+                  "\<And>i1. i1 < length le \<Longrightarrow> segments_relevant (le ! i1) l2 \<Longrightarrow> (\<nexists>p. p \<in> closed_segment (fst (le ! i1)) (snd (le ! i1)) \<and> p \<in> closed_segment (fst l2) (snd l2))"
+      using 2 `l2' = Some l2` monotone_polychain_ConsD by (auto simp add: option.split)
+    {
+      assume "i1 = 0"
+      then have "(l # le) ! i1 = l" by auto
+      then have "\<nexists>p. p \<in> closed_segment (fst ((l # le) ! i1)) (snd ((l # le) ! i1)) \<and> p \<in> closed_segment (fst l2) (snd l2)"
+        using IH segment_intersection_completeness by auto
+    }
+    moreover {
+      assume "i1 \<noteq> 0"
+      then have "i1 - 1 < length le"
+                "segments_relevant (le ! (i1-1)) l2"
+         using * `i1 < length (l # le)` by auto
+      then have "\<nexists>p. p \<in> closed_segment (fst (le ! (i1-1))) (snd (le ! (i1-1))) \<and> p \<in> closed_segment (fst l2) (snd l2)"
+        using * IH by auto
+      then have "\<nexists>p. p \<in> closed_segment (fst ((l # le) ! i1)) (snd ((l # le) ! i1)) \<and> p \<in> closed_segment (fst l2) (snd l2)"
+        using `i1 \<noteq> 0` by auto
+    }
+    ultimately have "\<nexists>p. p \<in> closed_segment (fst ((l # le) ! i1)) (snd ((l # le) ! i1)) \<and> p \<in> closed_segment (fst l2) (snd l2)"
+      by blast
+  }
+  ultimately show ?case by (auto simp add: option.split)
+next
+  case (3 r ri l1' l2')
+  moreover {
+    fix i2 l1
+    assume *: "l1' = Some l1"
+              "i2 < length (r # ri)"
+              "segments_relevant l1 ((r # ri) ! i2)"
+    then have IH: "\<not>segments_intersect (Some l1) (Some r)"
+                  "\<And>i2. i2 < length ri \<Longrightarrow> segments_relevant l1 (ri ! i2) \<Longrightarrow> (\<nexists>p. p \<in> closed_segment (fst l1) (snd l1) \<and> p \<in> closed_segment (fst (ri ! i2)) (snd (ri ! i2)))"
+      using 3 `l1' = Some l1` monotone_polychain_ConsD by (auto simp add: option.split)
+    {
+      assume "i2 = 0"
+      then have "(r # ri) ! i2 = r" by auto
+      then have "\<nexists>p. p \<in> closed_segment (fst l1) (snd l1) \<and> p \<in> closed_segment (fst ((r # ri) ! i2)) (snd ((r # ri) ! i2))"
+        using IH segment_intersection_completeness by auto
+    }
+    moreover {
+      assume "i2 \<noteq> 0"
+      then have "i2 - 1 < length ri"
+                "segments_relevant l1 (ri ! (i2-1))"
+         using * `i2 < length (r # ri)` by auto
+      then have "\<nexists>p. p \<in> closed_segment (fst l1) (snd l1) \<and> p \<in> closed_segment (fst (ri ! (i2-1))) (snd (ri ! (i2-1)))"
+        using * IH by auto
+      then have"\<nexists>p. p \<in> closed_segment (fst l1) (snd l1) \<and> p \<in> closed_segment (fst ((r # ri) ! i2)) (snd ((r # ri) ! i2))"
+        using `i2 \<noteq> 0` by auto
+    }
+    ultimately have "\<nexists>p. p \<in> closed_segment (fst l1) (snd l1) \<and> p \<in> closed_segment (fst ((r # ri) ! i2)) (snd ((r # ri) ! i2))"
+      by blast
+  }
+  ultimately show ?case by (auto simp add: option.split)
+next
+  case (4 l le r ri l1' l2')
+  moreover {
+    fix i2 l1
+    assume *: "l1' = Some l1"
+              "i2 < length (r # ri)"
+              "segments_relevant l1 ((r # ri) ! i2)"
+    {
+      assume **: "fst (fst l) \<le> fst (fst r)"
+      then have "\<not>lanes_intersect' le (r # ri) (Some l) l2'" using * 4 by auto
+      {
+        assume "i2 = 0"
+        then have "(r # ri) ! i2 = r" by auto
+        moreover have "\<nexists>p. p \<in> closed_segment (fst l1) (snd l1) \<and> p \<in> closed_segment (fst r) (snd r)" sorry
+          (* no intersection in open_segment because no common x value *)
+          (* l r don't intersect by IH..., hence endpoints aren't equal either *)
+        ultimately have "\<nexists>p. p \<in> closed_segment (fst l1) (snd l1) \<and> p \<in> closed_segment (fst ((r # ri) ! i2)) (snd ((r # ri) ! i2))"
+          by auto
+      }
+      moreover {
+        assume "i2 \<noteq> 0"
+        have "fst (snd l1) < fst (fst ((r # ri) ! i2))" sorry
+        (* have "fst (snd l1) = fst (fst l)" sorry because of polychain
+           also have "\<dots> \<le>  fst (fst ((r # ri) ! 0))" sorry
+           also have "\<dots> < fst (snd ((r # ri) ! 0)" sorry
+           also have "\<dots> \<le> fst (fst ((r # ri) ! i2))" using i2 \<noteq> 0 *)
+        moreover have "fst (fst l1) < fst (snd l1)" sorry
+        ultimately have "\<not>segments_relevant l1 ((r # ri) ! i2)" by auto
+        then have False using * by auto
+      }
+      ultimately have "\<nexists>p. p \<in> closed_segment (fst l1) (snd l1) \<and> p \<in> closed_segment (fst ((r # ri) ! i2)) (snd ((r # ri) ! i2))"
+        by blast
+    }
+    moreover {
+      assume **: "\<not>(fst (fst l) \<le> fst (fst r))"
+      then have "\<not>lanes_intersect' (l # le) ri (Some l1) (Some r)" using * 4 by auto
+      then have IH: "\<not> segments_intersect (Some l1) (Some r)"
+                    "\<And>i2. i2 < length ri \<Longrightarrow> segments_relevant l1 (ri ! i2) \<Longrightarrow> \<nexists>p. p \<in> closed_segment (fst l1) (snd l1) \<and> p \<in> closed_segment (fst (ri ! i2)) (snd (ri ! i2))"
+        using * ** 4 monotone_polychain_ConsD by (auto simp add: option.split)
+      {
+        assume "i2 = 0"
+        then have "(r # ri) ! i2 = r" by auto
+        then have "\<nexists>p. p \<in> closed_segment (fst l1) (snd l1) \<and> p \<in> closed_segment (fst ((r # ri) ! i2)) (snd ((r # ri) ! i2))"
+          using IH segment_intersection_completeness by auto
+      }
+      moreover {
+        assume "i2 \<noteq> 0"
+        then have "i2 - 1 < length ri"
+                  "segments_relevant l1 (ri ! (i2-1))"
+           using * `i2 < length (r # ri)` by auto
+        then have "\<nexists>p. p \<in> closed_segment (fst l1) (snd l1) \<and> p \<in> closed_segment (fst (ri ! (i2-1))) (snd (ri ! (i2-1)))"
+          using * IH by auto
+        then have"\<nexists>p. p \<in> closed_segment (fst l1) (snd l1) \<and> p \<in> closed_segment (fst ((r # ri) ! i2)) (snd ((r # ri) ! i2))"
+          using `i2 \<noteq> 0` by auto
+      }
+      ultimately have "\<nexists>p. p \<in> closed_segment (fst l1) (snd l1) \<and> p \<in> closed_segment (fst ((r # ri) ! i2)) (snd ((r # ri) ! i2))"
+        by blast
+    }
+    ultimately have "\<nexists>p. p \<in> closed_segment (fst l1) (snd l1) \<and> p \<in> closed_segment (fst ((r # ri) ! i2)) (snd ((r # ri) ! i2))" by auto
+  }
+  moreover {
+    fix i1 l2
+    assume *: "l2' = Some l2"
+              "i1 < length (l # le)"
+              "segments_relevant ((l # le) ! i1) l2"
+    have "\<nexists>p. p \<in> closed_segment (fst ((l # le) ! i1)) (snd ((l # le) ! i1)) \<and> p \<in> closed_segment (fst l2) (snd l2)" sorry
+        (* analogously to previous case *)
+  }
+  moreover {
+    fix i1 i2
+    assume *: "i1 < length (l # le)"
+              "i2 < length (r # ri)"
+              "segments_relevant ((l # le) ! i1) ((r # ri) ! i2)"
+    {
+      assume **: "fst (fst l) \<le> fst (fst r)"
+      then have "\<not>lanes_intersect' le (r # ri) (Some l) l2'" using * 4 by auto
+      then have IH: "\<not>segments_intersect (Some l) l2'"
+        using * ** 4 monotone_polychain_ConsD by (auto simp add: option.split)
+      (* i1 = 0 \<longrightarrow> intersect l, r # ri, should be part of IH *)
+      (* i1 \<noteq> 0 \<longrightarrow> intersect le, r # ri, IH *)
+      have "\<nexists>p. p \<in> closed_segment (fst ((l # le) ! i1)) (snd ((l # le) ! i1)) \<and> p \<in> closed_segment (fst ((r # ri) ! i2)) (snd ((r # ri) ! i2))"
+        sorry
+    }
+    moreover {
+      assume **: "\<not>(fst (fst l) \<le> fst (fst r))"
+      have "\<nexists>p. p \<in> closed_segment (fst ((l # le) ! i1)) (snd ((l # le) ! i1)) \<and> p \<in> closed_segment (fst ((r # ri) ! i2)) (snd ((r # ri) ! i2))"
+        sorry (* TODO symmetry *)
+    }
+    ultimately have "\<nexists>p. p \<in> closed_segment (fst ((l # le) ! i1)) (snd ((l # le) ! i1)) \<and> p \<in> closed_segment (fst ((r # ri) ! i2)) (snd ((r # ri) ! i2))"
+      by auto
+  }
+  ultimately show ?case by (auto simp add: option.split)
+qed
+  
+  
+  
+  (* case (4 l le r ri l1 l2) *)
+  (* { *)
+    (* assume "fst (fst l) \<le> fst (fst r)" *)
+    (* then have IH: "\<not>segments_intersect (Some l) l2" *)
+                  (* "\<And>i1 i2. i1 < length le \<Longrightarrow> i2 < length (r # ri) \<Longrightarrow> segments_relevant (le ! i1) ((r # ri) ! i2) \<Longrightarrow> (\<nexists>p. p \<in> closed_segment (fst (le ! i1)) (snd (le ! i1)) \<and> p \<in> closed_segment (fst ((r # ri) ! i2)) (snd ((r # ri) ! i2)))" *)
+      (* using 4 by auto *)
+    (* moreover { *)
+      (* fix i1 i2 *)
+      (* assume *: "i1 < length (l # le)" *)
+                (* "i2 < length (r # ri)" *)
+                (* "segments_relevant ((l # le) ! i1) ((r # ri) ! i2)" *)
+      (* { *)
+        (* assume "i1 = 0" *)
+        (* then have "(l # le) ! i1 = l" by auto *)
+        (* (* argue that l and r # ri ! i2 are not relevant? *) *)
+        (* have "\<nexists>p. p \<in> closed_segment (fst ((l # le) ! i1)) (snd ((l # le) ! i1)) \<and> p \<in> closed_segment (fst ((r # ri) ! i2)) (snd ((r # ri) ! i2))" *)
+          (* sorry *)
+      (* } *)
+      (* moreover { *)
+        (* assume "\<not>(i1 = 0)" *)
+        (* then have "i1 - 1 < length le" using * by auto *)
+        (* then have "(l # le) ! i1 = le ! (i1 - 1)" using * `\<not>(i1 = 0)` by auto  *)
+        (* then have "\<nexists>p. p \<in> closed_segment (fst ((l # le) ! i1)) (snd ((l # le) ! i1)) \<and> p \<in> closed_segment (fst ((r # ri) ! i2)) (snd ((r # ri) ! i2))" *)
+          (* using * IH(2)[of "i1 - 1" i2] `i1 - 1 < length le` by auto *)
+      (* } *)
+      (* ultimately have "\<nexists>p. p \<in> closed_segment (fst ((l # le) ! i1)) (snd ((l # le) ! i1)) \<and> p \<in> closed_segment (fst ((r # ri) ! i2)) (snd ((r # ri) ! i2))" *)
+        (* by blast *)
+    (* } *)
+    (* ultimately have ?case by auto *)
+  (* } *)
+  (* moreover { *)
+    (* assume "\<not>(fst (fst l) \<le> fst (fst r))" *)
+    (* then have "\<not>segments_intersect l1 l2" "\<not>lanes_intersect' (l # le) ri l1 (Some r)" using 4 by auto *)
+    (* have ?case sorry *)
+  (* } *)
+  (* ultimately show ?case by auto *)
+(* qed auto *)
+  
+theorem lanes_intersect_correctness:
+  assumes "\<not>lanes_intersect points_le points_ri"
+  shows "\<forall>t1 \<in> {0..1}. \<forall>t2 \<in> {0..1}. le.curve_eq t1 \<noteq> ri.curve_eq t2"
+  using assms le.monotone ri.monotone
+    relevant_segments_intersecting_imp_lanes_intersect segments_non_intersecting_iff_relevant_segments_non_intersecting lanes_non_intersecting_iff_segments_non_intersecting
+  by auto
 
 end  
   
