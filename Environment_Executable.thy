@@ -3664,7 +3664,7 @@ proof -
   }
   ultimately show ?thesis using assms by smt
 qed
- 
+  
 locale generalized_lanelet = le: lanelet_simple_boundary points_le + ri: lanelet_simple_boundary points_ri
   for points_le and points_ri
 begin  
@@ -3807,11 +3807,29 @@ next
       {
         assume "i2 = 0"
         then have "(r # ri) ! i2 = r" by auto
-        moreover have "\<nexists>p. p \<in> closed_segment (fst l1) (snd l1) \<and> p \<in> closed_segment (fst r) (snd r)" sorry
-          (* no intersection in open_segment because no common x value *)
-          (* l r don't intersect by IH..., hence endpoints aren't equal either *)
+        then have "fst (snd l1) \<le> fst (fst r)" sorry
+        moreover {
+          assume "fst (snd l1) < fst (fst r)"
+          then have "\<not>segments_relevant l1 ((r # ri) ! i2)" sorry
+          then have False using * by auto
+        }
+        moreover {
+          assume "fst (snd l1) = fst (fst r)"
+          then have inter_open_segments: "\<nexists>p. p \<in> open_segment (fst l1) (snd l1) \<and> p \<in> open_segment (fst r) (snd r)" sorry
+          moreover have inter_endpoints:
+            "\<nexists>p. p \<in> {fst l1, snd l1} \<and> p \<in> closed_segment (fst r) (snd r)"
+            "\<nexists>p. p \<in> closed_segment (fst l1) (snd l1) \<and> p \<in> {fst r, snd r}" sorry
+          have "\<nexists>p. p \<in> closed_segment (fst l1) (snd l1) \<and> p \<in> closed_segment (fst r) (snd r)"
+          proof
+            assume "\<exists>p. p \<in> closed_segment (fst l1) (snd l1) \<and> p \<in> closed_segment (fst r) (snd r)"
+            then obtain p where "p \<in> closed_segment (fst l1) (snd l1)" "p \<in> closed_segment (fst r) (snd r)" by auto
+            then have "p \<in> open_segment (fst l1) (snd l1) \<or> p \<in> {fst l1, snd l1}"
+                      "p \<in> open_segment (fst r) (snd r) \<or> p \<in> {fst r, snd r}" unfolding open_segment_def by auto
+            then show False using inter_open_segments inter_endpoints unfolding open_segment_def by blast
+          qed
+        }
         ultimately have "\<nexists>p. p \<in> closed_segment (fst l1) (snd l1) \<and> p \<in> closed_segment (fst ((r # ri) ! i2)) (snd ((r # ri) ! i2))"
-          by auto
+          using \<open>(r # ri) ! i2 = r\<close> by fastforce
       }
       moreover {
         assume "i2 \<noteq> 0"
