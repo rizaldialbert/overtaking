@@ -3804,20 +3804,19 @@ next
                     "\<And>i2. i2 < length (r # ri) \<Longrightarrow> segments_relevant l ((r # ri) ! i2) \<Longrightarrow> \<nexists>p. p \<in> closed_segment (fst l) (snd l) \<and> p \<in> closed_segment (fst ((r # ri) ! i2)) (snd ((r # ri) ! i2))"
                     "\<And>i1 i2. i1 < length le \<Longrightarrow> i2 < length (r # ri) \<Longrightarrow> segments_relevant (le ! i1) ((r # ri) ! i2) \<Longrightarrow> \<nexists>p. p \<in> closed_segment (fst (le ! i1)) (snd (le ! i1)) \<and> p \<in> closed_segment (fst ((r # ri) ! i2)) (snd ((r # ri) ! i2))"
         using * ** 4 `monotone_polychain (l # le)` monotone_polychain_ConsD by (auto simp add: option.split)
+      have "monotone_polychain (l1 # l # le)" using 4 * by auto 
       {
         assume "i2 = 0"
         then have "(r # ri) ! i2 = r" by auto
-        have "fst (snd l1) \<le> fst (fst r)"
-        proof -
-          have "monotone_polychain (l1 # l # le)" using 4 `l1' = Some l1` by auto 
-          then have "fst (snd l1) = fst (fst l)" using monotone_polychainD unfolding polychain_def by fastforce
-          also have "\<dots> \<le> fst (fst r)" using ** by auto
-          finally show ?thesis .
-        qed
+        have "fst (snd l1) = fst (fst l)" using \<open>monotone_polychain (l1 # l # le)\<close> monotone_polychainD unfolding polychain_def by fastforce
+        also have "\<dots> \<le> fst (fst r)" using ** by auto
+        finally have "fst (snd l1) \<le> fst (fst r)" .
         moreover {
           assume "fst (snd l1) < fst (fst r)"
-          then have "\<not>segments_relevant l1 ((r # ri) ! i2)" sorry
-          then have False using * by auto
+          moreover have "fst (fst l1) < fst (snd l1)"
+            using \<open>monotone_polychain (l1 # l # le)\<close> unfolding monotone_polychain_def by auto
+          ultimately have "\<not>segments_relevant l1 ((r # ri) ! i2)" using \<open>(r # ri) ! i2 = r\<close> by auto
+            then have False using * by auto
         }
         moreover {
           assume "fst (snd l1) = fst (fst r)"
@@ -3840,8 +3839,7 @@ next
       }
       moreover {
         assume "i2 \<noteq> 0"
-        have "monotone_polychain (l1 # l # le)" using 4 `l1' = Some l1` by auto 
-        then have "fst (snd l1) = fst (fst l)" using monotone_polychainD unfolding polychain_def by fastforce
+        have "fst (snd l1) = fst (fst l)" using \<open>monotone_polychain (l1 # l # le)\<close> monotone_polychainD unfolding polychain_def by fastforce
         also have "\<dots> \<le> fst (fst r)" using ** by auto
         also have "\<dots> = fst (fst ((r # ri) ! 0))" by auto
         also have "\<dots> < fst (snd ((r # ri) ! 0))"
