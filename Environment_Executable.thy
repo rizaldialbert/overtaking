@@ -3824,7 +3824,45 @@ next
           }
         moreover {
           assume "fst (snd l1) = fst (fst r)"
-          then have inter_open_segments: "\<nexists>p. p \<in> open_segment (fst l1) (snd l1) \<and> p \<in> open_segment (fst r) (snd r)" sorry
+          have inter_open_segments: "\<nexists>p. p \<in> open_segment (fst l1) (snd l1) \<and> p \<in> open_segment (fst r) (snd r)"
+          proof -
+            {
+              fix p1 p2 :: real2
+              assume p1: "p1 \<in> open_segment (fst l1) (snd l1)"
+              assume p2: "p2 \<in> open_segment (fst r) (snd r)"
+        
+              obtain t1 where t1: "t1 > 0" "t1 < 1" "p1 = (1 - t1) *\<^sub>R fst l1 + t1 *\<^sub>R snd l1" using p1 in_segment(2) by blast
+              obtain t2 where t2: "t2 > 0" "t2 < 1" "p2 = (1 - t2) *\<^sub>R fst r + t2 *\<^sub>R snd r" using p2 in_segment(2) by blast
+      
+              have "fst p1 = fst ((1 - t1) *\<^sub>R fst l1 + t1 *\<^sub>R snd l1)" using t1 by auto
+              also have "\<dots> < fst (snd l1)"
+              proof -
+                {
+                  fix t a b :: real
+                  assume *: "a < b" "t > 0" "t < 1"
+                  
+                  have scaleR_mult_mono_strict: "\<And>(x :: real) (y :: real) (z :: real). z > 0 \<Longrightarrow> x > y \<Longrightarrow> x * z > y * z" by auto
+  
+                  have "(1 - t) *\<^sub>R a + t *\<^sub>R b  = a - t *\<^sub>R a + t *\<^sub>R b" using scaleR_diff_left[of 1 t a] by auto
+                  also have "\<dots> = a + t *\<^sub>R (b - a)" using scaleR_diff_right[of t b a] by auto
+                  also have "\<dots> < b"
+                  proof -
+                    have "t *\<^sub>R (b - a) < b - a" using * by auto
+                    then show ?thesis by auto
+                  qed
+                    
+                  finally have "(1 - t) *\<^sub>R a + t *\<^sub>R b < b" .
+                }
+                then show ?thesis using \<open>fst (fst l1) < fst (snd l1)\<close> t1 by auto
+              qed
+              also have "\<dots> = fst (fst r)" using \<open>fst (snd l1) = fst (fst r)\<close> .
+              also have "\<dots> \<le> fst ((1 - t2) *\<^sub>R fst r + t2 *\<^sub>R snd r)"
+                using t2 * \<open>fst (fst r) < fst (snd r)\<close> by (smt atLeastAtMost_iff fst_add fst_scaleR scaleR_collapse scaleR_left_mono)
+              also have "\<dots> = fst p2" using t2 by auto
+              finally have "fst p1 \<noteq> fst p2" by auto
+            }
+            then show ?thesis by auto
+          qed
           moreover have inter_endpoints: "\<nexists>p. p \<in> {fst l1, snd l1} \<and> p \<in> {fst r, snd r}"
           proof -
             have "fst (fst l1) < fst (snd l1)" using \<open>monotone_polychain (l1 # l # le)\<close> unfolding monotone_polychain_def by auto
