@@ -3807,7 +3807,13 @@ next
       {
         assume "i2 = 0"
         then have "(r # ri) ! i2 = r" by auto
-        then have "fst (snd l1) \<le> fst (fst r)" sorry
+        have "fst (snd l1) \<le> fst (fst r)"
+        proof -
+          have "monotone_polychain (l1 # l # le)" using 4 `l1' = Some l1` by auto 
+          then have "fst (snd l1) = fst (fst l)" using monotone_polychainD unfolding polychain_def by fastforce
+          also have "\<dots> \<le> fst (fst r)" using ** by auto
+          finally show ?thesis .
+        qed
         moreover {
           assume "fst (snd l1) < fst (fst r)"
           then have "\<not>segments_relevant l1 ((r # ri) ! i2)" sorry
@@ -3816,16 +3822,17 @@ next
         moreover {
           assume "fst (snd l1) = fst (fst r)"
           then have inter_open_segments: "\<nexists>p. p \<in> open_segment (fst l1) (snd l1) \<and> p \<in> open_segment (fst r) (snd r)" sorry
-          moreover have inter_endpoints:
-            "\<nexists>p. p \<in> {fst l1, snd l1} \<and> p \<in> closed_segment (fst r) (snd r)"
-            "\<nexists>p. p \<in> closed_segment (fst l1) (snd l1) \<and> p \<in> {fst r, snd r}" sorry
+          moreover have inter_endpoints: "\<nexists>p. p \<in> {fst l1, snd l1} \<and> p \<in> {fst r, snd r}" sorry
+          moreover have inter_open_segment_endpoints:
+            "\<nexists>p. p \<in> {fst l1, snd l1} \<and> p \<in> open_segment (fst r) (snd r)"
+            "\<nexists>p. p \<in> open_segment (fst l1) (snd l1) \<and> p \<in> {fst r, snd r}" sorry
           have "\<nexists>p. p \<in> closed_segment (fst l1) (snd l1) \<and> p \<in> closed_segment (fst r) (snd r)"
           proof
             assume "\<exists>p. p \<in> closed_segment (fst l1) (snd l1) \<and> p \<in> closed_segment (fst r) (snd r)"
             then obtain p where "p \<in> closed_segment (fst l1) (snd l1)" "p \<in> closed_segment (fst r) (snd r)" by auto
             then have "p \<in> open_segment (fst l1) (snd l1) \<or> p \<in> {fst l1, snd l1}"
                       "p \<in> open_segment (fst r) (snd r) \<or> p \<in> {fst r, snd r}" unfolding open_segment_def by auto
-            then show False using inter_open_segments inter_endpoints unfolding open_segment_def by blast
+            then show False using inter_open_segments inter_endpoints inter_open_segment_endpoints by blast
           qed
         }
         ultimately have "\<nexists>p. p \<in> closed_segment (fst l1) (snd l1) \<and> p \<in> closed_segment (fst ((r # ri) ! i2)) (snd ((r # ri) ! i2))"
