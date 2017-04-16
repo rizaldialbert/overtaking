@@ -3804,7 +3804,11 @@ next
                     "\<And>i2. i2 < length (r # ri) \<Longrightarrow> segments_relevant l ((r # ri) ! i2) \<Longrightarrow> \<nexists>p. p \<in> closed_segment (fst l) (snd l) \<and> p \<in> closed_segment (fst ((r # ri) ! i2)) (snd ((r # ri) ! i2))"
                     "\<And>i1 i2. i1 < length le \<Longrightarrow> i2 < length (r # ri) \<Longrightarrow> segments_relevant (le ! i1) ((r # ri) ! i2) \<Longrightarrow> \<nexists>p. p \<in> closed_segment (fst (le ! i1)) (snd (le ! i1)) \<and> p \<in> closed_segment (fst ((r # ri) ! i2)) (snd ((r # ri) ! i2))"
         using * ** 4 `monotone_polychain (l # le)` monotone_polychain_ConsD by (auto simp add: option.split)
-      have "monotone_polychain (l1 # l # le)" using 4 * by auto 
+      have "monotone_polychain (l1 # l # le)" using 4 * by auto
+      have "fst (fst l) < fst (snd l)" using \<open>monotone_polychain (l # le)\<close> unfolding monotone_polychain_def by auto
+      have "fst (fst r) < fst (snd r)" using \<open>monotone_polychain (r # ri)\<close> unfolding monotone_polychain_def by auto
+      have "fst (fst l1) < fst (snd l1)" using \<open>monotone_polychain (l1 # l # le)\<close> unfolding monotone_polychain_def by auto
+
       {
         assume "i2 = 0"
         then have "(r # ri) ! i2 = r" by auto
@@ -3817,14 +3821,90 @@ next
             using \<open>monotone_polychain (l1 # l # le)\<close> unfolding monotone_polychain_def by auto
           ultimately have "\<not>segments_relevant l1 ((r # ri) ! i2)" using \<open>(r # ri) ! i2 = r\<close> by auto
             then have False using * by auto
-        }
+          }
         moreover {
           assume "fst (snd l1) = fst (fst r)"
           then have inter_open_segments: "\<nexists>p. p \<in> open_segment (fst l1) (snd l1) \<and> p \<in> open_segment (fst r) (snd r)" sorry
-          moreover have inter_endpoints: "\<nexists>p. p \<in> {fst l1, snd l1} \<and> p \<in> {fst r, snd r}" sorry
+          moreover have inter_endpoints: "\<nexists>p. p \<in> {fst l1, snd l1} \<and> p \<in> {fst r, snd r}"
+          proof -
+            have "fst (fst l1) < fst (snd l1)" using \<open>monotone_polychain (l1 # l # le)\<close> unfolding monotone_polychain_def by auto
+            then have "fst (fst l1) < fst (fst r)"using \<open>fst (snd l1) = fst (fst r)\<close> by auto
+            moreover then have "fst (fst l1) < fst (snd r)" using \<open>monotone_polychain (r # ri)\<close> unfolding monotone_polychain_def by auto
+            moreover have "snd l1 \<noteq> fst r"
+            proof
+              assume "snd l1 = fst r"
+              then have "fst l = fst r" using \<open>monotone_polychain (l1 # l # le)\<close> monotone_polychainD unfolding polychain_def by fastforce
+              then have "fst l \<in> closed_segment (fst l) (snd l) \<and> fst l \<in> closed_segment (fst r) (snd r)" using ends_in_segment by auto
+              then have intersection: "\<exists>p. p \<in> closed_segment (fst l) (snd l) \<and> p \<in> closed_segment (fst r) (snd r)" by blast
+              moreover then have "segments_relevant l r"
+                using intersection segments_non_relevant_imp_segments_non_intersecting \<open>fst (fst l) < fst (snd l)\<close> \<open>fst (fst r) < fst (snd r)\<close> by blast
+              ultimately show False using * IH(2)[of i2] \<open>(r # ri) ! i2 = r\<close> by auto
+            qed
+            moreover have "fst (snd l1) < fst (snd r)" using \<open>fst (snd l1) = fst (fst r)\<close> \<open>fst (fst r) < fst (snd r)\<close> by auto
+            ultimately show ?thesis by auto
+          qed                 
           moreover have inter_open_segment_endpoints:
             "\<nexists>p. p \<in> {fst l1, snd l1} \<and> p \<in> open_segment (fst r) (snd r)"
-            "\<nexists>p. p \<in> open_segment (fst l1) (snd l1) \<and> p \<in> {fst r, snd r}" sorry
+            "\<nexists>p. p \<in> open_segment (fst l1) (snd l1) \<and> p \<in> {fst r, snd r}"
+          proof -
+            {
+              fix p
+              assume p: "p \<in> open_segment (fst r) (snd r)"
+              have "fst (snd l1) = fst (fst r)" using \<open>fst (snd l1) = fst (fst r)\<close> .
+              also have "fst (fst r) < fst p"
+              proof -
+                obtain t where t: "0 < t" "t < 1" "p = (1 - t) *\<^sub>R (fst r) + t *\<^sub>R (snd r)"
+                  using p in_segment(2) by blast
+                moreover {
+                  fix t a b :: real
+                  assume "a < b" "t > 0" "t < 1"
+                  have "(1 - t) *\<^sub>R a + t *\<^sub>R b  = a - t *\<^sub>R a + t *\<^sub>R b" using scaleR_diff_left[of 1 t a] by auto
+                  also have "\<dots> = a + t *\<^sub>R (b - a)" using scaleR_diff_right[of t b a] by auto
+                  also have "\<dots> > a" using \<open>a < b\<close> \<open>t > 0\<close> by auto
+                  finally have "(1 - t) *\<^sub>R a + t *\<^sub>R b > a" .
+                }
+                ultimately show ?thesis
+                  using \<open>fst (fst r) < fst (snd r)\<close> t by auto
+              qed
+              finally have "fst (snd l1) < fst p" .
+              moreover have "fst (fst l1) < fst (snd l1)" using \<open>monotone_polychain (l1 # l # le)\<close> unfolding monotone_polychain_def by auto
+              ultimately have "p \<notin> {fst l1, snd l1}" by auto
+            }
+            then show "\<nexists>p. p \<in> {fst l1, snd l1} \<and> p \<in> open_segment (fst r) (snd r)" by auto
+          next
+            {
+              fix p
+              assume p: "p \<in> open_segment (fst l1) (snd l1)"
+              have "fst p < fst (fst r)"
+              proof -
+                obtain t where t: "0 < t" "t < 1" "p = (1 - t) *\<^sub>R (fst l1) + t *\<^sub>R (snd l1)"
+                  using p in_segment(2) by blast
+                moreover {
+                  fix t a b :: real
+                  assume *: "a < b" "t > 0" "t < 1"
+                  
+                  have scaleR_mult_mono_strict: "\<And>(x :: real) (y :: real) (z :: real). z > 0 \<Longrightarrow> x > y \<Longrightarrow> x * z > y * z" by auto
+
+                  have "(1 - t) *\<^sub>R a + t *\<^sub>R b  = a - t *\<^sub>R a + t *\<^sub>R b" using scaleR_diff_left[of 1 t a] by auto
+                  also have "\<dots> = a + t *\<^sub>R (b - a)" using scaleR_diff_right[of t b a] by auto
+                  also have "\<dots> < b"
+                  proof -
+                    have "t *\<^sub>R (b - a) < b - a" using * by auto
+                    then show ?thesis by auto
+                  qed
+                    
+                  finally have "(1 - t) *\<^sub>R a + t *\<^sub>R b < b" .
+                }
+                ultimately have "fst p < fst (snd l1)" 
+                  using \<open>fst (fst l1) < fst (snd l1)\<close> t by auto
+                also have "\<dots> = fst (fst l)" using `fst (snd l1) = fst (fst l)` .
+                finally show ?thesis using \<open>fst (snd l1) = fst (fst l)\<close> \<open>fst (fst l) \<le> fst (fst r)\<close> by auto
+              qed
+              moreover have "fst (fst r) < fst (snd r)" using \<open>monotone_polychain (r # ri)\<close> unfolding monotone_polychain_def by auto
+              ultimately have "p \<notin> {fst r, snd r}" by auto
+            }
+            then show "\<nexists>p. p \<in> open_segment (fst l1) (snd l1) \<and> p \<in> {fst r, snd r}" by auto
+          qed
           have "\<nexists>p. p \<in> closed_segment (fst l1) (snd l1) \<and> p \<in> closed_segment (fst r) (snd r)"
           proof
             assume "\<exists>p. p \<in> closed_segment (fst l1) (snd l1) \<and> p \<in> closed_segment (fst r) (snd r)"
