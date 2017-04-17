@@ -3629,6 +3629,12 @@ fun lanes_intersect' :: "(real2 \<times> real2) list \<Rightarrow> (real2 \<time
 (* checks if two lanes intersect *)
 fun lanes_intersect :: "(real2 \<times> real2) list \<Rightarrow> (real2 \<times> real2) list \<Rightarrow> bool" where
   "lanes_intersect le ri = lanes_intersect' le ri None None"
+  
+lemma lanes_intersect_ri_empty: "\<not>lanes_intersect' le [] l1 None"
+  by (induction le arbitrary: l1) auto
+
+lemma lanes_intersect_le_empty: "\<not>lanes_intersect' [] ri None l2"
+  by (induction ri arbitrary: l2) auto
 
 (* we only need to check line segments that have a common x value *)
 fun segments_relevant :: "(real2 \<times> real2) \<Rightarrow> (real2 \<times> real2) \<Rightarrow> bool" where
@@ -3667,7 +3673,95 @@ qed
   
 locale generalized_lanelet = le: lanelet_simple_boundary points_le + ri: lanelet_simple_boundary points_ri
   for points_le and points_ri
-begin  
+begin
+
+theorem lanes_intersect'_completeness:
+  "lanes_intersect' points_le points_ri l1 l2
+  \<Longrightarrow> segments_intersect l1 l2
+  \<or> (\<exists>i1 < length points_le. segments_intersect (Some (points_le ! i1)) l2)
+  \<or> (\<exists>i2 < length points_ri. segments_intersect l1 (Some (points_ri ! i2)))
+  \<or> (\<exists>i1 < length points_le. \<exists>i2 < length points_ri. segments_intersect (Some (points_le ! i1)) (Some (points_ri ! i2)))"
+proof (induction points_le points_ri l1 l2 rule: lanes_intersect'.induct)
+  case (1 l1 l2)
+  then show ?case by auto
+next
+  case (2 l le l1 l2)
+  then have "segments_intersect l1 l2 \<or> lanes_intersect' le [] (Some l) l2" by auto
+  moreover {
+    assume "lanes_intersect' le [] (Some l) l2"
+    then have ?case using 2 by auto
+  }
+  ultimately show ?case by auto
+next
+  case (3 r ri l1 l2)
+  then have "segments_intersect l1 l2 \<or> lanes_intersect' [] ri l1 (Some r)" by auto
+  moreover {
+    assume "lanes_intersect' [] ri l1 (Some r)"
+    then have ?case using 3 by auto
+  }
+  ultimately show ?case by auto
+next
+  case (4 l le r ri l1 l2)
+  {
+    assume *: "fst (fst l) \<le> fst (fst r)"
+    then have "segments_intersect l1 l2 \<or> lanes_intersect' le (r # ri) (Some l) l2"
+      using 4 by auto
+    moreover {
+      assume "lanes_intersect' le (r # ri) (Some l) l2"
+      then have "segments_intersect (Some l) l2
+        \<or> (\<exists>i1 < length le. segments_intersect (Some (le ! i1)) l2)
+        \<or> (\<exists>i2 < length (r # ri). segments_intersect (Some l) (Some ((r # ri) ! i2)))
+        \<or> (\<exists>i1 < length le. \<exists>i2 < length (r # ri). segments_intersect (Some (le ! i1)) (Some ((r # ri) ! i2)))"
+        using 4 * by auto
+      moreover {
+        assume "\<exists>i2<length (r # ri). segments_intersect (Some l) (Some ((r # ri) ! i2))"
+        then obtain i2 where "i2 < length (r # ri)" "segments_intersect (Some l) (Some ((r # ri) ! i2))" by auto
+        then have "\<exists>i1 < length (l # le). segments_intersect (Some ((l # le) ! i1)) (Some ((r # ri) ! i2))" by auto
+        then have ?case using \<open>i2 < length (r # ri)\<close> by auto
+      }
+      moreover {
+        assume "\<exists>i1<length le. \<exists>i2<length (r # ri). segments_intersect (Some (le ! i1)) (Some ((r # ri) ! i2))"
+        then obtain i2 where "i2 < length (r # ri)" "\<exists>i1 < length le. segments_intersect (Some (le ! i1)) (Some ((r # ri) ! i2))"
+          by auto
+        then have "\<exists>i1 < length (l # le). segments_intersect (Some ((l # le) ! i1)) (Some ((r # ri) ! i2))"
+          by auto
+        then have ?case using \<open>i2 < length (r # ri)\<close> by auto
+      }
+      ultimately have ?case by auto
+    }
+    ultimately have ?case by auto
+  }
+  moreover {
+    assume *: "\<not>fst (fst l) \<le> fst (fst r)"
+    then have "segments_intersect l1 l2 \<or> lanes_intersect' (l # le) ri l1 (Some r)"
+      using 4 by auto
+    moreover {
+      assume "lanes_intersect' (l # le) ri l1 (Some r)"
+      then have "segments_intersect l1 (Some r)
+        \<or> (\<exists>i1 < length (l # le). segments_intersect (Some ((l # le) ! i1)) (Some r))
+        \<or> (\<exists>i2 < length ri. segments_intersect l1 (Some (ri ! i2)))
+        \<or> (\<exists>i1 < length (l # le). \<exists>i2 < length ri. segments_intersect (Some ((l # le) ! i1)) (Some (ri ! i2)))"
+        using 4 * by auto
+      moreover {
+        assume "\<exists>i1<length (l # le). segments_intersect (Some ((l # le) ! i1)) (Some r)"
+        then obtain i1 where "i1 < length (l # le)" "segments_intersect (Some ((l # le) ! i1)) (Some r)" by auto
+        then have "\<exists>i2 < length (r # ri). segments_intersect (Some ((l # le) ! i1)) (Some ((r # ri) ! i2))" by auto
+        then have ?case using \<open>i1 < length (l # le)\<close> by auto
+      }
+      moreover {
+        assume "\<exists>i1 < length (l # le). \<exists>i2 < length ri. segments_intersect (Some ((l # le) ! i1)) (Some (ri ! i2))"
+        then obtain i1 where "i1 < length (l # le)" "\<exists>i2 < length ri. segments_intersect (Some ((l # le) ! i1)) (Some (ri ! i2))"
+          by auto
+        then have "\<exists>i2 < length (r # ri). segments_intersect (Some ((l # le) ! i1)) (Some ((r # ri) ! i2))"
+          by auto
+        then have ?case using \<open>i1 < length (l # le)\<close> by auto
+      }
+      ultimately have ?case by auto
+    }
+    ultimately have ?case by auto
+  }
+  ultimately show ?case by auto
+qed
 
 theorem lanes_non_intersecting_iff_segments_non_intersecting:
   "(\<forall>t1 \<in> {0..1}. \<forall>t2 \<in> {0..1}. le.curve_eq t1 \<noteq> ri.curve_eq t2) \<longleftrightarrow> (\<forall>i1 < length points_le. \<forall>i2 < length points_ri. \<not>(\<exists>p. p \<in> closed_segment (fst (points_le ! i1)) (snd (points_le ! i1)) \<and> p \<in> closed_segment (fst (points_ri ! i2)) (snd (points_ri ! i2))))"
@@ -4274,7 +4368,22 @@ theorem lanes_intersect_correctness:
   shows "\<forall>t1 \<in> {0..1}. \<forall>t2 \<in> {0..1}. le.curve_eq t1 \<noteq> ri.curve_eq t2"
   using assms le.monotone ri.monotone
     relevant_segments_intersecting_imp_lanes_intersect segments_non_intersecting_iff_relevant_segments_non_intersecting lanes_non_intersecting_iff_segments_non_intersecting
-  by auto 
+  by auto
+    
+theorem lanes_intersect_completeness:
+  assumes "lanes_intersect points_le points_ri"
+  shows "\<exists>t1 \<in> {0..1}. \<exists>t2 \<in> {0..1}. le.curve_eq t1 = ri.curve_eq t2"
+proof -
+  obtain i1 i2 where "i1 < length points_le" "i2 < length points_ri" "segments_intersect (Some (points_le ! i1)) (Some (points_ri ! i2))"
+    using assms lanes_intersect'_completeness[of None None] by auto
+  then have "\<exists>p. p \<in> closed_segment (fst (points_le ! i1)) (snd (points_le ! i1)) \<and> p \<in> closed_segment (fst (points_ri ! i2)) (snd (points_ri ! i2))"
+    using segment_intersection_correctness by auto
+  then show ?thesis using lanes_non_intersecting_iff_segments_non_intersecting \<open>i1 < length points_le\<close> \<open>i2 < length points_ri\<close> by auto
+qed
+  
+theorem lanes_intersect_iff: "lanes_intersect points_le points_ri \<longleftrightarrow> (\<exists>t1 \<in> {0..1}. \<exists>t2 \<in> {0..1}. le.curve_eq t1 = ri.curve_eq t2)"
+  using lanes_intersect_correctness lanes_intersect_completeness by auto
+
 end  
   
 subsection "Lanelet"
