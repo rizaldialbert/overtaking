@@ -7294,6 +7294,37 @@ fun time_points_to_ori_bools :: "(nat \<times> nat \<times> nat \<times> nat) li
 definition original_lane_trace :: "rectangle list \<Rightarrow> bool list" where
   "original_lane_trace rects \<equiv> (time_points_to_ori_bools \<circ> overtaking) rects"
   
+\<comment>\<open>Detecting vehicles behind\<close>
+
+fun relevant_lane_id :: "detection_opt \<Rightarrow> nat list" where
+  "relevant_lane_id Outside = []" | 
+  "relevant_lane_id (Lane x) = [x]" | 
+  "relevant_lane_id (Boundaries ns) = ns"
+  
+fun list_intersect :: "'a list \<Rightarrow> 'a list \<Rightarrow> bool" where
+  "list_intersect [] _ = False" | 
+  "list_intersect (a # as) bs = (case find (\<lambda>x. x = a) bs of 
+                                    Some _ \<Rightarrow> True 
+                                 |  None \<Rightarrow> list_intersect as bs)"
+  
+theorem 
+  "list_intersect as bs \<longleftrightarrow> (\<exists>x. x \<in> set as \<and> x \<in> set bs)"
+  sorry  
+    
+fun is_relevant :: "detection_opt \<Rightarrow> nat list \<Rightarrow> bool" where
+  "is_relevant Outside _ = False" | 
+  "is_relevant (Lane x) ids = (x \<in> set ids)" | 
+  "is_relevant (Boundaries ns) ids = list_intersect ns ids"  
+
+definition trim_vehicles_same_lane :: "rectangle list \<Rightarrow> detection_opt \<Rightarrow> nat list" where
+  "trim_vehicles_same_lane rects l = (let ids = relevant_lane_id l in undefined)"
+
+fun vehicles_behind :: "rectangle list \<Rightarrow> rectangle \<Rightarrow> nat list" where
+  "vehicles_behind [] _ = []" |
+  "vehicles_behind (ro # rects) re"
+  
+  
+  
 end
   
 

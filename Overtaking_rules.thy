@@ -1,6 +1,6 @@
 theory Overtaking_rules
 imports 
-  Main Overtaking_Aux Environment_Executable "./safe_distance/Safe_Distance_Isar"
+  Main Overtaking_Aux Environment_Executable
 begin   
     
 section "Trace"    
