@@ -236,29 +236,7 @@ proof -
   thus ?thesis 
     by (smt atLeastatMost_empty bot_set_def that)
 qed  
-             
-section "Trace"    
-\<comment> \<open>Represent the state of a (dynamic) road user as a record.\<close>
-
-datatype vehicle = Pedestrian | Cyclist | Motorised
-
-record raw_state = rectangle +
-  velocity     :: "real2"        (* velocity vector     *)
-  acceleration :: "real2"        (* acceleration vector *)
-    
-\<comment> \<open>predicate to check whether a number is the supremum in a dimension.\<close>  
-definition is_sup :: "(real2 \<Rightarrow> real) \<Rightarrow> real \<Rightarrow> real2 set \<Rightarrow> bool" where
-  "is_sup sel r occ \<equiv> (\<forall>p \<in> occ. sel p \<le> r)"  
-  
-definition is_sup_x :: "real \<Rightarrow> real2 set \<Rightarrow> bool" where
-  "is_sup_x \<equiv> is_sup fst"
-
-definition is_sup_y :: "real \<Rightarrow> real2 set \<Rightarrow> bool" where
-  "is_sup_y \<equiv> is_sup snd"
-  
-type_synonym runs = "vehicle \<times> raw_state list"    
-type_synonym black_boxes = "runs list"  
-  
+               
 section "Environment"
 
 text "At the moment, we focus on highway (freeway) scenario first without forks and joints. There 
@@ -1432,8 +1410,31 @@ qed
 lemma line_equation_closed_segment:
   assumes "p \<in> closed_segment p1 p2"
   assumes "fst p1 \<noteq> fst p2"  
-  shows "line_equation p1 p2 (fst p) = snd q"
-  sorry
+  shows "line_equation p1 p2 (fst p) = snd p"
+proof -
+  from assms(1) obtain t where "0 \<le> t" and "t \<le> 1" and "p = (1 -t) *\<^sub>R p1 + t *\<^sub>R p2" 
+    unfolding closed_segment_def by auto  
+  hence "p = p1 + t*\<^sub>R (p2 - p1)" by (auto simp add:algebra_simps)
+  hence f: "fst p - fst p1 = t * (fst p2 - fst p1)" and 
+        s: "snd p - snd p1 = t * (snd p2 - snd p1)" by (auto simp add:field_simps)    
+  consider "t = 0" | "t \<noteq> 0" by auto
+  thus ?thesis
+  proof (cases)
+    case 1
+    then show ?thesis unfolding line_equation_def f using s assms(2) by auto
+  next
+    case 2
+    have "(snd p2 - snd p1) / (fst p2 - fst p1) * (fst p - fst p1) = snd p - snd p1" (is "?lhs = ?rhs")
+    proof -
+      have "?lhs = (snd p2 - snd p1) / (fst p2 - fst p1) * t * (fst p2 - fst p1)"
+        using f by auto
+      also have "... = t * (snd p2 - snd p1)" using assms(2) by auto    
+      also have "... = ?rhs" using s by auto  
+      finally show "?lhs = ?rhs" by auto          
+    qed      
+    then show ?thesis unfolding line_equation_def by auto
+  qed    
+qed
       
 locale simple_road2 =  le: simple_boundary curve_left domain +  ri: simple_boundary curve_right domain 
   for curve_left and curve_right and domain +

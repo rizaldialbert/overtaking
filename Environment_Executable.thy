@@ -761,7 +761,382 @@ proof -
   with eq have ri: "fst c \<le> fst b" using \<open>t \<in> {0..1}\<close> by auto
   from le and ri show ?thesis by auto      
 qed
+  
+lemma h1:
+  assumes "curve (curve_eq3 (points_path2 (a # pts))) {0..1}" 
+  assumes "pts \<noteq> []"  
+  assumes "polychain (a # pts)"    
+  shows "curve(curve_eq3 (points_path2 pts)) {0..1}"
+proof (unfold_locales)  
+  show "convex {0::real..1}" by auto
+next
+  show "compact {0::real..1}" by auto
+next      
+  from assms have 0: "continuous_on {0..1} (curve_eq3 (points_path2 (a # pts)))"
+    unfolding curve_def by auto
+  have *: "points_path2 (a # pts) = linepath (fst a) (snd a) # points_path2 pts"
+    unfolding points_path2_def by auto
+  obtain a' pts' where "pts = a' # pts'" using assms(2) using list.exhaust_sel by blast
+  with assms(3) have "snd a = fst a'" unfolding polychain_def by auto            
+  have eq: "pathfinish (linepath (fst a) (snd a)) = pathstart (curve_eq3 (points_path2 pts))"
+  proof -
+    have lhs: "pathfinish (linepath (fst a) (snd a)) = snd a" by auto    
+    have "curve_eq3 (points_path2 pts) = curve_eq3 (points_path2 (a' # pts'))" using `pts = a' # pts'` by auto
+    also have "... = curve_eq3 (linepath (fst a') (snd a') # points_path2 pts')" 
+      unfolding points_path2_def by auto
+    finally have "curve_eq3 (points_path2 pts) = curve_eq3 (linepath (fst a') (snd a') # points_path2 pts')"    
+      by auto        
+    with pathstart_curve_eq have "pathstart (curve_eq3 (points_path2 pts)) = pathstart (linepath (fst a') (snd a'))"
+      by auto
+    also have "... = fst a'" by auto            
+    finally have "pathstart (curve_eq3 (points_path2 pts)) = fst a'" by auto       
+    with lhs and `snd a = fst a'` show ?thesis by auto
+  qed        
+  from `pts = a' # pts'` have "points_path2 pts = linepath (fst a') (snd a') # points_path2 pts'" 
+    unfolding points_path2_def by auto
+  with *have "curve_eq3 (points_path2 (a # pts)) = linepath (fst a) (snd a) +++ (curve_eq3 (points_path2 pts))"
+    by auto
+  with 0 have "continuous_on {0..1} (linepath (fst a) (snd a) +++ (curve_eq3 (points_path2 pts)))"
+    by auto
+  with continuous_on_joinpaths_D2[OF this eq] show "continuous_on {0..1} (curve_eq3 (points_path2 pts))"    
+    by auto 
+qed  
+ 
+lemma pathfinish_pathstart:
+  assumes "polychain (a # pts)"
+  assumes "pts \<noteq> []"   
+  shows "pathfinish (linepath (fst a) (snd a)) = pathstart (curve_eq3 (points_path2 pts))"  
+proof -
+  from assms(2) obtain a' pts' where "pts = a' # pts'" 
+    using list.exhaust_sel by blast
+  with assms(1) have 0: "snd a = fst a'" unfolding polychain_def by auto
+  have 1: "pathfinish (linepath (fst a) (snd a)) = snd a" by auto
+  have "pathstart (curve_eq3 (points_path2 pts)) = fst a'" unfolding `pts = a' # pts'`
+    using curve_eq_cons by(cases "pts' = []") (auto)     
+  with 0 and 1 show ?thesis by auto             
+qed
+  
+lemma curve_eq3_image_01:
+  assumes "curve (curve_eq3 (points_path2 (a # pts))) {0..1}"
+  assumes "pts \<noteq> []"
+  assumes "polychain (a # pts)"
+  shows "curve_eq3 (points_path2 (a # pts)) ` {0..1} = 
+                          linepath (fst a) (snd a) ` {0..1} \<union> curve_eq3 (points_path2 pts) ` {0..1}"  
+proof -
+  have eq: "pathfinish (linepath (fst a) (snd a)) = pathstart (curve_eq3 (points_path2 pts))" 
+    using pathfinish_pathstart[OF assms(3) assms(2)] .
+  from assms(1-3) have "curve (curve_eq3 (points_path2 (pts))) {0..1}"
+    using h1[OF assms(1-3)] by auto
+  from curve.setX_def[OF this] 
+  have 1: "curve.setX (curve_eq3 (points_path2 pts)) {0..1} \<equiv> 
+                                           fst ` curve_eq3 (points_path2 pts) ` {0..1}"
+    by auto
+  from curve.setX_def[OF assms(1)]
+  have 2: "curve.setX (curve_eq3 (points_path2 (a # pts))) {0..1} \<equiv> 
+                                      fst ` curve_eq3 (points_path2 (a # pts)) ` {0..1}"
+    by auto
+  have *: "points_path2 (a # pts) = linepath (fst a) (snd a) # points_path2 pts" 
+    unfolding points_path2_def by auto   
+  from `pts \<noteq> []` have "points_path2 pts \<noteq> []" unfolding points_path2_def by auto      
+  with * have "curve_eq3 (points_path2 (a # pts)) = linepath (fst a) (snd a) +++ curve_eq3 (points_path2 pts)"
+    (is "?lhs = ?rhs")
+    using assms(2) curve_eq_cons(1) by blast
+  hence "?lhs ` {0..1} = ?rhs ` {0..1}" by auto
+  also have "... = linepath (fst a) (snd a) ` {0..1} \<union> curve_eq3 (points_path2 pts) ` {0..1}"    
+    using joinpaths_image_01[OF eq] by auto  
+  finally show "?lhs ` {0..1} = linepath (fst a) (snd a) ` {0..1} \<union> curve_eq3 (points_path2 pts) ` {0..1}"
+    by auto    
+qed
+    
 
+lemma h2:
+  assumes "curve (curve_eq3 (points_path2 (a # pts))) {0..1}"
+  assumes "pts \<noteq> []"  
+  assumes "polychain (a # pts)" 
+  assumes "x \<in> curve.setX (curve_eq3 (points_path2 pts)) {0..1}"  
+  shows "x \<in> curve.setX (curve_eq3 (points_path2 (a # pts))) {0..1}" 
+proof -
+  from assms(1-3) have "curve (curve_eq3 (points_path2 (pts))) {0..1}"
+    using h1[OF assms(1-3)] by auto
+  from curve.setX_def[OF this] 
+  have 1: "curve.setX (curve_eq3 (points_path2 pts)) {0..1} \<equiv> 
+                                           fst ` curve_eq3 (points_path2 pts) ` {0..1}"
+    by auto
+  from curve.setX_def[OF assms(1)]
+  have 2: "curve.setX (curve_eq3 (points_path2 (a # pts))) {0..1} \<equiv> 
+                                      fst ` curve_eq3 (points_path2 (a # pts)) ` {0..1}"
+    by auto
+  have "curve_eq3 (points_path2 (a # pts)) ` {0..1}  = 
+    linepath (fst a) (snd a) ` {0..1} \<union> curve_eq3 (points_path2 pts) ` {0..1}"
+    using curve_eq3_image_01[OF assms(1-3)] by auto    
+  hence "curve_eq3 (points_path2 pts) ` {0..1} \<subseteq> curve_eq3 (points_path2 (a # pts)) ` {0..1}" by auto
+  hence "fst ` curve_eq3 (points_path2 pts) ` {0..1} \<subseteq> fst ` curve_eq3 (points_path2 (a # pts)) ` {0..1}" by auto
+  hence "curve.setX (curve_eq3 (points_path2 pts)) {0..1} \<subseteq> curve.setX (curve_eq3 (points_path2 (a # pts))) {0..1}" 
+    using 1 2 by auto
+  with assms(4) show ?thesis by auto      
+qed
+  
+lemma h2_hd:
+  assumes "curve (curve_eq3 (points_path2 (a # pts))) {0..1}"
+  assumes "pts \<noteq> []"  
+  assumes "polychain (a # pts)" 
+  assumes "x \<in> fst ` linepath (fst a) (snd a) ` {0..1}"  
+  shows "x \<in> curve.setX (curve_eq3 (points_path2 (a # pts))) {0..1}" 
+proof -
+  from curve.setX_def[OF assms(1)]
+  have 2: "curve.setX (curve_eq3 (points_path2 (a # pts))) {0..1} \<equiv> 
+                                      fst ` curve_eq3 (points_path2 (a # pts)) ` {0..1}"
+    by auto
+  have "curve_eq3 (points_path2 (a # pts)) ` {0..1}  = 
+    linepath (fst a) (snd a) ` {0..1} \<union> curve_eq3 (points_path2 pts) ` {0..1}"
+    using curve_eq3_image_01[OF assms(1-3)] by auto 
+  hence "linepath (fst a) (snd a) ` {0..1} \<subseteq> curve_eq3 (points_path2 (a # pts)) ` {0..1}"
+    (is "?lhs \<subseteq> ?rhs")
+    by auto  
+  hence "fst ` ?lhs \<subseteq> fst ` ?rhs" by auto
+  with assms(4) show ?thesis using 2 by auto            
+qed
+  
+thm curve.setX_def  
+  
+lemma test2:
+  assumes "points \<noteq> []"
+  assumes "monotone_polychain points"  
+  assumes "curve (curve_eq3 (points_path2 points)) {0..1}"    
+  assumes "c \<in> set points"
+  assumes "fst (fst c) \<le> x" and "x \<le> fst (snd c)"
+  shows "x \<in> curve.setX (curve_eq3 (points_path2 (points))) {0..1}"
+  using assms
+proof (induction points)
+  case Nil
+  then show ?case by auto
+next
+  case (Cons a points)
+  note case_cons = this  
+  from `monotone_polychain (a # points)` have "fst (fst a) < fst (snd a)"
+    unfolding monotone_polychain_def by auto
+  from `monotone_polychain (a # points)` have "monotone_polychain points" using monotone_polychain_ConsD
+    by auto
+  from `monotone_polychain (a # points)` have "polychain (a # points)" unfolding monotone_polychain_def 
+    by auto      
+  obtain a' and points' where "points = [] \<or> points = a' # points'"  using list.exhaust_sel by blast
+  moreover    
+  { assume e: "points = []"  
+    with case_cons have "c = a" by auto
+    from case_cons have "fst (fst a) \<le> x" and "x \<le> fst (snd a)" unfolding `c = a` by auto
+    have "linepath (fst a) (snd a) ` {0 .. 1} = closed_segment (fst a) (snd a)" using linepath_image_01
+      by auto
+    hence "fst ` (linepath (fst a) (snd a) ` {0 .. 1}) = fst ` (closed_segment (fst a) (snd a))"
+      by auto
+    also have "... = closed_segment (fst (fst a)) (fst (snd a))" by auto
+    also have "... = {fst (fst a) .. fst (snd a)}" using `fst (fst a) < fst (snd a)` 
+      using closed_segment_real by auto
+    finally have "fst ` (linepath (fst a) (snd a) ` {0 .. 1}) = {fst (fst a) .. fst (snd a)}"
+      by auto
+    hence "x \<in> fst ` (linepath (fst a) (snd a) ` {0 .. 1})" using `fst (fst a) \<le> x` and `x \<le> fst (snd a)`
+      by auto
+    with case_cons have "x \<in> curve.setX (curve_eq3 (points_path2 (a # points))) {0..1}"
+      by (simp add: curve.setX_def curve_eq_cons(2) e) }    
+  
+  moreover
+  { assume ne: "points = a' # points'"
+    with `c \<in> set (a # points)` have "c = a \<or> c \<in> set points" by auto
+    moreover
+    { assume "c \<in> set points"
+      have curve_tail: "curve (curve_eq3 (points_path2 points)) {0..1}"
+        using \<open>polychain (a # points)\<close> case_cons(4) h1 ne by blast 
+      from case_cons(1) [OF _ `monotone_polychain points` curve_tail `c \<in> set points` assms(5-6)]
+      have " x \<in> curve.setX (curve_eq3 (points_path2 points)) {0..1}"  unfolding ne by auto
+      hence "x \<in> curve.setX (curve_eq3 (points_path2 (a # points))) {0..1}" 
+        using \<open>points = [] \<Longrightarrow> x \<in> curve.setX (curve_eq3 (points_path2 (a # points))) {0..1}\<close> 
+              \<open>polychain (a # points)\<close> case_cons(4) h2 by blast }
+    moreover  
+    { assume "c = a"
+      from case_cons have "fst (fst a) \<le> x" and "x \<le> fst (snd a)" unfolding `c = a` by auto
+      have "linepath (fst a) (snd a) ` {0 .. 1} = closed_segment (fst a) (snd a)" using linepath_image_01
+        by auto
+      hence "fst ` (linepath (fst a) (snd a) ` {0 .. 1}) = fst ` (closed_segment (fst a) (snd a))"
+        by auto
+      also have "... = closed_segment (fst (fst a)) (fst (snd a))" by auto
+      also have "... = {fst (fst a) .. fst (snd a)}" using `fst (fst a) < fst (snd a)` 
+        using closed_segment_real by auto
+      finally have "fst ` (linepath (fst a) (snd a) ` {0 .. 1}) = {fst (fst a) .. fst (snd a)}"
+        by auto
+      hence "x \<in> fst ` (linepath (fst a) (snd a) ` {0 .. 1})" using `fst (fst a) \<le> x` and `x \<le> fst (snd a)`
+        by auto
+      with case_cons(2-7) have "x \<in> curve.setX (curve_eq3 (points_path2 (a # points))) {0..1}"
+        using \<open>points = [] \<Longrightarrow> x \<in> curve.setX (curve_eq3 (points_path2 (a # points))) {0..1}\<close> 
+              \<open>polychain (a # points)\<close> h2_hd by blast }  
+    ultimately have "x \<in> curve.setX (curve_eq3 (points_path2 (a # points))) {0..1}" by auto
+  }        
+  ultimately show ?case by blast
+qed   
+  
+lemma curve_linepath:
+  "curve (linepath a b) {0..1}"
+proof (unfold_locales)
+  show "convex {0::real..1}" by auto
+next
+  show "compact {0::real .. 1}" by auto
+next
+  show "continuous_on {0..1} (linepath a b)"
+    by auto  
+qed
+  
+lemma simple_boundary_linepath:
+  assumes "fst (fst a) \<noteq> fst (snd a)"
+  shows "simple_boundary (linepath (fst a) (snd a)) {0..1}"
+proof (unfold_locales)
+  show "convex {0::real..1}" by auto
+next
+  show "compact {0::real .. 1}" by auto
+next
+  show "continuous_on {0..1} (linepath (fst a) (snd a))"
+    by auto
+next
+  from assms have t: "fst a \<noteq> snd a" by auto
+  show "inj_on (linepath (fst a) (snd a)) {0..1}"
+    using inj_on_linepath t by auto
+next
+  show "bij_betw (curve.curve_eq_x (linepath (fst a) (snd a))) {0..1} 
+                                          (curve.setX (linepath (fst a) (snd a)) {0..1})"
+    unfolding bij_betw_def  curve.curve_eq_x_def[OF curve_linepath] curve.setX_def[OF curve_linepath]
+  proof (rule conjI)
+    have eq: "fst \<circ> linepath (fst a) (snd a) = linepath (fst (fst a)) (fst (snd a))"
+      unfolding comp_def
+    proof 
+      fix x
+      have *: "linepath (fst a) (snd a) x = (1 - x) *\<^sub>R (fst a) + x *\<^sub>R (snd a)" unfolding linepath_def
+        by auto
+      hence "fst ((1 - x) *\<^sub>R (fst a) + x *\<^sub>R (snd a)) = (1 - x) * (fst (fst a)) + x * (fst (snd a))"
+        by auto
+      also have "... = linepath (fst (fst a)) (fst (snd a)) x" unfolding linepath_def by auto   
+      finally show "fst (linepath (fst a) (snd a) x) = linepath (fst (fst a)) (fst (snd a)) x"
+        using * by auto
+    qed
+    have "inj_on (linepath (fst (fst a)) (fst (snd a))) {0..1}"
+      using inj_on_linepath assms by auto
+    thus "inj_on (\<lambda>s. fst (linepath (fst a) (snd a) s)) {0..1}" 
+      using eq unfolding comp_def by auto
+  next
+    show "(\<lambda>s. fst (linepath (fst a) (snd a) s)) ` {0..1} = fst ` linepath (fst a) (snd a) ` {0..1}"
+      by auto
+  qed    
+qed
+  
+lemma simple_boundary_tail:
+  assumes "points \<noteq> []"
+  assumes "polychain (a # points)"  
+  assumes "simple_boundary (curve_eq3 (points_path2 (a # points))) {0..1}"  
+  shows "simple_boundary (curve_eq3 (points_path2 (points))) {0..1}"
+proof (unfold_locales)
+  show " convex {0::real..1}" by auto
+next
+  show " compact {0::real..1}" by auto
+next
+  from assms(1-2) have 1: "pathfinish (linepath (fst a) (snd a)) = pathstart (curve_eq3 (points_path2 points))"
+    using pathfinish_pathstart by auto
+  from assms have 0: "continuous_on {0..1} (curve_eq3 (points_path2 (a # points)))"
+    unfolding simple_boundary_def simple_boundary_axioms_def curve_def by auto  
+  from curve_eq_cons(1)[OF assms(1)] have "curve_eq3 (points_path2 (a # points)) = 
+    linepath (fst a) (snd a) +++ curve_eq3 (points_path2 points)" by auto
+  with 0 show " continuous_on {0..1} (curve_eq3 (points_path2 points))" 
+    using continuous_on_joinpaths_D2 1 by metis
+next
+  from assms(3) have bs: "inj_on (curve_eq3 (points_path2 (a # points))) {0..1}"
+    unfolding simple_boundary_def simple_boundary_axioms_def by auto
+  from curve_eq_cons(1)[OF assms(1)] have eq: "curve_eq3 (points_path2 (a # points)) = 
+    linepath (fst a) (snd a) +++ curve_eq3 (points_path2 points)" by auto
+  from bs show "inj_on (curve_eq3 (points_path2 points)) {0..1}" unfolding eq
+    sorry
+next
+  show " bij_betw (curve.curve_eq_x (curve_eq3 (points_path2 points))) {0..1} (curve.setX (curve_eq3 (points_path2 points)) {0..1}) "
+    sorry
+qed
+  
+lemma
+  assumes "points \<noteq> []"
+  assumes "fst (fst a) \<le> x" and "x \<le> fst (snd a)"
+  assumes "simple_boundary (curve_eq3 (points_path2 (a # points))) {0..1}"  
+  shows "simple_boundary.f_of_x (curve_eq3 (points_path2 (a # points))) {0..1} x =
+         simple_boundary.f_of_x (linepath (fst a) (snd a)) {0..1} x"  
+proof -
+  from curve_eq_cons(1)[OF assms(1)] 
+    have "curve_eq3 (points_path2 (a # points)) = linepath (fst a) (snd a) +++ curve_eq3 (points_path2 points) "   
+    by auto
+  show ?thesis sorry  
+qed
+    
+lemma test1':
+  assumes "points \<noteq> []"
+  assumes "monotone_polychain points"  
+  assumes "simple_boundary (curve_eq3 (points_path2 points)) {0..1}"  
+  assumes "c \<in> set points"
+  assumes "fst (fst c) \<le> x" and "x \<le> fst (snd c)"
+  shows "line_equation (fst c) (snd c) x = simple_boundary.f_of_x (curve_eq3 (points_path2 points)) {0..1} x"
+  using assms    
+proof (induction points)
+  case Nil
+  then show ?case by auto
+next
+  case (Cons a points)
+  note case_cons = this  
+  from `monotone_polychain (a # points)` have "fst (fst a) < fst (snd a)"
+    unfolding monotone_polychain_def by auto
+  hence *: "fst (fst a) \<noteq> fst (snd a)" by auto
+  hence 0: "simple_boundary (linepath (fst a) (snd a)) {0..1}" using simple_boundary_linepath
+    by auto
+  hence 1: "curve (linepath (fst a) (snd a)) {0..1}" by(unfold_locales)  auto    
+  from `monotone_polychain (a # points)` have "monotone_polychain points" using monotone_polychain_ConsD
+    by auto
+  from `monotone_polychain (a # points)` have "polychain (a # points)" unfolding monotone_polychain_def 
+    by auto
+  obtain a' and points' where "points = [] \<or> points = a' # points'"  using list.exhaust_sel by blast
+  moreover
+  { assume "points = []"
+    from `c \<in> set (a # points)` have "c = a" using `points = []` by auto  
+    have eq: "curve_eq3 (points_path2 (a # points)) = linepath (fst a) (snd a)" unfolding `points = []`
+        points_path2_def by auto
+    have "line_equation (fst c) (snd c) x = simple_boundary.f_of_x (linepath (fst a) (snd a)) {0..1} x"
+      (is "?lhs = ?rhs")
+    proof -
+      have "?lhs = line_equation (fst a) (snd a) x" unfolding `c = a` by auto 
+      define y where "y \<equiv> simple_boundary.f_of_x (linepath (fst a) (snd a)) {0..1} x"     
+      from case_cons(6-7) have "x \<in> curve.setX (linepath (fst a) (snd a)) {0..1}"
+        unfolding `c = a`  curve.setX_def[OF 1] 
+        by (metis "1" \<open>curve.setX (linepath (fst a) (snd a)) {0..1} \<equiv> fst ` linepath (fst a) (snd a) ` {0..1}\<close> 
+            case_cons eq test2)
+      from simple_boundary.f_of_x_curve_eq[OF 0 this, of "y"] obtain t where "t \<in> {0..1}" and 
+        "linepath (fst a) (snd a) t = (x, y)"
+        unfolding y_def by auto
+      hence "(x, y) \<in> closed_segment (fst a) (snd a)" unfolding linepath_def closed_segment_def
+        by force
+      from line_equation_closed_segment[OF this *] have "line_equation (fst a) (snd a) x = y"    
+        by auto
+      with `?lhs = line_equation (fst a) (snd a) x` show ?thesis unfolding y_def
+        by auto          
+    qed      
+    hence ?case using eq by auto }  
+  moreover
+  { assume "points = a' # points'"
+    hence nem: "points \<noteq> []" by auto  
+    from case_cons(5) consider "c = a" | "c \<in> set points" by auto  
+    hence ?case
+    proof (cases)
+      case 1  
+      then show ?thesis sorry
+    next
+      case 2
+      from case_cons(4) have "simple_boundary (curve_eq3 (points_path2 points)) {0..1}"  
+        using simple_boundary_tail[OF nem `polychain (a # points)`] by auto
+      from case_cons(1)[OF nem `monotone_polychain points` this 2 case_cons(6-7)]
+      have "line_equation (fst c) (snd c) x = simple_boundary.f_of_x (curve_eq3 (points_path2 points)) {0..1} x"
+        by auto
+      thus ?thesis sorry 
+    qed 
+  }
+  ultimately show ?case by auto
+qed
   
 locale lanelet_simple_boundary = lanelet_curve +
   assumes monotone: "monotone_polychain points"  
@@ -841,88 +1216,20 @@ proof -
   also have "... = snd (last points)" by auto                                             
   finally show "pathfinish curve_eq = snd (last points)" by auto     
 qed  
-  
-term "curve.setX curve_eq {0..1}" (* lsc.setX *)    
-         
+      
 lemma lsc_f_of_x_curve_eq:
   assumes "x \<in> lsc.setX" \<comment> \<open>@{term "x \<in> lsc.setX"}\<close>
   assumes "lsc.f_of_x x = y"
   shows "\<exists>t\<in>{0..1}. curve_eq t = (x, y)"
   using assms lsc.f_of_x_curve_eq by auto
-    
-lemma test2:
-  assumes "c \<in> set points"
-  assumes "fst (fst c) \<le> x" and "x \<le> fst (snd c)"
-  shows "x \<in> lsc.setX"
-  using assms nonempty_points monotone curve_eq_is_curve
-proof (induction points)
-  case Nil
-  then show ?case by auto
-next
-  case (Cons a points)
-  note case_cons = this  
-  from `monotone_polychain (a # points)` have "fst (fst a) < fst (snd a)"
-    unfolding monotone_polychain_def by auto
-  from `monotone_polychain (a # points)` have "monotone_polychain points" using monotone_polychain_ConsD
-    by auto
-  obtain a' and points' where "points = [] \<or> points = a' # points'"  using list.exhaust_sel by blast
-  moreover    
-  { assume e: "points = []"  
-    with case_cons have "c = a" by auto
-    from case_cons have "fst (fst a) \<le> x" and "x \<le> fst (snd a)" unfolding `c = a` by auto
-    have "linepath (fst a) (snd a) ` {0 .. 1} = closed_segment (fst a) (snd a)" using linepath_image_01
-      by auto
-    hence "fst ` (linepath (fst a) (snd a) ` {0 .. 1}) = fst ` (closed_segment (fst a) (snd a))"
-      by auto
-    also have "... = closed_segment (fst (fst a)) (fst (snd a))" by auto
-    also have "... = {fst (fst a) .. fst (snd a)}" using `fst (fst a) < fst (snd a)` 
-      using closed_segment_real by auto
-    finally have "fst ` (linepath (fst a) (snd a) ` {0 .. 1}) = {fst (fst a) .. fst (snd a)}"
-      by auto
-    hence "x \<in> fst ` (linepath (fst a) (snd a) ` {0 .. 1})" using `fst (fst a) \<le> x` and `x \<le> fst (snd a)`
-      by auto
-    with case_cons have "x \<in> curve.setX (curve_eq3 (points_path2 (a # points))) {0..1}"
-      unfolding e points_path2_def using curve.setX_def[OF case_cons(7)] 
-      by (simp add: \<open>x \<in> fst ` linepath (fst a) (snd a) ` {0..1}\<close> e points_path2_def) }    
-  
-  moreover
-  { assume ne: "points = a' # points'"
-    with `c \<in> set (a # points)` have "c = a \<or> c \<in> set points" by auto
-    moreover
-    { assume "c \<in> set points"
-      have curve_tail: "curve (curve_eq3 (points_path2 points)) {0..1}"  sorry
-      from case_cons(1) [OF `c \<in> set points` case_cons(3) case_cons(4) _ `monotone_polychain points` curve_tail]
-      have " x \<in> curve.setX (curve_eq3 (points_path2 points)) {0..1}"  unfolding ne by auto
-      hence "x \<in> curve.setX (curve_eq3 (points_path2 (a # points))) {0..1}" sorry
-    }
-    moreover  
-    { assume "c = a"
-      from case_cons have "fst (fst a) \<le> x" and "x \<le> fst (snd a)" unfolding `c = a` by auto
-      have "linepath (fst a) (snd a) ` {0 .. 1} = closed_segment (fst a) (snd a)" using linepath_image_01
-        by auto
-      hence "fst ` (linepath (fst a) (snd a) ` {0 .. 1}) = fst ` (closed_segment (fst a) (snd a))"
-        by auto
-      also have "... = closed_segment (fst (fst a)) (fst (snd a))" by auto
-      also have "... = {fst (fst a) .. fst (snd a)}" using `fst (fst a) < fst (snd a)` 
-        using closed_segment_real by auto
-      finally have "fst ` (linepath (fst a) (snd a) ` {0 .. 1}) = {fst (fst a) .. fst (snd a)}"
-        by auto
-      hence "x \<in> fst ` (linepath (fst a) (snd a) ` {0 .. 1})" using `fst (fst a) \<le> x` and `x \<le> fst (snd a)`
-        by auto
-      with case_cons(2-7) have "x \<in> curve.setX (curve_eq3 (points_path2 (a # points))) {0..1}"
-        unfolding ne points_path2_def sorry 
-    }  
-    ultimately have "x \<in> curve.setX (curve_eq3 (points_path2 (a # points))) {0..1}" by auto
-  }        
-  ultimately show ?case by blast
-qed    
-  
+                
 lemma test1:
   assumes "c \<in> set points"
   assumes "fst (fst c) \<le> x" and "x \<le> fst (snd c)"
   shows "line_equation (fst c) (snd c) x = lsc.f_of_x x"
+  using assms test2 nonempty_points lsc_f_of_x_curve_eq   
   sorry
-        
+    
 lemma lsc_f_of_x_curve_eq2: 
   assumes "t \<in> {0..1}"
   assumes "curve_eq t = (x,y)"
@@ -3607,7 +3914,6 @@ next
   with segments_intersects_correctness_none show ?thesis by auto
 qed
 
-  
 fun segments_intersect_polychain :: "real2 \<times> real2 \<Rightarrow> (real2 \<times> real2) list \<Rightarrow> bool" where
   "segments_intersect_polychain line [] = False" | 
   "segments_intersect_polychain line (c # cs) = 
@@ -4168,7 +4474,7 @@ proof -
   thus ?thesis using c
   by (cases) (auto)
 qed
-    
+   
 definition lines_inside :: "rectangle \<Rightarrow> bool" where
   "lines_inside rect \<equiv> (let lines = get_lines rect; 
                             intersect = map intersect_boundaries lines in
@@ -4177,7 +4483,7 @@ definition lines_inside :: "rectangle \<Rightarrow> bool" where
 definition rectangle_inside :: "rectangle \<Rightarrow> bool" where
   "rectangle_inside rect \<equiv> vertices_inside rect \<and> lines_inside rect"    
   
-theorem 
+theorem vertices_inside_drivable_area:
   assumes "rectangle_inside rect"
   assumes "p \<in> set (get_vertices_rotated rect)"  
   shows "p \<in> sr.drivable_area"
@@ -4189,35 +4495,377 @@ proof -
     nbr_of_vertex_rotated using vertices_inside_pida[OF `vertices_inside rect` `0 \<le> i`] by auto
   with pida_correctness show ?thesis by (metis prod.collapse)  
 qed
-   
-end
+
+theorem points_in_rectangle_perimeter_drivable_area:
+  assumes "rectangle_inside rect"
+  assumes "line \<in> set (get_lines rect)"  
+  assumes "p \<in> closed_segment (fst line) (snd line)"  
+  shows "p \<in> sr.drivable_area"
+  sorry  
+  
+theorem interior_points_in_rectangle_drivable_area:
+  assumes "rectangle_inside rect"
+  assumes "inside_rectangle p rect"
+  shows "p \<in> sr.drivable_area"
+  sorry
     
+theorem points_in_rectangle_perimeter_drivable_area2:
+  assumes "\<not> rectangle_inside rect"
+  shows "\<exists>l p. l \<in> set (get_lines rect) \<and> p \<in> closed_segment (fst l) (snd l) \<and> p \<notin> sr.drivable_area"
+  sorry    
+end
+      
 definition (in lanelet_simple_boundary) rectangle_intersect :: "rectangle \<Rightarrow> bool" where
   "rectangle_intersect rect \<equiv> (let lines = get_lines rect in 
                                segments_intersect_polychain (lines ! 0) points \<or> 
                                segments_intersect_polychain (lines ! 1) points \<or> 
                                segments_intersect_polychain (lines ! 2) points \<or> 
-                               segments_intersect_polychain (lines ! 3) points)"  
-    
+                               segments_intersect_polychain (lines ! 3) points)" 
+  
+theorem (in lanelet_simple_boundary) rectangle_intersect_correctness:
+  assumes "rectangle_intersect rect"
+  shows "\<exists>c \<in> set points. \<exists>l \<in> set (get_lines rect). 
+                       \<exists>p. p \<in> closed_segment (fst c) (snd c) \<and> p \<in> closed_segment (fst l) (snd l)"    
+proof -
+  define lines where "lines = get_lines rect" 
+  from assms consider "segments_intersect_polychain (lines ! 0) points" |
+                               "segments_intersect_polychain (lines ! 1) points" |
+                               "segments_intersect_polychain (lines ! 2) points" |
+                               "segments_intersect_polychain (lines ! 3) points"  
+    unfolding rectangle_intersect_def Let_def lines_def by auto
+  thus ?thesis
+  proof (cases)
+    case 1
+    have "lines ! 0 \<in> set (get_lines rect)" using nth_mem nbr_of_lines unfolding lines_def
+        by auto      
+    with segment_intersect_poly_correct[OF 1]            
+    show ?thesis by blast
+  next
+    case 2
+    have "lines ! 1 \<in> set (get_lines rect)" using nth_mem nbr_of_lines unfolding lines_def
+        by auto      
+    with segment_intersect_poly_correct[OF 2]            
+    show ?thesis by blast
+  next
+    case 3
+    have "lines ! 2 \<in> set (get_lines rect)" using nth_mem nbr_of_lines unfolding lines_def
+        by auto      
+    with segment_intersect_poly_correct[OF 3]            
+    show ?thesis by blast
+  next
+    case 4
+    have "lines ! 3 \<in> set (get_lines rect)" using nth_mem nbr_of_lines unfolding lines_def
+        by auto      
+    with segment_intersect_poly_correct[OF 4]            
+    show ?thesis by blast
+  qed  
+qed
+  
 subsection "Lane : composition of lanelets"
 
 term "lanelet.rectangle_inside"  
-
+  
 fun it_in_lane :: "(real2 \<times> real2) list list \<Rightarrow> rectangle \<Rightarrow> nat \<Rightarrow> nat option" where
-  "it_in_lane [bound1, bound2] rect num = 
-          (if lanelet.rectangle_inside bound1 bound2 rect then Some num else None)" | 
-  "it_in_lane (bound1 # bound2 # bounds) rect num = 
-          (if lanelet.rectangle_inside bound1 bound2 rect then Some num else it_in_lane (bound2 # bounds) rect (num + 1))" |
-  "it_in_lane _ rect num = None"  
-
+  "it_in_lane [] _ _ = None" | 
+  "it_in_lane [_] _ _ = None" |   
+  "it_in_lane (bound # bounds) rect num = 
+          (if lanelet.rectangle_inside bound (hd bounds) rect then Some num else it_in_lane bounds rect (num + 1))"
+  
+lemma start_leq_num:
+  assumes "it_in_lane boundaries rect start = Some num"
+  shows "start \<le> num"
+  using assms
+proof (induction boundaries arbitrary:start num)
+  case Nil
+  then show ?case by auto
+next
+  case (Cons a boundaries)
+  note case_cons = this  
+  obtain a' bound' where "boundaries = [] \<or> boundaries = a' # bound'"  by (meson list.exhaust)
+  moreover
+  { assume "boundaries = []"
+    with case_cons have ?case by auto }
+  moreover
+  { assume "boundaries = a' # bound'"
+    with case_cons  
+    consider "lanelet.rectangle_inside a a' rect" | "\<not> lanelet.rectangle_inside a a' rect" by auto
+    hence ?case
+    proof (cases)
+      case 1
+      with case_cons(2) have "start = num" unfolding `boundaries = a' # bound'` 
+        by auto                
+      then show ?thesis by auto
+    next
+      case 2
+      with case_cons(2) have "it_in_lane (a' # bound') rect (start + 1) = Some num" 
+        unfolding `boundaries = a' # bound'` it_in_lane.simps by auto
+      with case_cons(1) have "start + 1 \<le> num" unfolding `boundaries = a' # bound'` by auto       
+      then show ?thesis by auto
+    qed
+  }    
+  ultimately show ?case by auto 
+qed    
+  
+lemma it_in_lane_at_most_length:
+  assumes "it_in_lane boundaries rect start = Some num"
+  shows "num < start + length boundaries"
+  using assms
+proof (induction boundaries arbitrary:start num)
+  case Nil
+  then show ?case by auto
+next
+  case (Cons a boundaries)
+  note case_cons = this  
+  obtain a' bound' where "boundaries = [] \<or> boundaries = a' # bound'"  by (meson list.exhaust)
+  moreover
+  { assume "boundaries = []"
+    with case_cons have ?case by auto }    
+  moreover
+  { assume "boundaries = a' # bound'"
+    consider "lanelet.rectangle_inside a a' rect" | "\<not> lanelet.rectangle_inside a a' rect" by auto
+    hence ?case
+    proof (cases)
+      case 1
+      with case_cons have "start = num" unfolding `boundaries = a' # bound'` by auto                
+      then show ?thesis by auto
+    next
+      case 2
+      with case_cons have "it_in_lane (a' # bound') rect (start + 1) = Some num"
+        unfolding `boundaries = a' # bound'` it_in_lane.simps by auto
+      with case_cons(1) have "num < start + 1 + length boundaries" unfolding `boundaries = a' # bound'`
+        by metis          
+      then show ?thesis by auto
+    qed  
+  }    
+  ultimately show ?case by auto
+qed    
+  
+lemma it_in_lane_at_most_length0:
+  assumes "it_in_lane boundaries rect 0 = Some num"
+  shows "num < length boundaries"
+  using it_in_lane_at_most_length[OF assms] by auto
+    
+theorem it_in_lane_correctness_general:
+  assumes "it_in_lane boundaries rect start = Some num"
+  shows "lanelet.rectangle_inside (boundaries ! (num - start)) (boundaries ! ((num - start) + 1)) rect"  
+  using assms
+proof (induction boundaries arbitrary:start num)
+  case Nil
+  then show ?case by auto
+next
+  case (Cons a boundaries)
+  note case_cons = this
+  obtain a' bound' where "boundaries = [] \<or> boundaries = a' # bound'"  by (meson list.exhaust)
+  moreover
+  { assume "boundaries = []"
+    with case_cons(2) have ?case by auto }  
+  moreover
+  { assume "boundaries = a' # bound'"
+    with case_cons(2) 
+    consider "lanelet.rectangle_inside a a' rect" | "\<not> lanelet.rectangle_inside a a' rect" by auto
+    hence ?case    
+    proof (cases)
+      case 1
+      with case_cons(2) have "num = start" unfolding `boundaries = a' # bound'`  it_in_lane.simps(3)
+        by auto
+      moreover    
+      have "(a # boundaries) ! 0 = a" by auto
+      moreover     
+      have "(a # boundaries) ! 1 = a'" using `boundaries = a' # bound'` by auto
+      ultimately show ?thesis using 1 by auto
+    next
+      case 2
+      from 2 and case_cons(2) have base: "it_in_lane boundaries rect (start + 1) = Some num" 
+        unfolding `boundaries = a' # bound'` it_in_lane.simps by auto
+      hence "num \<ge> start + 1" using start_leq_num by auto        
+      from base and case_cons(1) have 
+        0: "lanelet.rectangle_inside (boundaries ! (num - (start + 1))) (boundaries ! (num - (start + 1) + 1)) rect"
+        using case_cons(2) by auto
+      have 1: "lanelet.rectangle_inside (boundaries ! (num - start - 1)) (boundaries ! (num - start)) rect"
+        using `num \<ge> start + 1`
+      proof -
+        have *:"num - (start + 1) = num - start - 1" by auto
+        have "num - (start + 1) + 1 = num - start" using `num \<ge> start + 1` by auto
+        with * and 0 show ?thesis by auto    
+      qed      
+      then show ?thesis
+      proof -
+        have "0 < num - start" using `num \<ge> start + 1` by auto
+        have *: "(a # boundaries) ! (num - start) = boundaries ! (num - start - 1)"
+          using nth_Cons_pos [OF `0 < num - start`] by auto
+        have "(a # boundaries) ! (num - start + 1) = boundaries ! (num - start)"
+          using nth_Cons_pos by auto
+        with * show ?thesis using 1 by auto            
+      qed        
+    qed    
+  }          
+  ultimately show ?case by auto
+qed
+  
+theorem it_in_lane_correctness0:
+  assumes "it_in_lane boundaries rect 0 = Some num"
+  shows "lanelet.rectangle_inside (boundaries ! num) (boundaries ! (num + 1)) rect"  
+  using it_in_lane_correctness_general[OF assms] by auto   
+  
 fun boundaries_touched :: "(real2 \<times> real2) list list \<Rightarrow> rectangle \<Rightarrow> nat \<Rightarrow> nat list" where
   "boundaries_touched [] rect _ = []" | 
   "boundaries_touched (bound # bounds) rect num = 
     (if lanelet_simple_boundary.rectangle_intersect bound rect then num # boundaries_touched bounds rect (num + 1) 
-     else boundaries_touched bounds rect (num + 1))"  
+     else boundaries_touched bounds rect (num + 1))"
   
+lemma boundaries_touched_leq:
+  assumes "boundaries_touched bounds rect start = ns"
+  assumes "n \<in> set ns"    
+  shows "start \<le> n"
+  using assms
+proof (induction bounds arbitrary: start n ns)
+  case Nil
+  then show ?case by auto
+next
+  case (Cons a bounds)
+  note case_cons = this    
+  have "lanelet_simple_boundary.rectangle_intersect a rect \<or> \<not> lanelet_simple_boundary.rectangle_intersect a rect"
+    (is "?true \<or> ?false")
+    by auto
+  moreover
+  { assume "?true"
+    with case_cons(2) have "ns = start # boundaries_touched bounds rect (start + 1)" 
+      unfolding boundaries_touched.simps by auto
+    with case_cons(3) consider "n = start" | "n \<in> set (boundaries_touched bounds rect (start + 1))"
+      by auto
+    hence ?case        
+    proof (cases)
+      case 1
+      then show ?thesis by auto
+    next
+      case 2
+      from case_cons(1)[OF _ 2] have "start + 1 \<le> n" by auto 
+      then show ?thesis by auto
+    qed }
+  moreover
+  { assume "?false"
+    with case_cons(2) have "ns = boundaries_touched bounds rect (start + 1)" by auto  
+    from case_cons(1)[OF sym[OF this] `n \<in> set ns`] have ?case by auto    
+  }
+  ultimately show ?case by auto
+qed 
+  
+lemma boundaries_touched_leq0:
+  assumes "boundaries_touched bounds rect 0 = ns"
+  assumes "n \<in> set ns"    
+  shows "0 \<le> n"
+  using boundaries_touched_leq[OF assms] by auto  
+  
+lemma boundaries_touched_at_most:
+  assumes "boundaries_touched bounds rect start = ns"
+  assumes "n \<in> set ns"    
+  shows "n < start + length bounds"
+  using assms
+proof (induction bounds arbitrary: start n ns)
+  case Nil
+  then show ?case by auto
+next
+  case (Cons a bounds)
+  note case_cons = this    
+  have "lanelet_simple_boundary.rectangle_intersect a rect \<or> \<not> lanelet_simple_boundary.rectangle_intersect a rect"
+    (is "?true \<or> ?false")
+    by auto
+  moreover    
+  { assume "?true"
+    with case_cons(2) have "ns = start # boundaries_touched bounds rect (start + 1)" 
+      unfolding boundaries_touched.simps by auto
+    with case_cons(3) consider "n = start" | "n \<in> set (boundaries_touched bounds rect (start + 1))"
+      by auto 
+    hence ?case        
+    proof (cases)
+      case 1
+      then show ?thesis by auto
+    next
+      case 2
+      with case_cons(1)[OF _ 2] have "n < start + 1 + length bounds" by metis          
+      then show ?thesis by auto
+    qed }
+  moreover
+  { assume "?false"
+    with case_cons(2) have "ns = boundaries_touched bounds rect (start + 1)" by auto  
+    with case_cons(1)[OF sym[OF this] case_cons(3)] have ?case by auto }
+  ultimately show ?case by auto
+qed
+  
+lemma boundaries_touched_at_most0:
+  assumes "boundaries_touched bounds rect 0 = ns"
+  assumes "n \<in> set ns"    
+  shows "n < length bounds"
+  using boundaries_touched_at_most[OF assms] by auto    
+
+theorem boundaries_touched:
+  assumes "boundaries_touched bounds rect start = ns"  
+  assumes "n \<in> set ns"    
+  shows "lanelet_simple_boundary.rectangle_intersect (bounds ! (n - start)) rect"
+  using assms
+proof (induction bounds arbitrary: start ns)
+  case Nil
+  then show ?case by auto
+next
+  case (Cons a bounds)
+  note case_cons = this    
+  consider "lanelet_simple_boundary.rectangle_intersect a rect" | 
+           "\<not> lanelet_simple_boundary.rectangle_intersect a rect"
+    by auto      
+  thus ?case
+  proof (cases)
+    case 1
+    with case_cons(2) have "ns = start # boundaries_touched bounds rect (start + 1)"
+      unfolding boundaries_touched.simps by auto
+    with case_cons(3) have "n = start \<or> n \<in> set (boundaries_touched bounds rect (start + 1))" 
+      by auto
+    moreover
+    { assume "n = start "
+      have "a = (a # bounds) ! 0" by auto  
+      hence ?thesis using 1 and `n = start` by auto }
+    moreover
+    { assume as: "n \<in> set (boundaries_touched bounds rect (start + 1))"
+      from boundaries_touched_leq[OF _ this] have "start + 1 \<le> n" by auto
+      hence "0 < n - start" by auto   
+      from case_cons(1)[OF _ as] 
+        have *: "lanelet_simple_boundary.rectangle_intersect (bounds ! (n - (start + 1))) rect" 
+        by auto
+      have "lanelet_simple_boundary.rectangle_intersect ((a # bounds) ! (n - start)) rect"
+      proof -
+        have eq: "(a # bounds) ! (n - start) = bounds ! (n - (start + 1))" 
+          using nth_Cons_pos[OF `0 < n - start`] by auto
+        show ?thesis using * unfolding eq by auto                    
+      qed }      
+    ultimately show ?thesis by auto
+  next
+    case 2  
+    from 2 case_cons(2) have eq: "ns = boundaries_touched bounds rect (start + 1)" by auto
+    with boundaries_touched_leq[OF _ `n \<in> set ns`] have "start + 1 \<le> n" by auto    
+    hence "start < n" by auto        
+    from eq case_cons have "lanelet_simple_boundary.rectangle_intersect (bounds ! (n - (start + 1))) rect"
+      by auto
+    then show ?thesis using nth_Cons_pos `start < n` by auto
+  qed
+qed    
+  
+theorem boundaries_touched0:
+  assumes "boundaries_touched bounds rect 0 = ns"  
+  assumes "n \<in> set ns"    
+  shows "lanelet_simple_boundary.rectangle_intersect (bounds ! n) rect"  
+  using boundaries_touched[OF assms] by auto
+    
 (* return type of lane detection *)  
-datatype detection_opt = Outside | Lane nat | Boundaries "nat list"  
+datatype detection_opt = Outside | Lane (glane: nat) | Boundaries "nat list"  
+
+theorem drop_cons: 
+  "0 < n \<Longrightarrow> drop n (x # xs) = drop (n - 1) xs"
+proof (induction n)
+  case 0
+  then show ?case by auto
+next
+  case (Suc n)
+  then show ?case unfolding drop_Suc_Cons by auto
+qed  
   
 locale lane =
   fixes boundaries :: "(real2 \<times> real2) list list"
@@ -4238,21 +4886,67 @@ locale lane =
 begin
 
 fun in_lane :: "rectangle \<Rightarrow> nat option" where
-  "in_lane rect = it_in_lane boundaries rect 0"  
-
+  "in_lane rect = it_in_lane boundaries rect 0"
+  
+theorem in_lane_correctness_abstract:
+  assumes "in_lane rect = Some num"
+  shows "lanelet.rectangle_inside (boundaries ! num) (boundaries ! (num + 1)) rect"    
+  using it_in_lane_correctness0 assms by auto
+    
+theorem 
+  assumes "in_lane rect = Some num"
+  shows "num < length boundaries"
+  using it_in_lane_at_most_length0 assms by auto
+    
 fun lane_boundaries_touched :: "rectangle \<Rightarrow> nat list" where
   "lane_boundaries_touched rect = boundaries_touched boundaries rect 0"  
-  
+
+theorem lane_boundaries_touched_correctness_abstract:
+  assumes "lane_boundaries_touched rect = ns"
+  assumes "n \<in> set ns"
+  shows "lanelet_simple_boundary.rectangle_intersect (boundaries ! n) rect"    
+  using boundaries_touched0 assms by auto    
+
+theorem 
+  assumes "lane_boundaries_touched rect = ns"
+  assumes "n \<in> set ns"
+  shows "n < length boundaries"
+  using boundaries_touched_at_most0 assms by auto    
+    
 fun lane_detection :: "rectangle \<Rightarrow> detection_opt" where
   "lane_detection rect = (case in_lane rect of Some x \<Rightarrow> Lane x 
                                              | None \<Rightarrow> (case lane_boundaries_touched rect of 
                                                           [] \<Rightarrow> Outside
                                                         | ns \<Rightarrow> Boundaries ns))"  
+  
+theorem boundaries_not_empty: 
+  assumes "lane_detection rect = Boundaries ns" 
+  shows "ns \<noteq> []"
+  using assms  
+proof -
+  consider x where "in_lane rect = Some x" | "in_lane rect = None" by auto
+  thus ?thesis
+  proof (cases)
+    case 1  
+    then show ?thesis using assms by auto
+  next
+    case 2
+    obtain a as where "lane_boundaries_touched rect = [] \<or> lane_boundaries_touched rect = a # as"
+      by (meson list_encode.elims)    
+    moreover
+    { assume "lane_boundaries_touched rect = []"
+      with assms have ?thesis using 2 by auto }
+    moreover
+    { assume "lane_boundaries_touched rect = a # as"
+      with assms have ?thesis using 2 by auto }    
+    ultimately show ?thesis by auto
+  qed    
+qed
 
 text "Finding initial position of the trace --- where trace is regarded as a series of 
    rectangles. A rectangle signify the occupancy of a vehicle."
   
-fun initial_lane :: "rectangle list \<Rightarrow> detection_opt" where
+definition initial_lane :: "rectangle list \<Rightarrow> detection_opt" where
   "initial_lane rects = lane_detection (hd rects)"  
   
 fun start_inc_lane :: "rectangle list \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> (nat \<times> rectangle list) option" where
@@ -4263,7 +4957,511 @@ fun start_inc_lane :: "rectangle list \<Rightarrow> nat \<Rightarrow> nat \<Righ
                                                     | Lane n  \<Rightarrow> (if n = ori_lane then start_inc_lane rects n (num + 1) else None) 
                                                     (* If the it touches more than one boundaries or not the specified boundary, it will not be considered as initial part of overtaking *)
                                                     | Boundaries ns \<Rightarrow> (if tl ns = [] \<and> hd ns = ori_lane + 1 then Some (num, rects) else None))"
-                                                                         
+
+theorem start_inc_lane_not_nil:
+  assumes "start_inc_lane rects ori_lane start_time = Some (time, rest)"
+  shows "rects \<noteq> []"
+  using assms by auto
+
+theorem start_inc_lane_cons:
+  assumes "start_inc_lane rects ori_lane start_time = Some (time, rest)"
+  obtains a rects' where "rects = a # rects'" using start_inc_lane_not_nil[OF assms]
+  by (meson list.exhaust_sel)
+
+theorem start_inc_lane_cases_neq:
+  assumes "start_inc_lane rects ori_lane start_time = Some (time, rest)"
+  defines "ld_res \<equiv> lane_detection (hd rects)"    
+  shows "ld_res \<noteq> Outside"    
+proof -
+  from start_inc_lane_cons[OF assms(1)] obtain a rects' where rects: "rects = a # rects'" by auto
+  from assms(1) show ?thesis unfolding rects start_inc_lane.simps ld_res_def by auto      
+qed
+    
+theorem start_inc_lane_cases:
+  assumes "start_inc_lane rects ori_lane start_time = Some (time, rest)"
+  defines "ld_res \<equiv> lane_detection (hd rects)"    
+  shows "\<exists>n ns. ld_res = Lane n \<or> ld_res = Boundaries ns"
+proof -
+  from start_inc_lane_cons[OF assms(1)] obtain a rects' where rects: "rects = a # rects'" by auto
+  from start_inc_lane_cases_neq[OF assms(1)] have "ld_res \<noteq> Outside" unfolding ld_res_def by auto   
+  thus ?thesis by (induction ld_res) (auto)
+qed
+  
+theorem start_inc_lane_cases_obtain:
+  assumes "start_inc_lane rects ori_lane start_time = Some (time, rest)"
+  defines "ld_res \<equiv> lane_detection (hd rects)"    
+  obtains n ns where "ld_res = Lane n \<or> ld_res = Boundaries ns"
+  using start_inc_lane_cases[OF assms(1)] unfolding ld_res_def by auto
+    
+theorem start_inc_lane_cases_bound:
+  assumes "start_inc_lane rects ori_lane start_time = Some (time, rest)"
+  defines "ld_res \<equiv> lane_detection (hd rects)"    
+  assumes "ld_res = Boundaries ids"
+  shows "ids = [ori_lane + 1]"
+proof -
+  from start_inc_lane_cons[OF assms(1)] obtain a rects' where rects: "rects = a # rects'" by auto
+  hence "ld_res = lane_detection a" unfolding ld_res_def rects by auto
+  with assms(3) have "lane_detection a = Boundaries ids" by auto    
+  from assms(1) have "tl ids = [] \<and> hd ids = ori_lane + 1" 
+    unfolding rects start_inc_lane.simps `lane_detection a = Boundaries ids`    
+  proof -
+    assume "(case Boundaries ids of Outside \<Rightarrow> None | Lane n \<Rightarrow> if n = ori_lane then start_inc_lane rects' n (start_time + 1) else None | Boundaries ns \<Rightarrow> if tl ns = [] \<and> hd ns = ori_lane + 1 then Some (start_time, rects') else None) = Some (time, rest)"
+    then have "(if tl ids = [] \<and> hd ids = ori_lane + 1 then Some (start_time, rects') else None) \<noteq> None"
+      by simp
+    then show ?thesis
+      by meson
+  qed
+  hence "ids = [ori_lane + 1]" 
+    using \<open>lane_detection a = Boundaries ids\<close> boundaries_not_empty hd_Cons_tl by force
+  thus ?thesis using assms(2) by auto 
+qed
+  
+theorem start_inc_lane_cases_bound_tail:
+  assumes "start_inc_lane rects ori_lane start_time = Some (time, rest)"
+  defines "ld_res \<equiv> lane_detection (hd rects)"    
+  assumes "ld_res = Boundaries ids"
+  shows "rest = tl rects"  
+proof -
+  from start_inc_lane_cons[OF assms(1)] obtain a rects' where rects: "rects = a # rects'" by auto
+  hence "ld_res = lane_detection a" unfolding ld_res_def rects by auto
+  with assms(3) have "lane_detection a = Boundaries ids" by auto    
+  with start_inc_lane_cases_bound[OF assms(1)] have "ids = [ori_lane + 1]" unfolding rects     
+    by auto
+  with `lane_detection a = Boundaries ids` have "lane_detection a = Boundaries [ori_lane + 1]" by auto
+  from assms(1) show ?thesis unfolding rects start_inc_lane.simps `lane_detection a = Boundaries [ori_lane + 1]`      
+    by auto      
+qed
+  
+theorem start_inc_lane_cases_lane:
+  assumes "start_inc_lane rects ori_lane start_time = Some (time, rest)"
+  defines "ld_res \<equiv> lane_detection (hd rects)"    
+  assumes "ld_res = Lane n"
+  shows "n = ori_lane"  
+proof -
+  from start_inc_lane_cons[OF assms(1)] obtain a rects' where rects: "rects = a # rects'" by auto
+  hence "ld_res = lane_detection a" unfolding ld_res_def rects by auto
+  with assms(3) have "lane_detection a = Lane n" unfolding rects ld_res_def by auto    
+  from assms(1)   have "(if n = ori_lane then start_inc_lane rects' n (start_time + 1) else None) = Some (time, rest)"
+    unfolding rects start_inc_lane.simps `lane_detection a = Lane n` by auto
+  also have "... \<noteq> None" by auto
+  finally have "(if n = ori_lane then start_inc_lane rects' n (start_time + 1) else None) \<noteq> None"
+    by auto  
+  thus "n = ori_lane" unfolding split_ifs by auto  
+qed
+  
+theorem start_inc_lane_cases2:
+  assumes "start_inc_lane rects ori_lane start_time = Some (time, rest)"
+  defines "ld_res \<equiv> lane_detection (hd rects)"      
+  shows "ld_res = Lane ori_lane \<or> ld_res = Boundaries [ori_lane + 1]"
+proof -
+  from start_inc_lane_cons[OF assms(1)] obtain a rects' where rects: "rects = a # rects'" by auto  
+  from start_inc_lane_cases_obtain[OF assms(1)] obtain n ns 
+    where "lane_detection a = Lane n \<or> lane_detection a = Boundaries ns" unfolding rects by auto
+  moreover
+  { assume *: "lane_detection a = Lane n"
+    with start_inc_lane_cases_lane[OF assms(1)] have "n = ori_lane" unfolding rects by auto
+    hence ?thesis unfolding ld_res_def rects using * by auto }
+  moreover
+  { assume **: "lane_detection a = Boundaries ns"
+    with start_inc_lane_cases_bound[OF assms(1)] have "ns = [ori_lane + 1]" unfolding rects
+      by auto
+    hence ?thesis unfolding ld_res_def rects using ** by auto }
+  ultimately show ?thesis by auto
+qed      
+    
+theorem start_inc_lane_decrease_length:
+  assumes "start_inc_lane rects ori_lane start_time = Some (time, rest)"
+  shows "length rest < length rects"
+  using assms  
+proof (induction rects arbitrary:start_time)
+  case Nil
+  then show ?case by auto
+next
+  case (Cons a rects)
+  note case_cons = this    
+  from start_inc_lane_cases2[OF case_cons(2)] have "lane_detection a = Lane ori_lane \<or>
+                                                    lane_detection a = Boundaries [ori_lane + 1]"
+    by auto
+  moreover
+  { assume "lane_detection a = Lane ori_lane"
+    from case_cons(2) have "start_inc_lane rects ori_lane (start_time + 1) = Some (time, rest)" 
+      unfolding start_inc_lane.simps `lane_detection a = Lane ori_lane` by auto
+    with case_cons(1)[OF this] have "length rest < length rects" by auto
+    hence "length rest < length (a # rects)" by auto }
+    
+  moreover
+  { assume "lane_detection a = Boundaries [ori_lane + 1]"
+    from case_cons(2) have "rest = rects" unfolding start_inc_lane.simps 
+        `lane_detection a = Boundaries [ori_lane + 1]`  by auto
+    hence "length rest < length (a # rects)" by auto } 
+  ultimately show ?case by auto
+qed          
+           
+theorem start_inc_lane_at_least: 
+  assumes "start_inc_lane rects ori_lane start_time = Some (time, rest)"
+  shows "start_time \<le> time"  
+  using assms
+proof (induction rects arbitrary:start_time time)
+  case Nil
+  then show ?case by auto
+next
+  case (Cons a rects)
+  note case_cons = this
+  obtain ld_res where "ld_res = lane_detection a" by auto    
+  then show ?case 
+  proof (induction ld_res)
+    case Outside
+    with case_cons show ?thesis by auto  
+  next
+    case (Lane x)
+    note case_lane = this      
+    have "x = ori_lane \<or> x \<noteq> ori_lane" by auto
+    moreover        
+    { assume "x = ori_lane"
+      with case_lane case_cons(2) have "start_inc_lane rects x (start_time + 1) = Some (time, rest)"
+        unfolding start_inc_lane.simps
+      proof -
+        assume a1: "(case lane_detection a of Outside \<Rightarrow> None | Lane n \<Rightarrow> if n = ori_lane then start_inc_lane rects n (start_time + 1) else None | Boundaries ns \<Rightarrow> if tl ns = [] \<and> hd ns = ori_lane + 1 then Some (start_time, rects) else None) = Some (time, rest)"
+        have "start_inc_lane rects x (start_time + 1) = (case Lane ori_lane of Outside \<Rightarrow> None | Lane n \<Rightarrow> if n = ori_lane then start_inc_lane rects n (start_time + 1) else None | Boundaries ns \<Rightarrow> if tl ns = [] \<and> hd ns = ori_lane + 1 then Some (start_time, rects) else None)"
+          by (simp add: \<open>x = ori_lane\<close>)
+        then show ?thesis
+          using a1 \<open>Lane x = lane_detection a\<close> \<open>x = ori_lane\<close> by force
+      qed
+      with case_cons(1) have "start_time + 1 \<le> time" unfolding `x = ori_lane`
+        by auto
+      hence ?case by auto          
+    }  
+    moreover
+    { assume "x \<noteq> ori_lane"
+      with case_lane case_cons(2) have ?case by (auto split:detection_opt.splits) }    
+    ultimately show ?case by auto
+  next
+    case (Boundaries x)    
+    note case_bound = this      
+    with boundaries_not_empty have "x \<noteq> []" by auto          
+    have "tl x = [] \<and> hd x = ori_lane + 1 \<or> \<not> (tl x = [] \<and> hd x = ori_lane + 1)" by auto  
+    moreover
+    { assume "tl x = [] \<and> hd x = ori_lane + 1"
+      with sym[OF case_bound] case_cons(2) have "start_time = time" by auto  
+      hence ?case by auto }
+    moreover
+    { assume "\<not> (tl x = [] \<and> hd x = ori_lane + 1)"
+      with sym[OF case_bound] case_cons(2) have ?case by auto }      
+    ultimately show ?case by auto
+  qed
+qed    
+  
+theorem start_inc_lane_atmost:
+  assumes "start_inc_lane rects ori_lane start_time = Some (time, rest)"
+  shows "time \<le> start_time + length rects"
+  using assms
+proof (induction rects arbitrary:start_time time rest)
+  case Nil
+  then show ?case by auto
+next
+  case (Cons a rects)
+  note case_cons = this
+  obtain ld_res where "ld_res = lane_detection a" by auto    
+  then show ?case 
+  proof (induction ld_res)
+    case Outside
+    with case_cons show ?thesis by auto  
+  next
+    case (Lane x)
+    note case_lane = this      
+    have "x = ori_lane \<or> x \<noteq> ori_lane" by auto
+    moreover
+    { assume "x = ori_lane"
+      with case_lane case_cons(2) have "start_inc_lane rects x (start_time + 1) = Some (time, rest)"
+        unfolding start_inc_lane.simps
+      proof -
+        assume a1: "(case lane_detection a of Outside \<Rightarrow> None | Lane n \<Rightarrow> if n = ori_lane then start_inc_lane rects n (start_time + 1) else None | Boundaries ns \<Rightarrow> if tl ns = [] \<and> hd ns = ori_lane + 1 then Some (start_time, rects) else None) = Some (time, rest)"
+        have "start_inc_lane rects x (start_time + 1) = (case Lane ori_lane of Outside \<Rightarrow> None | Lane n \<Rightarrow> if n = ori_lane then start_inc_lane rects n (start_time + 1) else None | Boundaries ns \<Rightarrow> if tl ns = [] \<and> hd ns = ori_lane + 1 then Some (start_time, rects) else None)"
+          by (simp add: \<open>x = ori_lane\<close>)
+        then show ?thesis
+          using a1 \<open>Lane x = lane_detection a\<close> \<open>x = ori_lane\<close> by force
+      qed
+      with case_cons(1) have "time \<le> start_time + 1 + length rects" unfolding `x = ori_lane`
+        by metis          
+      hence ?case by auto }
+    moreover
+    { assume "x \<noteq> ori_lane"
+      with case_lane case_cons(2) have ?case by (auto split:detection_opt.splits) }    
+    ultimately show ?case by auto
+  next
+    case (Boundaries x)
+    note case_bound = this      
+    with boundaries_not_empty have "x \<noteq> []" by auto          
+    have "tl x = [] \<and> hd x = ori_lane + 1 \<or> \<not> (tl x = [] \<and> hd x = ori_lane + 1)" by auto  
+    moreover
+    { assume "tl x = [] \<and> hd x = ori_lane + 1"
+      with sym[OF case_bound] case_cons(2) have "start_time = time" by auto  
+      hence ?case by auto }
+    moreover
+    { assume "\<not> (tl x = [] \<and> hd x = ori_lane + 1)"
+      with sym[OF case_bound] case_cons(2) have ?case by auto }      
+    ultimately show ?case by auto
+  qed      
+qed    
+  
+theorem start_inc_lane_boundaries:
+  assumes "start_inc_lane rects ori_lane start_time = Some (time, rest)"
+  shows "lane_detection (rects ! (time - start_time)) = Boundaries [ori_lane + 1]"
+  using assms
+proof (induction rects arbitrary:start_time time rest)
+  case Nil
+  then show ?case by auto
+next
+  case (Cons a rects)
+  note case_cons = this
+  obtain ld_res where "ld_res = lane_detection a" by auto    
+  then show ?case 
+  proof (induction ld_res)
+    case Outside
+    with case_cons show ?thesis by auto  
+  next
+    case (Lane x)
+    note case_lane = this      
+    have "x = ori_lane \<or> x \<noteq> ori_lane" by auto
+    moreover
+    { assume "x = ori_lane"
+       with case_lane case_cons(2) have base: "start_inc_lane rects x (start_time + 1) = Some (time, rest)"
+        unfolding start_inc_lane.simps
+      proof -
+        assume a1: "(case lane_detection a of Outside \<Rightarrow> None | Lane n \<Rightarrow> if n = ori_lane then start_inc_lane rects n (start_time + 1) else None | Boundaries ns \<Rightarrow> if tl ns = [] \<and> hd ns = ori_lane + 1 then Some (start_time, rects) else None) = Some (time, rest)"
+        have "start_inc_lane rects x (start_time + 1) = (case Lane ori_lane of Outside \<Rightarrow> None | Lane n \<Rightarrow> if n = ori_lane then start_inc_lane rects n (start_time + 1) else None | Boundaries ns \<Rightarrow> if tl ns = [] \<and> hd ns = ori_lane + 1 then Some (start_time, rects) else None)"
+          by (simp add: \<open>x = ori_lane\<close>)
+        then show ?thesis
+          using a1 \<open>Lane x = lane_detection a\<close> \<open>x = ori_lane\<close> by force
+      qed
+      hence "start_time + 1 \<le> time" using start_inc_lane_at_least by auto
+      hence "0 < time - start_time" by auto    
+      from base and case_cons(1) have "lane_detection (rects ! (time - start_time - 1)) = Boundaries [ori_lane + 1]"
+        unfolding `x = ori_lane` by auto
+      hence ?thesis using nth_Cons_pos[OF `0 < time - start_time`] by metis }  
+    moreover
+    { assume "x \<noteq> ori_lane"
+          with case_lane case_cons(2) have ?case by (auto split:detection_opt.splits) }    
+    ultimately show ?case by auto
+  next
+    case (Boundaries x)
+    note case_bound = this      
+    with boundaries_not_empty have "x \<noteq> []" by auto
+    have "tl x = [] \<and> hd x = ori_lane + 1 \<or> \<not> (tl x = [] \<and> hd x = ori_lane + 1)" by auto  
+    moreover
+    { assume "tl x = [] \<and> hd x = ori_lane + 1"         
+      with sym[OF case_bound] case_cons(2) have "start_time = time" by auto
+      hence "lane_detection ((a # rects) ! (time - start_time)) = lane_detection a" by auto
+      also have "... = Boundaries x" using case_bound by auto
+      also have "... = Boundaries [ori_lane + 1]" using `tl x = [] \<and> hd x = ori_lane + 1`
+      proof -
+        assume "tl x = [] \<and> hd x = ori_lane + 1"        
+        with hd_Cons_tl[OF `x \<noteq> []`] have "x = [ori_lane + 1]" by auto
+        thus ?thesis by auto            
+      qed        
+      hence ?case using sym[OF case_bound] `tl x = [] \<and> hd x = ori_lane + 1` `start_time = time`
+        by auto }
+    moreover
+    { assume "\<not> (tl x = [] \<and> hd x = ori_lane + 1)"
+          with sym[OF case_bound] case_cons(2) have ?case by auto }            
+    ultimately show ?case by auto
+  qed    
+qed  
+  
+theorem start_inc_lane_ori_lane:
+  assumes "start_inc_lane rects ori_lane start_time = Some (time, rest)"
+  shows "\<forall>t. 0 \<le> t - start_time \<and> t - start_time < time - start_time  \<longrightarrow> lane_detection (rects ! (t - start_time)) = Lane ori_lane"
+  using assms
+proof (induction rects arbitrary:start_time)
+  case Nil
+  then show ?case by auto
+next
+  case (Cons a rects)
+  note case_cons = this
+  obtain ld_res where "ld_res = lane_detection a" by auto    
+  then show ?case 
+  proof (induction ld_res)
+    case Outside
+    with case_cons show ?thesis by auto  
+  next
+    case (Lane x)
+    note case_lane = this      
+    have "x = ori_lane \<or> x \<noteq> ori_lane" by auto
+    moreover
+    { assume "x = ori_lane"
+      with case_lane case_cons(2) have base: "start_inc_lane rects x (start_time + 1) = Some (time, rest)"
+        unfolding start_inc_lane.simps
+      proof -
+        assume a1: "(case lane_detection a of Outside \<Rightarrow> None | Lane n \<Rightarrow> if n = ori_lane then start_inc_lane rects n (start_time + 1) else None | Boundaries ns \<Rightarrow> if tl ns = [] \<and> hd ns = ori_lane + 1 then Some (start_time, rects) else None) = Some (time, rest)"
+        have "start_inc_lane rects x (start_time + 1) = (case Lane ori_lane of Outside \<Rightarrow> None | Lane n \<Rightarrow> if n = ori_lane then start_inc_lane rects n (start_time + 1) else None | Boundaries ns \<Rightarrow> if tl ns = [] \<and> hd ns = ori_lane + 1 then Some (start_time, rects) else None)"
+          by (simp add: \<open>x = ori_lane\<close>)
+        then show ?thesis
+          using a1 \<open>Lane x = lane_detection a\<close> \<open>x = ori_lane\<close> by force
+      qed
+      with case_cons have rec: "\<forall>t. 0 \<le> t - (start_time + 1) \<and> t - (start_time + 1) < time - (start_time + 1) \<longrightarrow> lane_detection (rects ! (t - (start_time + 1))) = Lane ori_lane" unfolding `x = ori_lane` 
+        by auto
+      have ?thesis
+      proof (rule allI, rule impI)
+        fix t
+        assume "0 \<le> t - start_time \<and> t - start_time < time - start_time"  
+        have "t = start_time \<or> t > start_time \<or> t < start_time" by auto
+        moreover
+        { assume "t = start_time"
+          hence "lane_detection ((a # rects) ! (t - start_time)) = lane_detection a" by auto  
+          also have "... = Lane x" using `Lane x = lane_detection a` by auto
+          also have "... = Lane ori_lane" using `x = ori_lane` by auto
+          finally have "lane_detection ((a # rects) ! (t - start_time)) = Lane ori_lane" by auto }
+        moreover
+        { assume "start_time < t" 
+          hence "lane_detection ((a # rects) ! (t - start_time)) = lane_detection (rects ! (t - start_time - 1))"
+            using nth_Cons_pos by auto
+          also have "... = Lane ori_lane" using `start_time < t` `0 \<le> t - start_time \<and> t - start_time < time - start_time` rec by auto
+          finally have "lane_detection ((a # rects) ! (t - start_time)) = Lane ori_lane" by auto }
+        moreover
+        { assume "t < start_time"
+          hence "lane_detection ((a # rects) ! (t - start_time)) = lane_detection a" by auto  
+          also have "... = Lane x" using `Lane x = lane_detection a` by auto
+          also have "... = Lane ori_lane" using `x = ori_lane` by auto
+          finally have "lane_detection ((a # rects) ! (t - start_time)) = Lane ori_lane" by auto }
+        ultimately show "lane_detection ((a # rects) ! (t - start_time)) = Lane ori_lane" by blast
+      qed }    
+    moreover
+    { assume "x \<noteq> ori_lane"
+      with case_lane case_cons(2) have ?case by (auto split:detection_opt.splits) }  
+    ultimately show ?case by auto      
+  next
+    case (Boundaries x)
+    note case_bound = this 
+    with boundaries_not_empty have "x \<noteq> []" by auto
+    have "tl x = [] \<and> hd x = ori_lane + 1 \<or> \<not> (tl x = [] \<and> hd x = ori_lane + 1)" by auto  
+    moreover
+    { assume "tl x = [] \<and> hd x = ori_lane + 1"         
+      with sym[OF case_bound] case_cons(2) have "start_time = time" by auto       
+      have ?thesis
+      proof (rule allI, rule impI)
+        fix t        
+        assume asm: "0 \<le> t- start_time \<and> t - start_time < time - start_time"  
+        with `start_time = time` have "t - start_time < 0" by auto          
+        have "t \<le> start_time \<or> t > start_time"  by auto 
+        moreover
+        { assume "t \<le> start_time"
+          with `t - start_time < 0` have "lane_detection ((a # rects) ! (t - start_time)) = Lane ori_lane" by auto }
+        moreover
+        { assume "t > start_time"
+          with `t - start_time < 0` have "lane_detection ((a # rects) ! (t - start_time)) = Lane ori_lane" by auto}
+        ultimately show "lane_detection ((a # rects) ! (t - start_time)) = Lane ori_lane" by blast
+      qed }
+    moreover
+    { assume "\<not> (tl x = [] \<and> hd x = ori_lane + 1)"
+          with sym[OF case_bound] case_cons(2) have ?case by auto }            
+    ultimately show ?case by auto
+  qed
+qed
+      
+theorem start_inc_lane_general_correctness: 
+  assumes "start_inc_lane rects ori_lane start_time = Some (time, rest)"
+  shows "(LEAST n. start_time \<le> n \<and> n \<le> start_time + length rects \<and> 
+                    lane_detection (rects ! (n - start_time)) = Boundaries [ori_lane + 1] \<and> 
+                    (\<forall>m. 0 \<le> m - start_time \<and> m - start_time < n - start_time \<longrightarrow> lane_detection (rects ! (m - start_time)) = Lane ori_lane)) = time"    
+proof (rule Least_equality)
+  have "start_time \<le> time" using start_inc_lane_at_least[OF assms] by auto
+  moreover      
+  have "time \<le> start_time + length rects" using start_inc_lane_atmost[OF assms] by auto     
+  moreover
+  have " lane_detection (rects ! (time - start_time)) = Boundaries [ori_lane + 1]"  
+    using start_inc_lane_boundaries[OF assms] by auto
+  moreover
+  have " (\<forall>m. 0 \<le> m - start_time \<and> m - start_time < time - start_time \<longrightarrow> lane_detection (rects ! (m - start_time)) = Lane ori_lane)" 
+    using start_inc_lane_ori_lane[OF assms] by auto
+  ultimately show "start_time \<le> time \<and>
+    time \<le> start_time + length rects \<and>
+    lane_detection (rects ! (time - start_time)) = Boundaries [ori_lane + 1] \<and>
+    (\<forall>m. 0 \<le> m - start_time \<and> m - start_time < time - start_time \<longrightarrow> lane_detection (rects ! (m - start_time)) = Lane ori_lane)"
+    by auto
+next
+  fix y
+  assume bas: "start_time \<le> y \<and>
+         y \<le> start_time + length rects \<and>
+         lane_detection (rects ! (y - start_time)) = Boundaries [ori_lane + 1] \<and>
+         (\<forall>m. 0 \<le> m - start_time \<and> m - start_time < y - start_time \<longrightarrow> lane_detection (rects ! (m - start_time)) = Lane ori_lane)"  
+  show "time \<le> y"
+  proof (rule ccontr)
+    assume "\<not> time \<le> y"
+    hence "y < time" by auto
+    from bas have 1: "0 \<le> y - start_time" by auto    
+    with `y < time` have 2: "y - start_time < time - start_time"  using bas diff_less_mono by blast        
+    have " (\<forall>m. 0 \<le> m - start_time \<and> m - start_time < time - start_time \<longrightarrow> lane_detection (rects ! (m - start_time)) = Lane ori_lane)" 
+      using start_inc_lane_ori_lane[OF assms] by auto
+    with 1 and 2 have "lane_detection (rects ! (y - start_time)) = Lane ori_lane" by auto    
+    with bas show "False" by auto    
+  qed      
+qed
+  
+theorem start_inc_lane_correctness0: 
+  assumes "start_inc_lane rects ori_lane 0 = Some (time, rest)"
+  shows "(LEAST n. n \<le> length rects \<and> 
+                    lane_detection (rects ! n) = Boundaries [ori_lane + 1] \<and> 
+                    (\<forall>m. m < n \<longrightarrow> lane_detection (rects ! m) = Lane ori_lane)) = time"   
+  using start_inc_lane_general_correctness[OF assms] by auto
+  
+    
+theorem start_inc_lane_drop:
+  assumes "start_inc_lane rects ori_lane t1 = Some (t2, rest)"
+  shows "rest = drop (t2 - t1 + 1) rects"  
+  using assms
+proof (induction rects arbitrary:t1)
+  case Nil
+  then show ?case by auto
+next
+  case (Cons a rects)
+  note case_cons = this
+  obtain ld_res where "ld_res = lane_detection a" by auto    
+  then show ?case 
+  proof (induction ld_res)
+    case Outside
+    with case_cons show ?case by auto
+  next
+    case (Lane x)
+    note case_lane = this      
+    have "x = ori_lane \<or> x \<noteq> ori_lane" by auto
+    moreover
+    { assume "x = ori_lane"
+      with case_cons case_lane have base: "start_inc_lane rects ori_lane (t1 + 1) = Some (t2, rest)" 
+        unfolding start_inc_lane.simps by (auto split:detection_opt.splits) 
+      with start_inc_lane_at_least[OF this] have "0 < t2 - t1" by auto           
+      from base case_cons have "rest = drop (t2 - (t1 + 1) + 1) rects" by auto
+      hence "rest = drop (t2 - t1) rects" using `0 < t2 - t1` 
+        by (metis Nat.le_imp_diff_is_add One_nat_def Suc_leI diff_diff_add)         
+      hence ?case using drop_cons[OF `0 < t2 - t1`] 
+        by (simp add: \<open>\<And>xs x. drop (t2 - t1) (x # xs) = drop (t2 - t1 - 1) xs\<close>) }
+    moreover
+    { assume "x \<noteq> ori_lane"
+      with case_lane case_cons(2) have ?case by (auto split:detection_opt.splits) }  
+    ultimately show ?case by auto  
+  next
+    case (Boundaries x)
+    note case_bound = this 
+    with boundaries_not_empty have "x \<noteq> []" by auto
+    have "tl x = [] \<and> hd x = ori_lane + 1 \<or> \<not> (tl x = [] \<and> hd x = ori_lane + 1)" by auto
+    moreover
+    { assume "tl x = [] \<and> hd x = ori_lane + 1"
+      with case_cons case_bound have "t1 = t2 \<and> rects = rest" unfolding start_inc_lane.simps
+      proof -
+        assume a1: "(case lane_detection a of Outside \<Rightarrow> None | Lane n \<Rightarrow> if n = ori_lane then start_inc_lane rects n (t1 + 1) else None | Boundaries ns \<Rightarrow> if tl ns = [] \<and> hd ns = ori_lane + 1 then Some (t1, rects) else None) = Some (t2, rest)"
+        have "Some (t1, rects) = (case Boundaries x of Outside \<Rightarrow> None | Lane n \<Rightarrow> if n = ori_lane then start_inc_lane rects n (t1 + 1) else None | Boundaries ns \<Rightarrow> if tl ns = [] \<and> hd ns = ori_lane + 1 then Some (t1, rects) else None)"
+          by (simp add: \<open>tl x = [] \<and> hd x = ori_lane + 1\<close>)
+        then show ?thesis
+          using a1 by (simp add: case_bound)
+      qed
+      hence ?case by auto  }         
+    moreover
+    { assume "\<not> (tl x = [] \<and> hd x = ori_lane + 1)"
+          with sym[OF case_bound] case_cons(2) have ?case by auto }            
+    ultimately show ?case by auto      
+  qed
+qed
+    
+    
 fun finish_inc_lane :: "rectangle list \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> (nat \<times> rectangle list) option" where
   "finish_inc_lane [] _ _ = None" | 
   "finish_inc_lane (rect # rects) bound_id num = (case lane_detection rect of 
@@ -4273,13 +5471,776 @@ fun finish_inc_lane :: "rectangle list \<Rightarrow> nat \<Rightarrow> nat \<Rig
                                                      (* If it does not arrive on the lane specified, then it will not be considered as part of overtaking*)
                                                      | Lane n \<Rightarrow> (if n = bound_id then Some (num, rects) else None))" 
 
+theorem finish_inc_lane_not_nil:
+  assumes "finish_inc_lane rects bound_id start_time = Some (time, rest)"
+  shows "rects \<noteq> []"    
+  using assms by auto
+    
+theorem finish_inc_lane_cons:
+  assumes "finish_inc_lane rects bound_id start_time = Some (time, rest)"
+  obtains a rects' where "rects = a # rects'" using finish_inc_lane_not_nil[OF assms]
+  by (meson list.exhaust_sel)    
+  
+theorem finish_inc_lane_cases_neq:
+  assumes "finish_inc_lane rects bound_id start_time = Some (time, rest)"
+  defines "ld_res \<equiv> lane_detection (hd rects)"
+  shows "ld_res \<noteq> Outside"  
+proof -
+  from finish_inc_lane_cons[OF assms(1)] obtain a rects' where rects: "rects = a # rects'"
+    by auto
+  from assms(1) show ?thesis unfolding rects finish_inc_lane.simps ld_res_def by auto
+qed
+  
+theorem finish_inc_lane_cases:
+  assumes "finish_inc_lane rects bound_id start_time = Some (time, rest)"
+  defines "ld_res \<equiv> lane_detection (hd rects)"
+  shows "\<exists>n ns. ld_res = Lane n \<or> ld_res = Boundaries ns"
+proof -
+  from finish_inc_lane_cons[OF assms(1)] obtain a rects' where rects: "rects = a # rects'"
+    by auto
+  from finish_inc_lane_cases_neq[OF assms(1)] have "ld_res \<noteq> Outside" unfolding ld_res_def
+    by auto
+  thus ?thesis by (induction ld_res) (auto)    
+qed
+
+theorem finish_inc_lane_cases_obtain:
+  assumes "finish_inc_lane rects bound_id start_time = Some (time, rest)"
+  defines "ld_res \<equiv> lane_detection (hd rects)"
+  obtains n ns where "ld_res = Lane n \<or> ld_res = Boundaries ns"
+  using finish_inc_lane_cases[OF assms(1)] unfolding ld_res_def by auto
+
+theorem finish_inc_lane_cases_bound:
+  assumes "finish_inc_lane rects bound_id start_time = Some (time, rest)"
+  defines "ld_res \<equiv> lane_detection (hd rects)"
+  assumes "ld_res = Boundaries ids"
+  shows "ids = [bound_id]"
+proof -
+  from finish_inc_lane_cons[OF assms(1)] obtain a rects' where rects: "rects = a # rects'"
+    by auto
+  hence "ld_res = lane_detection a" unfolding ld_res_def rects by auto
+  with assms(3) have "lane_detection a = Boundaries ids" by auto
+  from assms(1) have "(if tl ids = [] \<and> hd ids = bound_id then finish_inc_lane rects' bound_id (start_time + 1) else None) =
+  Some (time, rest)" (is "?if = _") 
+    unfolding rects finish_inc_lane.simps `lane_detection a = Boundaries ids`
+    by auto
+  also have "... \<noteq> None" by auto
+  finally have "?if \<noteq> None" by auto
+  hence "tl ids = [] \<and> hd ids = bound_id" by meson
+  hence "ids = [bound_id]" 
+    using \<open>lane_detection a = Boundaries ids\<close> boundaries_not_empty hd_Cons_tl by force
+  thus ?thesis using assms(2) by auto         
+qed
+  
+theorem finish_inc_lane_cases_lane:
+  assumes "finish_inc_lane rects bound_id start_time = Some (time, rest)"
+  defines "ld_res \<equiv> lane_detection (hd rects)"
+  assumes "ld_res = Lane n"
+  shows "n = bound_id"
+proof -
+  from finish_inc_lane_cons[OF assms(1)] obtain a rects' where rects: "rects = a # rects'"
+    by auto
+  hence "ld_res = lane_detection a" unfolding ld_res_def rects by auto
+  with assms(3) have "lane_detection a = Lane n" by auto
+  from assms(1) have "(if n = bound_id then Some (start_time, rects') else None) = Some (time, rest)"
+    (is "?if = _")
+    unfolding rects finish_inc_lane.simps `lane_detection a = Lane n` by auto
+  also have "... \<noteq> None" by auto
+  finally have "?if \<noteq> None" by auto
+  thus "n = bound_id"      
+  using \<open>lane_detection a = Lane n\<close> boundaries_not_empty hd_Cons_tl by force
+qed
+      
+theorem finish_inc_lane_bound_tail:
+  assumes "finish_inc_lane rects bound_id start_time = Some (time, rest)"
+  defines "ld_res \<equiv> lane_detection (hd rects)"
+  assumes "ld_res = Lane n" 
+  shows "rest = tl rects"
+proof -
+  from finish_inc_lane_cons[OF assms(1)] obtain a rects' where rects: "rects = a # rects'"
+    by auto
+  hence "ld_res = lane_detection a" unfolding ld_res_def rects by auto
+  with assms(3) have "lane_detection a = Lane n" by auto
+  with finish_inc_lane_cases_lane[OF assms(1)] have "n = bound_id" unfolding rects
+    by auto      
+  with `lane_detection a = Lane n` have "lane_detection a = Lane bound_id"
+    by auto
+  from assms(1) show ?thesis unfolding rects finish_inc_lane.simps `lane_detection a = Lane bound_id`
+    by auto
+qed 
+  
+theorem finish_inc_lane_cases2:
+  assumes "finish_inc_lane rects bound_id start_time = Some (time, rest)"
+  defines "ld_res \<equiv> lane_detection (hd rects)"    
+  shows "ld_res = Lane bound_id \<or> ld_res = Boundaries [bound_id]"
+proof -
+  from finish_inc_lane_cons[OF assms(1)] obtain a rects' where rects: "rects = a # rects'"
+    by auto
+  from finish_inc_lane_cases_obtain[OF assms(1)] obtain n ns where 
+    "lane_detection a = Lane n \<or> lane_detection a = Boundaries ns" unfolding rects by auto
+  moreover
+  { assume *: "lane_detection a = Lane n"
+    with finish_inc_lane_cases_lane[OF assms(1)] have "n = bound_id" unfolding rects
+        by auto
+    hence ?thesis unfolding ld_res_def rects using * by auto }
+  moreover
+  { assume **: "lane_detection a = Boundaries ns"
+    with finish_inc_lane_cases_bound[OF assms(1)] have "ns = [bound_id]" unfolding rects  
+      by auto
+    hence ?thesis unfolding ld_res_def rects using ** by auto }
+  ultimately show ?thesis by auto    
+qed
+  
+theorem finish_inc_lane_decrease_length:
+  assumes "finish_inc_lane rects bound_id start_time = Some (time, rest)"
+  shows "length rest < length rects"
+  using assms  
+proof (induction rects arbitrary:start_time)
+  case Nil
+  then show ?case by auto
+next
+  case (Cons a rects)
+  note case_cons = this
+  from finish_inc_lane_cases2[OF case_cons(2)] have "lane_detection a = Lane bound_id \<or> 
+                                                     lane_detection a = Boundaries [bound_id]"
+    by auto
+  moreover
+  { assume "lane_detection a = Lane bound_id"
+    from case_cons(2) have "rest = rects" unfolding finish_inc_lane.simps `lane_detection a = Lane bound_id`
+      by auto
+    hence "length rest < length (a # rects)" by auto }
+  moreover
+  { assume "lane_detection a = Boundaries [bound_id]"
+    from case_cons(2) have "finish_inc_lane rects bound_id (start_time + 1) = Some (time, rest)"
+      unfolding finish_inc_lane.simps `lane_detection a = Boundaries [bound_id]` by auto
+    with case_cons(1)[OF this] have "length rest < length rects" by auto       
+    hence "length rest < length (a # rects)" by auto }      
+  ultimately show ?case by auto  
+qed
+      
+theorem finish_inc_lane_at_least: 
+  assumes "finish_inc_lane rects bound_id start_time = Some (time, rest)"
+  shows "start_time \<le> time"  
+  using assms
+proof (induction rects arbitrary:start_time time)
+  case Nil
+  then show ?case by auto
+next
+  case (Cons a rects)
+  note case_cons = this
+  obtain ld_res where "ld_res = lane_detection a" by auto    
+  then show ?case 
+  proof (induction ld_res)
+    case Outside
+    with case_cons show ?thesis by auto  
+  next
+    case (Boundaries x)    
+    note case_bound = this      
+    with boundaries_not_empty have "x \<noteq> []" by auto          
+    have "tl x = [] \<and> hd x = bound_id  \<or> \<not> (tl x = [] \<and> hd x = bound_id)" by auto  
+    moreover
+    { assume "tl x = [] \<and> hd x = bound_id"
+      with sym[OF case_bound] case_cons(2) have "finish_inc_lane rects bound_id (start_time + 1) = Some (time, rest)"
+        unfolding finish_inc_lane.simps  by auto
+      from case_cons(1)[OF this] have "start_time + 1 \<le> time"  by auto
+      hence ?case by auto }
+    moreover
+    { assume f: "\<not> (tl x = [] \<and> hd x = bound_id)"
+      with sym[OF case_bound] case_cons(2) have ?case by auto }      
+    ultimately show ?case by auto
+  next
+    case (Lane x)
+    note case_lane = this      
+    have "x = bound_id \<or> x \<noteq> bound_id" by auto
+    moreover        
+    { assume "x = bound_id"
+      with sym[OF case_lane] case_cons(2) have "time = start_time "
+        unfolding finish_inc_lane.simps by auto
+      hence ?case by auto }  
+    moreover
+    { assume "x \<noteq> bound_id"
+      with case_lane case_cons(2) have ?case by (auto split:detection_opt.splits) }    
+    ultimately show ?case by auto        
+  qed
+qed    
+  
+theorem finish_inc_lane_at_most: 
+  assumes "finish_inc_lane rects bound_id start_time = Some (time, rest)"
+  shows "time \<le> start_time + length rects"  
+  using assms
+proof (induction rects arbitrary:start_time time)
+  case Nil
+  then show ?case by auto
+next
+  case (Cons a rects)
+  note case_cons = this  
+  obtain ld_res where "ld_res = lane_detection a" by auto    
+  then show ?case 
+  proof (induction ld_res)
+    case Outside
+    with case_cons show ?case by auto 
+  next
+    case (Lane x)
+    note case_lane = this      
+    have "x = bound_id \<or> x \<noteq> bound_id" by auto
+    moreover        
+    { assume "x = bound_id"
+      with sym[OF case_lane] case_cons(2) have "time = start_time "
+        unfolding finish_inc_lane.simps by auto
+      hence ?case by auto }
+    moreover
+    { assume "x \<noteq> bound_id"
+      with case_lane case_cons(2) have ?case by (auto split:detection_opt.splits) }          
+    ultimately show ?case by auto
+  next
+    case (Boundaries x)
+    note case_bound = this      
+    with boundaries_not_empty have "x \<noteq> []" by auto          
+    have "tl x = [] \<and> hd x = bound_id  \<or> \<not> (tl x = [] \<and> hd x = bound_id)" by auto 
+    moreover
+    { assume "tl x = [] \<and> hd x = bound_id"
+      with sym[OF case_bound] case_cons(2) have "finish_inc_lane rects bound_id (start_time + 1) = Some (time, rest)"
+        unfolding finish_inc_lane.simps  by auto      
+      from case_cons(1)[OF this] have ?case by auto }
+    moreover
+    { assume f: "\<not> (tl x = [] \<and> hd x = bound_id)"
+      with sym[OF case_bound] case_cons(2) have ?case by auto }       
+    ultimately show ?case by auto
+  qed    
+qed    
+  
+theorem finish_inc_lane_lane: 
+  assumes "finish_inc_lane rects bound_id start_time = Some (time, rest)"
+  shows "lane_detection (rects ! (time - start_time)) = Lane bound_id"    
+  using assms
+proof (induction rects arbitrary:start_time time)
+  case Nil
+  then show ?case by auto
+next
+  case (Cons a rects)
+  note case_cons = this  
+  obtain ld_res where "ld_res = lane_detection a" by auto    
+  then show ?case 
+  proof (induction ld_res)
+    case Outside
+    with case_cons show ?case by auto
+  next
+    case (Lane x)
+    note case_lane = this      
+    have "x = bound_id \<or> x \<noteq> bound_id" by auto 
+    moreover        
+    { assume "x = bound_id"
+      with sym[OF case_lane] case_cons(2) have "time = start_time "
+        unfolding finish_inc_lane.simps by auto
+      hence ?case using sym[OF case_lane] `x = bound_id` by auto}
+    moreover
+    { assume "x \<noteq> bound_id"
+      with case_lane case_cons(2) have ?case by (auto split:detection_opt.splits) }          
+    ultimately show ?case by auto
+  next
+    case (Boundaries x)
+    note case_bound = this      
+    with boundaries_not_empty have "x \<noteq> []" by auto          
+    have "tl x = [] \<and> hd x = bound_id  \<or> \<not> (tl x = [] \<and> hd x = bound_id)" by auto   
+    moreover
+    { assume "tl x = [] \<and> hd x = bound_id"
+      with sym[OF case_bound] case_cons(2) have *: "finish_inc_lane rects bound_id (start_time + 1) = Some (time, rest)"
+        unfolding finish_inc_lane.simps  by auto
+      with finish_inc_lane_at_least[OF this] have "0 < time - start_time" by auto    
+      from case_cons(1)[OF *] have ?case using nth_Cons_pos[OF `0 < time - start_time`] 
+        by (simp add: \<open>\<And>xs x. (x # xs) ! (time - start_time) = xs ! (time - start_time - 1)\<close>) }
+    moreover
+    { assume f: "\<not> (tl x = [] \<and> hd x = bound_id)"
+      with sym[OF case_bound] case_cons(2) have ?case by auto }
+    ultimately show ?case by auto
+  qed    
+qed
+      
+theorem finish_inc_lane_boundaries: 
+  assumes "finish_inc_lane rects bound_id start_time = Some (time, rest)"  
+  shows "\<forall>m. 0 \<le> m - start_time \<and> m - start_time < time - start_time \<longrightarrow> lane_detection (rects ! (m - start_time)) = Boundaries [bound_id]"
+  using assms
+proof (induction rects arbitrary:start_time time)
+  case Nil
+  then show ?case by auto 
+next
+  case (Cons a rects)
+  note case_cons = this  
+  obtain ld_res where "ld_res = lane_detection a" by auto    
+  then show ?case 
+  proof (induction ld_res)
+    case Outside
+    with case_cons show ?case by auto
+  next
+    case (Lane x)
+    note case_lane = this      
+    have "x = bound_id \<or> x \<noteq> bound_id" by auto    
+    { assume "x = bound_id"
+      with sym[OF case_lane] case_cons(2) have "time = start_time "
+        unfolding finish_inc_lane.simps by auto
+      hence ?case using sym[OF case_lane] `x = bound_id` by auto}
+    moreover
+    { assume "x \<noteq> bound_id"
+      with case_lane case_cons(2) have ?case by (auto split:detection_opt.splits) }    
+    ultimately show ?case by auto
+  next
+    case (Boundaries x)
+    note case_bound = this      
+    with boundaries_not_empty have "x \<noteq> []" by auto          
+    have "tl x = [] \<and> hd x = bound_id  \<or> \<not> (tl x = [] \<and> hd x = bound_id)" by auto   
+    moreover
+    { assume "tl x = [] \<and> hd x = bound_id"
+      with sym[OF case_bound] case_cons(2) have *: "finish_inc_lane rects bound_id (start_time + 1) = Some (time, rest)"
+        unfolding finish_inc_lane.simps  by auto
+      from case_cons(1)[OF this] have **: "\<forall>m. 0 \<le> m - (start_time + 1) \<and> m - (start_time + 1) < time - (start_time + 1) \<longrightarrow>
+      lane_detection (rects ! (m - (start_time + 1))) = Boundaries [bound_id]" by auto          
+      with finish_inc_lane_at_least[OF *] have "0 < time - start_time" by auto    
+      have ?case 
+      proof (rule allI, rule impI) 
+        fix m
+        assume asm: "0 \<le> m - start_time \<and> m - start_time < time - start_time"
+        have "m = start_time \<or> m < start_time \<or> m > start_time" by auto
+        moreover
+        { assume "m = start_time"
+          hence "lane_detection ((a # rects) ! (m - start_time)) = lane_detection a" by auto  
+          also have "... = Boundaries x" using case_bound by auto
+          also have "... = Boundaries [bound_id]" using `tl x = [] \<and> hd x = bound_id`
+            using list.collapse[OF `x \<noteq> []`] by auto
+          finally have "lane_detection ((a # rects) ! (m - start_time)) = Boundaries [bound_id]"
+            by auto }
+        moreover
+        { assume "m < start_time"
+          hence "lane_detection ((a # rects) ! (m - start_time)) = lane_detection a" by auto  
+          also have "... = Boundaries x" using case_bound by auto
+          also have "... = Boundaries [bound_id]" using `tl x = [] \<and> hd x = bound_id`
+            using list.collapse[OF `x \<noteq> []`] by auto
+          finally have "lane_detection ((a # rects) ! (m - start_time)) = Boundaries [bound_id]"
+            by auto }
+        moreover
+        { assume "m > start_time"
+          hence "0 < m - start_time" by auto
+          hence hyp1: "0 \<le> m - (start_time + 1)" by auto    
+          from asm have "m - start_time < time - start_time" by auto
+          hence "m - start_time - 1 < time - start_time - 1"  
+            using \<open>0 < m - start_time\<close> gr_implies_not0 by auto
+          with hyp1 ** have "lane_detection (rects ! (m - (start_time + 1))) = Boundaries [bound_id]"    
+            by auto 
+          hence "lane_detection ((a # rects) ! (m - start_time)) = Boundaries [bound_id]"
+            using nth_Cons_pos[OF `0 < m - start_time`]
+            by (simp add: \<open>\<And>xs x. (x # xs) ! (m - start_time) = xs ! (m - start_time - 1)\<close>) }
+        ultimately show "lane_detection ((a # rects) ! (m - start_time)) = Boundaries [bound_id]"  
+          by blast
+      qed }
+    moreover
+    { assume f: "\<not> (tl x = [] \<and> hd x = bound_id)"
+      with sym[OF case_bound] case_cons(2) have ?case by auto }
+    ultimately show ?case by auto
+  qed    
+qed    
+    
+theorem finish_inc_lane_general_correctness:
+  assumes "finish_inc_lane rects bound_id start_time = Some (time, rest)"
+  shows "(LEAST n. start_time \<le> n \<and> n \<le> start_time + length rects \<and> 
+                    lane_detection (rects ! (n - start_time)) = Lane bound_id \<and> 
+                    (\<forall>m. 0 \<le> m - start_time \<and> m - start_time < n - start_time \<longrightarrow> lane_detection (rects ! (m - start_time)) = Boundaries [bound_id])) = time"    
+proof (rule Least_equality)
+  have "start_time \<le> time" using finish_inc_lane_at_least[OF assms] by auto
+  moreover      
+  have "time \<le> start_time + length rects" using finish_inc_lane_at_most[OF assms] by auto     
+  moreover
+  have " lane_detection (rects ! (time - start_time)) = Lane bound_id"  
+    using finish_inc_lane_lane[OF assms] by auto
+  moreover
+  have " (\<forall>m. 0 \<le> m - start_time \<and> m - start_time < time - start_time \<longrightarrow> lane_detection (rects ! (m - start_time)) = Boundaries [bound_id])" 
+    using finish_inc_lane_boundaries[OF assms] by auto
+  ultimately show "start_time \<le> time \<and>
+    time \<le> start_time + length rects \<and>
+    lane_detection (rects ! (time - start_time)) = Lane bound_id \<and>
+    (\<forall>m. 0 \<le> m - start_time \<and> m - start_time < time - start_time \<longrightarrow> lane_detection (rects ! (m - start_time)) = Boundaries [bound_id])"
+    by auto  
+next
+  fix y
+  assume bas: "start_time \<le> y \<and>
+         y \<le> start_time + length rects \<and>
+         lane_detection (rects ! (y - start_time)) = Lane bound_id \<and>
+         (\<forall>m. 0 \<le> m - start_time \<and> m - start_time < y - start_time \<longrightarrow> lane_detection (rects ! (m - start_time)) = Boundaries [bound_id])"  
+  show "time \<le> y"
+  proof (rule ccontr)
+    assume "\<not> time \<le> y"
+    hence "y < time" by auto
+    from bas have 1: "0 \<le> y - start_time" by auto    
+    with `y < time` have 2: "y - start_time < time - start_time"  using bas diff_less_mono by blast        
+    have "(\<forall>m. 0 \<le> m - start_time \<and> m - start_time < time - start_time \<longrightarrow> lane_detection (rects ! (m - start_time)) = Boundaries [bound_id])" 
+      using finish_inc_lane_boundaries[OF assms] by auto
+    with 1 and 2 have "lane_detection (rects ! (y - start_time)) = Boundaries [bound_id]" by auto    
+    with bas show "False" by auto    
+  qed         
+qed
+    
 fun start_dec_lane :: "rectangle list \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> (nat \<times> rectangle list) option" where
   "start_dec_lane _ 0 _ = None" |  \<comment> \<open>cannot return to original lane if it is the the rightmost lane\<close>
   "start_dec_lane [] ori_lane _ = None" | 
   "start_dec_lane (rect # rects) ori_lane num = (case lane_detection rect of
                                                       Outside \<Rightarrow> None 
-                                                    | Lane n  \<Rightarrow> (if n = ori_lane then start_dec_lane rects n (num + 1) else Some (num, rects)) 
-                                                    | Boundaries ns \<Rightarrow> (if tl ns = [] \<and> hd ns = ori_lane - 1 then Some (num, rects) else None))" 
+                                                    | Lane n  \<Rightarrow> (if n = ori_lane then start_dec_lane rects n (num + 1) else None) 
+                                                    | Boundaries ns \<Rightarrow> (if tl ns = [] \<and> hd ns = ori_lane then Some (num, rects) else None))" 
+
+theorem start_dec_lane_not_nil:
+  assumes "start_dec_lane rects ori_lane start_time = Some (time, rest)"
+  shows "rects \<noteq> []"
+  using assms
+proof (induction ori_lane)
+  case 0
+  then show ?case unfolding start_dec_lane.simps by auto
+next
+  case (Suc ori_lane)  
+  then show ?case by (cases "rects = []") auto
+qed
+  
+theorem start_dec_lane_cons:
+  assumes "start_dec_lane rects ori_lane start_time = Some (time, rest)"
+  obtains a rects' where "rects = a # rects'"
+  using start_dec_lane_not_nil[OF assms]
+  by (induction rects) (auto)  
+  
+theorem start_dec_lane_cases_neq:
+  assumes "start_dec_lane rects ori_lane start_time = Some (time, rest)"
+  assumes "ori_lane = Suc n"  
+  defines "ld_res \<equiv> lane_detection (hd rects)"    
+  shows "ld_res \<noteq> Outside"
+proof (rule ccontr)
+  assume "\<not> ld_res \<noteq> Outside"
+  hence "ld_res = Outside" by auto
+  from start_dec_lane_cons[OF assms(1)] obtain a rects' where "rects = a # rects'" by auto 
+  with `ld_res = Outside` have "lane_detection a = Outside" unfolding ld_res_def by auto    
+  from assms(1) and `ld_res = Outside` show "False" unfolding `rects = a # rects'` `ori_lane = Suc n`  
+     start_dec_lane.simps `lane_detection a = Outside` by auto  
+qed
+  
+theorem start_dec_lane_cases:    
+  assumes "start_dec_lane rects ori_lane start_time = Some (time, rest)"
+  assumes "ori_lane = Suc n"  
+  defines "ld_res \<equiv> lane_detection (hd rects)"    
+  shows "\<exists>id ids. ld_res = Lane id \<or> ld_res = Boundaries ids"
+proof -
+  from start_dec_lane_cases_neq[OF assms(1-2)] have "ld_res \<noteq> Outside"
+    unfolding ld_res_def by auto
+  thus ?thesis by (induction ld_res) (auto)      
+qed
+  
+theorem start_dec_lane_cases2:    
+  assumes "start_dec_lane rects ori_lane start_time = Some (time, rest)"
+  assumes "ori_lane = Suc n"  
+  defines "ld_res \<equiv> lane_detection (hd rects)"    
+  obtains id ids where "ld_res = Lane id \<or> ld_res = Boundaries ids"
+  using start_dec_lane_cases[OF assms(1-2)] ld_res_def by auto
+  
+theorem start_dec_lane_cases_bound:
+  assumes "start_dec_lane rects ori_lane start_time = Some (time, rest)"
+  assumes "ori_lane = Suc n"  
+  defines "ld_res \<equiv> lane_detection (hd rects)"    
+  assumes "ld_res = Boundaries ids"
+  shows "ids = [ori_lane]"
+proof -
+  from start_dec_lane_cons[OF assms(1)] obtain a rects' where "rects = a # rects'"  
+    by auto
+  from assms(4) have "lane_detection a = Boundaries ids" unfolding ld_res_def
+    `rects = a # rects'` by auto
+  from assms(1) and assms(4) have "(if tl ids = [] \<and> hd ids = Suc n then Some (start_time, rects') else None) = Some (time, rest)" 
+    unfolding `rects = a # rects'` `ori_lane = Suc n`
+    start_dec_lane.simps `lane_detection a = Boundaries ids` by auto      
+  hence "tl ids = [] \<and> hd ids = Suc n"  by (meson option.distinct(1))  
+  hence "ids = [Suc n]" 
+    using \<open>lane_detection a = Boundaries ids\<close> boundaries_not_empty hd_Cons_tl by force
+  thus ?thesis using assms(2) by auto     
+qed
+  
+theorem start_dec_lane_cases_bound_tail:
+  assumes "start_dec_lane rects ori_lane start_time = Some (time, rest)"
+  assumes "ori_lane = Suc n"  
+  defines "ld_res \<equiv> lane_detection (hd rects)"    
+  assumes "ld_res = Boundaries ids"
+  shows "start_time = time" and "rest = tl rects"
+proof -
+  from start_dec_lane_cases_bound[OF assms(1-2)] assms(4) have "ids = [ori_lane]"
+    unfolding ld_res_def by auto
+  from start_dec_lane_cons[OF assms(1)] obtain a rects' where "rects = a # rects'"  
+    by auto  
+  from assms(4) have "lane_detection a = Boundaries [ori_lane]" unfolding `rects = a #rects'`
+    `ori_lane = Suc n`  ld_res_def `ids = [ori_lane]` by auto
+  from assms(1) show "start_time = time" unfolding `rects = a # rects'` `ori_lane = Suc n`
+    start_dec_lane.simps `lane_detection a = Boundaries [ori_lane]` by auto
+  from assms(1) show "rest = tl rects" unfolding `rects = a # rects'` `ori_lane = Suc n`
+    start_dec_lane.simps `lane_detection a = Boundaries [ori_lane]` by auto
+qed
+    
+theorem start_dec_lane_cases_lane:
+  assumes "start_dec_lane rects ori_lane start_time = Some (time, rest)"
+  assumes "ori_lane = Suc n"  
+  defines "ld_res \<equiv> lane_detection (hd rects)"    
+  assumes "ld_res = Lane i"
+  shows "i = ori_lane" 
+proof -
+  from start_dec_lane_cons[OF assms(1)] obtain a rects' where "rects = a # rects'"  
+    by auto
+  from assms(4) have "lane_detection a = Lane i" unfolding ld_res_def
+    `rects = a # rects'` by auto  
+  from assms(1) and assms(4) have " (if i = Suc n then start_dec_lane rects' i (start_time + 1) else None) = Some (time, rest)"
+    unfolding `rects = a # rects'` `ori_lane = Suc n` start_dec_lane.simps `lane_detection a = Lane i`
+    by auto  
+  hence "i = Suc n" by (meson option.distinct)      
+  thus ?thesis using assms(2) by auto
+qed
+
+theorem start_dec_lane_cases_lane_tail:
+  assumes "start_dec_lane rects ori_lane start_time = Some (time, rest)"
+  assumes "ori_lane = Suc n"  
+  defines "ld_res \<equiv> lane_detection (hd rects)"    
+  assumes "ld_res = Lane i"
+  shows "start_dec_lane (tl rects) ori_lane (start_time + 1) = Some (time, rest)"
+proof -
+  from start_dec_lane_cases_lane[OF assms(1-2)] assms(4) have "i = ori_lane"
+    unfolding ld_res_def by auto      
+  from start_dec_lane_cons[OF assms(1)] obtain a rects' where "rects = a # rects'"
+    by auto
+  hence "lane_detection a = Lane ori_lane" using assms(4) unfolding ld_res_def
+      `i = ori_lane` by auto
+  from assms(1) show ?thesis unfolding `rects = a # rects'` `ori_lane = Suc n`    
+    start_dec_lane.simps `lane_detection a = Lane ori_lane` by auto    
+qed
+  
+theorem start_dec_lane_cases_imp:
+  assumes "start_dec_lane rects ori_lane start_time = Some (time, rest)"
+  assumes "ori_lane = Suc n"  
+  defines "ld_res \<equiv> lane_detection (hd rects)"     
+  shows "ld_res = Lane ori_lane \<or> ld_res = Boundaries [ori_lane]"
+  using assms start_dec_lane_cases2[OF assms(1-2)] start_dec_lane_cases_lane[OF assms(1-2)]
+  start_dec_lane_cases_bound[OF assms(1-2)] by auto
+
+theorem start_dec_lane_case_final:
+  assumes "start_dec_lane rects ori_lane start_time = Some (time, rest)"
+  assumes "ori_lane = Suc n"  
+  defines "ld_res \<equiv> lane_detection (hd rects)"     
+  shows "ld_res = Lane ori_lane \<and> start_dec_lane (tl rects) ori_lane (start_time + 1) = Some (time, rest) \<or>
+         ld_res = Boundaries [ori_lane] \<and> start_time = time \<and> rest = tl rects"
+proof -
+  from start_dec_lane_cases_imp[OF assms(1-2)] 
+  have "lane_detection (hd rects) = Lane ori_lane \<or>  lane_detection (hd rects) = Boundaries [ori_lane ] "  
+    by auto
+  moreover
+  { assume "lane_detection (hd rects) = Lane ori_lane"
+    with start_dec_lane_cases_lane_tail[OF assms(1-2) this] have ?thesis unfolding ld_res_def by auto }
+  moreover
+  { assume "lane_detection (hd rects) = Boundaries [ori_lane]"
+    with start_dec_lane_cases_bound_tail[OF assms(1-2) this] have ?thesis unfolding ld_res_def by auto }  
+  ultimately show ?thesis by auto
+qed      
+    
+theorem start_dec_lane_at_least:
+  assumes "start_dec_lane rects ori_lane start_time = Some (time, rest)"
+  assumes "ori_lane = Suc n"  
+  shows "start_time \<le> time"
+  using assms
+proof (induction rects arbitrary:start_time time)
+  case Nil
+  thus ?case by auto
+next
+  case (Cons a rects)
+  note case_cons = this
+  from start_dec_lane_case_final[OF case_cons(2-3)] 
+  consider "start_dec_lane (tl (a # rects)) ori_lane (start_time + 1) = Some (time, rest)" |
+           "start_time = time \<and> rest = tl (a # rects)" by auto
+  thus ?case
+  proof (cases)
+    case 1
+    hence "start_dec_lane rects ori_lane (start_time + 1) = Some (time, rest)"  by auto
+    with case_cons(1)[OF this case_cons(3)] have "start_time + 1 \<le> time" by auto  
+    then show ?thesis by auto
+  next
+    case 2      
+    then show ?thesis by auto
+  qed    
+qed    
+
+theorem start_dec_lane_at_most:
+  assumes "start_dec_lane rects ori_lane start_time = Some (time, rest)"
+  assumes "ori_lane = Suc n"    
+  shows "time \<le> start_time + length rects"
+  using assms
+proof (induction rects arbitrary:start_time time)
+  case Nil
+  then show ?case by auto
+next
+  case (Cons a rects)
+  note case_cons = this
+  from start_dec_lane_case_final[OF case_cons(2-3)] 
+  consider "start_dec_lane (tl (a # rects)) ori_lane (start_time + 1) = Some (time, rest)" |
+           "start_time = time \<and> rest = tl (a # rects)" by auto
+  thus ?case
+  proof (cases)
+    case 1
+    hence "start_dec_lane rects ori_lane (start_time + 1) = Some (time, rest)" by auto  
+    from case_cons(1)[OF this case_cons(3)] have "time \<le> start_time + 1 + length rects"
+      by auto
+    then show ?thesis by auto
+  next
+    case 2
+    then show ?thesis by auto
+  qed
+qed    
+  
+theorem start_dec_lane_boundaries:
+  assumes "start_dec_lane rects ori_lane start_time = Some (time, rest)"
+  assumes "ori_lane = Suc n"    
+  shows "lane_detection (rects ! (time - start_time)) = Boundaries [ori_lane]"  
+  using assms
+proof (induction rects arbitrary: start_time time)
+  case Nil
+  then show ?case by auto
+next
+  case (Cons a rects)
+  note case_cons = this
+  from start_dec_lane_case_final[OF case_cons(2-3)] 
+  consider "start_dec_lane (tl (a # rects)) ori_lane (start_time + 1) = Some (time, rest)" |
+           "lane_detection a = Boundaries [ori_lane] \<and> start_time = time \<and> rest = tl (a # rects)" by auto
+  thus ?case
+  proof (cases)
+    case 1
+    hence t: "start_dec_lane rects ori_lane (start_time + 1) = Some (time, rest)" by auto
+    from start_dec_lane_at_least[OF this case_cons(3)] have "0 < time - start_time" by auto     
+    from case_cons(1)[OF t case_cons(3)] have "lane_detection (rects ! (time - (start_time + 1))) = Boundaries [ori_lane] "
+      by auto
+    hence *: "lane_detection (rects ! (time - start_time - 1)) = Boundaries [ori_lane]" by auto
+    have **: "rects ! (time - start_time - 1) = (a # rects) ! (time - start_time)" 
+      using sym[OF nth_Cons_pos[OF `0 < time - start_time`]] by auto   
+    from * show ?thesis unfolding ** by auto  
+  next
+    case 2  
+    then show ?thesis by auto
+  qed    
+qed    
+     
+theorem start_dec_lane_ori_lane:
+  assumes "start_dec_lane rects ori_lane start_time = Some (time, rest)"
+  assumes "ori_lane = Suc n"    
+  shows "\<forall>t. 0 \<le> t - start_time \<and> t - start_time < time - start_time \<longrightarrow> lane_detection (rects ! (t - start_time)) = Lane ori_lane"
+  using assms
+proof (induction rects arbitrary:start_time)
+  case Nil
+  then show ?case by auto
+next
+  case (Cons a rects)
+  note case_cons = this
+  from start_dec_lane_case_final[OF case_cons(2-3)] 
+  consider "lane_detection a = Lane ori_lane \<and> start_dec_lane (tl (a # rects)) ori_lane (start_time + 1) = Some (time, rest)" |
+           "lane_detection a = Boundaries [ori_lane] \<and> start_time = time \<and> rest = tl (a # rects)" by auto
+  thus ?case
+  proof (cases)
+    case 1
+    hence "lane_detection a = Lane ori_lane" and "start_dec_lane rects ori_lane (start_time + 1) = Some (time, rest)" by auto  
+    from case_cons(1)[OF this(2) case_cons(3)]
+    have ind: " \<forall>t. 0 \<le> t - (start_time + 1) \<and> t - (start_time + 1) < time - (start_time + 1) \<longrightarrow> lane_detection (rects ! (t - (start_time + 1))) = Lane ori_lane"
+      by auto
+    show ?thesis
+    proof (rule allI, rule impI)
+      fix t
+      assume asm: "0 \<le> t - start_time \<and> t - start_time < time - start_time"  
+      consider "t - start_time \<le> 0" | "0 < t - start_time" by linarith
+      thus "lane_detection ((a # rects) ! (t - start_time)) = Lane ori_lane"          
+      proof (cases)
+        case 1
+        then show ?thesis using `lane_detection a = Lane ori_lane` by auto
+      next
+        case 2
+        with asm have "0 \<le> t - (start_time + 1) \<and> t - (start_time + 1) < time - (start_time + 1)" by auto
+        with ind have *: "lane_detection (rects ! (t - (start_time + 1))) = Lane ori_lane" by auto
+        from sym[OF nth_Cons_pos[OF 2]] have "rects ! (t - start_time - 1) = (a # rects) ! (t - start_time)"
+          by auto
+        then show ?thesis using * by auto 
+      qed         
+    qed      
+  next
+    case 2
+    then show ?thesis by auto
+  qed
+qed    
+    
+theorem start_dec_lane_general_correctness:
+  assumes "start_dec_lane rects ori_lane start_time = Some (time, rest)"
+  assumes "ori_lane = Suc n"    
+  shows "(LEAST n. start_time \<le> n  \<and> n \<le> start_time + length rects \<and> 
+                   lane_detection (rects ! (n - start_time)) = Boundaries [ori_lane] \<and> 
+                   (\<forall>m. 0 \<le> m - start_time \<and> m - start_time < n - start_time \<longrightarrow> lane_detection (rects ! (m - start_time)) = Lane ori_lane)) = time"
+proof (rule Least_equality)
+  have "start_time \<le> time" using start_dec_lane_at_least[OF assms] by auto
+  moreover
+  have "time \<le> start_time + length rects" using start_dec_lane_at_most[OF assms] by auto    
+  moreover
+  have "lane_detection (rects ! (time - start_time)) = Boundaries [ori_lane]"
+    using start_dec_lane_boundaries[OF assms] by auto
+  moreover
+  have "(\<forall>m. 0 \<le> m - start_time \<and> m - start_time < time - start_time \<longrightarrow> lane_detection (rects ! (m - start_time)) = Lane ori_lane)"    
+    using start_dec_lane_ori_lane[OF assms] by auto
+  ultimately show "start_time \<le> time \<and>
+    time \<le> start_time + length rects \<and>
+    lane_detection (rects ! (time - start_time)) = Boundaries [ori_lane] \<and>
+    (\<forall>m. 0 \<le> m - start_time \<and> m - start_time < time - start_time \<longrightarrow> lane_detection (rects ! (m - start_time)) = Lane ori_lane)"
+    by auto
+next
+  fix y
+  assume bas: "start_time \<le> y \<and>
+         y \<le> start_time + length rects \<and>
+         lane_detection (rects ! (y - start_time)) = Boundaries [ori_lane] \<and>
+         (\<forall>m. 0 \<le> m - start_time \<and> m - start_time < y - start_time \<longrightarrow> lane_detection (rects ! (m - start_time)) = Lane ori_lane)"
+  show "time \<le> y"
+  proof (rule ccontr)
+    assume "\<not> time \<le> y"  
+    hence "y < time" by auto
+    from bas have 1: "0 \<le> y - start_time" by auto    
+    with `y < time` have 2: "y - start_time < time - start_time" using bas diff_less_mono by blast
+    have " (\<forall>m. 0 \<le> m - start_time \<and> m - start_time < time - start_time \<longrightarrow> lane_detection (rects ! (m - start_time)) = Lane ori_lane)"
+      using start_dec_lane_ori_lane[OF assms] by auto
+    with 1 and 2 have "lane_detection (rects ! (y - start_time)) = Lane ori_lane" by auto
+    with bas show "False" by auto        
+  qed
+qed
+  
+theorem start_dec_lane_correctness0:
+  assumes "start_dec_lane rects ori_lane 0 = Some (time, rest)"
+  assumes "ori_lane = Suc n"    
+  shows "(LEAST n. n \<le> length rects \<and> 
+                   lane_detection (rects ! n) = Boundaries [ori_lane] \<and> 
+                   (\<forall>m. m < n  \<longrightarrow> lane_detection (rects ! m) = Lane ori_lane)) = time"
+  using start_dec_lane_general_correctness[OF assms] by auto    
+    
+theorem start_dec_lane_drop:
+  assumes "start_dec_lane rects ori_lane t1 = Some (t2, rest)"
+  assumes "ori_lane = Suc n"    
+  shows "rest = drop (t2 - t1 + 1) rects"
+  using assms
+proof (induction rects arbitrary:t1)
+  case Nil
+  then show ?case by auto
+next
+  case (Cons a rects)
+  note case_cons = this   
+  from start_dec_lane_case_final[OF case_cons(2-3)] 
+  consider "lane_detection a = Lane ori_lane \<and> start_dec_lane (tl (a # rects)) ori_lane (t1 + 1) = Some (t2, rest)" |
+           "lane_detection a = Boundaries [ori_lane] \<and> t1 = t2 \<and> rest = tl (a # rects)" by auto
+  thus ?case
+  proof (cases)
+    case 1
+    hence t: "start_dec_lane rects ori_lane (t1 + 1) = Some (t2, rest)" by auto 
+    from start_dec_lane_at_least[OF this case_cons(3)] have "0 < t2 - t1" by auto        
+    from case_cons(1)[OF t case_cons(3)] have "rest = drop (t2 - (t1 + 1) + 1) rects" by auto
+    hence "rest = drop (t2 - t1) rects" using `0 < t2 - t1` 
+      by (metis Nat.le_imp_diff_is_add One_nat_def Suc_leI diff_diff_add)         
+    thus ?thesis using drop_cons[OF `0 < t2 - t1`] 
+        by (simp add: \<open>\<And>xs x. drop (t2 - t1) (x # xs) = drop (t2 - t1 - 1) xs\<close>)            
+  next
+    case 2      
+    then show ?thesis by auto
+  qed    
+qed
   
 fun finish_dec_lane :: "rectangle list \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> (nat \<times> rectangle list) option" where
   "finish_dec_lane  _ 0 _ = None" | \<comment> \<open>cannot return to original lane if it is the the rightmost lane\<close>
@@ -4288,8 +6249,334 @@ fun finish_dec_lane :: "rectangle list \<Rightarrow> nat \<Rightarrow> nat \<Rig
                                                        Outside \<Rightarrow> None 
                                                      | Boundaries ns \<Rightarrow> (if tl ns = [] \<and> hd ns = bound_id then finish_dec_lane rects bound_id (num + 1) else None) 
                                                      | Lane n \<Rightarrow> (if n = bound_id - 1 then Some (num, rects) else None))" 
-                                                
-(* TODO : Use monad syntax here *) 
+
+theorem finish_dec_lane_not_nil:
+  assumes "finish_dec_lane rects bound_id start_time = Some (time, rest)"
+  shows "rects \<noteq> []"
+  using assms
+proof (induction bound_id)
+  case 0
+  then show ?case by auto
+next
+  case (Suc bound_id)
+  then show ?case by (cases "rects = []") auto
+qed  
+  
+theorem finish_dec_lane_cons:
+  assumes "finish_dec_lane rects bound_id start_time = Some (time, rest)"
+  obtains a rects' where "rects = a # rects'"
+  using finish_dec_lane_not_nil[OF assms]
+  by (induction rects) auto
+
+theorem finish_dec_lane_cases_neq:
+  assumes "finish_dec_lane rects bound_id start_time = Some (time, rest)"
+  assumes "bound_id = Suc n"
+  defines "ld_res \<equiv> lane_detection (hd rects)"
+  shows "ld_res \<noteq> Outside"
+proof (rule ccontr)
+  assume "\<not> ld_res \<noteq> Outside"
+  hence "ld_res = Outside" by auto
+  from finish_dec_lane_cons[OF assms(1)] obtain a rects' where "rects = a # rects'" by auto
+  with `ld_res = Outside` have "lane_detection a = Outside" unfolding ld_res_def by auto
+  from assms(1) and `ld_res = Outside` show "False" unfolding `rects = a # rects'` `bound_id = Suc n`
+    finish_dec_lane.simps `lane_detection a = Outside` by auto 
+qed
+
+theorem finish_dec_lane_cases:
+  assumes "finish_dec_lane rects bound_id start_time = Some (time, rest)"
+  assumes "bound_id = Suc n"
+  defines "ld_res \<equiv> lane_detection (hd rects)" 
+  shows "\<exists>id ids. ld_res = Lane id \<or> ld_res = Boundaries ids"
+proof -
+  from finish_dec_lane_cases_neq[OF assms(1-2)] have "ld_res \<noteq> Outside"
+    unfolding ld_res_def by auto
+  thus ?thesis by (induction ld_res) auto
+qed      
+  
+theorem finish_dec_lane_cases2:
+  assumes "finish_dec_lane rects bound_id start_time = Some (time, rest)"
+  assumes "bound_id = Suc n"
+  defines "ld_res \<equiv> lane_detection (hd rects)"
+  obtains id ids where "ld_res = Lane id \<or> ld_res = Boundaries ids"
+  using finish_dec_lane_cases[OF assms(1-2)] ld_res_def by auto
+
+theorem finish_dec_lane_cases_bound:
+  assumes "finish_dec_lane rects bound_id start_time = Some (time, rest)"
+  assumes "bound_id = Suc n"
+  defines "ld_res \<equiv> lane_detection (hd rects)"
+  assumes "ld_res = Boundaries ids"
+  shows "ids = [bound_id]"
+proof -
+  from finish_dec_lane_cons[OF assms(1)] obtain a rects' where "rects = a # rects'"
+    by auto
+  from assms(4) have "lane_detection a = Boundaries ids" unfolding ld_res_def
+    `rects = a # rects'` by auto
+  from assms(1) and assms(4) have "(if tl ids = [] \<and> hd ids = Suc n then finish_dec_lane rects' (Suc n) (start_time + 1) else None) = Some (time, rest)" 
+    unfolding `rects = a # rects'` `bound_id = Suc n`
+    finish_dec_lane.simps `lane_detection a = Boundaries ids` by auto      
+  hence "tl ids = [] \<and> hd ids = Suc n"  by (meson option.distinct(1))  
+  hence "ids = [Suc n]" 
+    using \<open>lane_detection a = Boundaries ids\<close> boundaries_not_empty hd_Cons_tl by force
+  thus ?thesis using assms(2) by auto     
+qed
+  
+theorem finish_dec_lane_cases_bound_tail: 
+  assumes "finish_dec_lane rects bound_id start_time = Some (time, rest)"
+  assumes "bound_id = Suc n"
+  defines "ld_res \<equiv> lane_detection (hd rects)"
+  assumes "ld_res = Boundaries ids"
+  shows "finish_dec_lane (tl rects) bound_id (start_time + 1) = Some (time, rest)"
+proof -
+  from finish_dec_lane_cases_bound[OF assms(1-2)] assms(4) have "ids = [bound_id]"
+    unfolding ld_res_def by auto
+  from finish_dec_lane_cons[OF assms(1)] obtain a rects' where "rects = a # rects'"  
+    by auto  
+  from assms(4) have "lane_detection a = Boundaries [bound_id]" unfolding `rects = a #rects'`
+    `bound_id = Suc n`  ld_res_def `ids = [bound_id]` by auto
+  from assms(1) show "finish_dec_lane (tl rects) bound_id (start_time + 1) = Some (time, rest)" 
+    unfolding `rects = a # rects'` `bound_id = Suc n`
+    finish_dec_lane.simps `lane_detection a = Boundaries [bound_id]` by auto
+qed  
+  
+theorem finish_dec_lane_cases_lane:
+  assumes "finish_dec_lane rects bound_id start_time = Some (time, rest)"
+  assumes "bound_id = Suc n"    
+  defines "ld_res \<equiv> lane_detection (hd rects)"
+  assumes "ld_res = Lane i"
+  shows "i = bound_id - 1"    
+proof -
+  from finish_dec_lane_cons[OF assms(1)] obtain a rects' where "rects = a # rects'"  
+    by auto
+  from assms(4) have "lane_detection a = Lane i" unfolding ld_res_def
+    `rects = a # rects'` by auto  
+  from assms(1) have "(if i = Suc n - 1 then Some (start_time, rects') else None) = Some (time, rest)" 
+    unfolding `rects = a # rects'` `bound_id = Suc n` finish_dec_lane.simps `lane_detection a = Lane i` 
+    by auto     
+  hence "i = Suc n - 1" by (meson option.distinct)
+  thus ?thesis using assms(2) by auto
+qed
+  
+theorem finish_dec_lane_cases_lane_tail:
+  assumes "finish_dec_lane rects bound_id start_time = Some (time, rest)"
+  assumes "bound_id = Suc n"    
+  defines "ld_res \<equiv> lane_detection (hd rects)"
+  assumes "ld_res = Lane i"
+  shows "start_time = time" and "rest = tl rects"
+proof -
+  from finish_dec_lane_cases_lane[OF assms(1-2)] assms(4) have "i = bound_id - 1"
+    unfolding ld_res_def by auto
+  from finish_dec_lane_cons[OF assms(1)] obtain a rects' where "rects = a # rects'"
+    by auto
+  hence "lane_detection a = Lane (bound_id - 1)" using assms(4) unfolding ld_res_def
+    `i = bound_id - 1` by auto
+  from assms(1) show "start_time = time" unfolding `rects = a # rects'` `bound_id = Suc n`
+    finish_dec_lane.simps `lane_detection a = Lane (bound_id - 1)` by auto
+  from assms(1) show "rest = tl rects" unfolding `rects = a # rects'` `bound_id = Suc n`
+    finish_dec_lane.simps `lane_detection a = Lane (bound_id - 1)` by auto
+qed      
+  
+theorem finish_dec_lane_cases_imp:
+  assumes "finish_dec_lane rects bound_id start_time = Some (time, rest)"
+  assumes "bound_id = Suc n"
+  defines "ld_res \<equiv> lane_detection (hd rects)"
+  shows "ld_res = Lane (bound_id -1) \<or> ld_res = Boundaries [bound_id]"
+  using assms finish_dec_lane_cases2[OF assms(1-2)] finish_dec_lane_cases_lane[OF assms(1-2)]
+  finish_dec_lane_cases_bound[OF assms(1-2)] by auto
+  
+theorem finish_dec_lane_case_final:
+  assumes "finish_dec_lane rects bound_id start_time = Some (time, rest)"
+  assumes "bound_id = Suc n"
+  defines "ld_res \<equiv> lane_detection (hd rects)"
+  shows "ld_res = Lane (bound_id - 1) \<and> start_time = time \<and> rest = tl rects \<or> 
+         ld_res = Boundaries [bound_id] \<and> finish_dec_lane (tl rects) bound_id (start_time + 1) = Some (time, rest)"          
+proof -
+  from finish_dec_lane_cases_imp[OF assms(1-2)]
+  have "lane_detection (hd rects) = Lane (bound_id - 1) \<or> lane_detection (hd rects) = Boundaries [bound_id]"
+    by auto
+  moreover
+  { assume "lane_detection (hd rects) = Lane (bound_id - 1)"
+    with finish_dec_lane_cases_lane_tail[OF assms(1-2) this] have ?thesis unfolding ld_res_def 
+      by auto }
+  moreover
+  { assume "lane_detection (hd rects) = Boundaries [bound_id]"
+    with finish_dec_lane_cases_bound_tail[OF assms(1-2) this] have ?thesis unfolding ld_res_def
+      by auto }
+  ultimately show ?thesis by auto
+qed
+  
+theorem finish_dec_lane_at_least:
+  assumes "finish_dec_lane rects bound_id start_time = Some (time, rest)"
+  assumes "bound_id = Suc n"
+  shows "start_time \<le> time" 
+  using assms
+proof (induction rects arbitrary: start_time time)
+  case Nil
+  then show ?case by auto
+next
+  case (Cons a rects)
+  note case_cons = this
+  from finish_dec_lane_case_final[OF case_cons(2-3)]  
+  consider " start_time = time \<and> rest = tl (a # rects)" | 
+    "finish_dec_lane (tl (a # rects)) bound_id (start_time + 1) = Some (time, rest)"
+    by auto
+  thus ?case
+  proof (cases)
+    case 1
+    then show ?thesis by auto
+  next
+    case 2
+    hence "finish_dec_lane rects bound_id (start_time + 1) = Some (time, rest)" by auto
+    with case_cons(1)[OF this case_cons(3)] show ?thesis by auto  
+  qed    
+qed    
+
+theorem finish_dec_lane_at_most:
+  assumes "finish_dec_lane rects bound_id start_time = Some (time, rest)"
+  assumes "bound_id = Suc n"
+  shows "time \<le> start_time + length rects"
+  using assms
+proof (induction rects arbitrary:start_time time)
+  case Nil
+  then show ?case by auto
+next
+  case (Cons a rects)
+  note case_cons = this
+  from finish_dec_lane_case_final[OF case_cons(2-3)]
+  consider "lane_detection (hd (a # rects)) = Lane (bound_id - 1) \<and> start_time = time \<and> rest = tl (a # rects)" |
+    "lane_detection (hd (a # rects)) = Boundaries [bound_id] \<and> finish_dec_lane (tl (a # rects)) bound_id (start_time + 1) = Some (time, rest)"    
+    by auto    
+  thus ?case
+  proof (cases)
+    case 1
+    then show ?thesis by auto
+  next
+    case 2
+    hence "finish_dec_lane rects bound_id (start_time + 1) = Some (time, rest)" by auto
+    with case_cons(1)[OF this case_cons(3)] show ?thesis by auto       
+  qed        
+qed
+  
+theorem finish_dec_lane_boundaries:
+  assumes "finish_dec_lane rects bound_id start_time = Some (time, rest)"
+  assumes "bound_id = Suc n"
+  shows "lane_detection (rects ! (time - start_time)) = Lane (bound_id - 1)"
+  using assms
+proof (induction rects arbitrary: start_time)
+  case Nil
+  then show ?case by auto
+next
+  case (Cons a rects)
+  note case_cons = this
+  from finish_dec_lane_case_final[OF case_cons(2-3)]    
+  consider "lane_detection (hd (a # rects)) = Lane (bound_id - 1) \<and> start_time = time \<and> rest = tl (a # rects)" |
+    "lane_detection (hd (a # rects)) = Boundaries [bound_id] \<and> finish_dec_lane (tl (a # rects)) bound_id (start_time + 1) = Some (time, rest)"    
+    by auto      
+  thus ?case
+  proof (cases)
+    case 1
+    then show ?thesis by auto
+  next
+    case 2
+    hence t: "finish_dec_lane rects bound_id (start_time + 1) = Some (time, rest)"
+      by auto
+    from finish_dec_lane_at_least[OF t case_cons(3)] have "0 < time - start_time" by auto 
+    from case_cons(1)[OF t case_cons(3)] have t2: "lane_detection (rects ! (time - (start_time + 1))) = Lane (bound_id - 1)"
+      by auto        
+    from nth_Cons_pos[OF `0 < time - start_time`] have "(a # rects) ! (time - start_time) = rects ! (time - start_time - 1)"
+      by auto
+    with t2 show ?thesis by auto 
+  qed
+qed    
+  
+theorem finish_dec_lane_bound_id:
+  assumes "finish_dec_lane rects bound_id start_time = Some (time, rest)"
+  assumes "bound_id = Suc n"
+  shows "\<forall>t. 0 \<le> t - start_time \<and> t - start_time < time - start_time \<longrightarrow> lane_detection (rects ! (t - start_time)) = Boundaries [bound_id]"    
+  using assms
+proof (induction rects arbitrary: start_time)
+  case Nil
+  then show ?case by auto
+next
+  case (Cons a rects)
+  note case_cons = this
+  from finish_dec_lane_case_final[OF case_cons(2-3)]    
+  consider "lane_detection (hd (a # rects)) = Lane (bound_id - 1) \<and> start_time = time \<and> rest = tl (a # rects)" |
+    "lane_detection (hd (a # rects)) = Boundaries [bound_id] \<and> finish_dec_lane (tl (a # rects)) bound_id (start_time + 1) = Some (time, rest)"    
+    by auto      
+  thus ?case 
+  proof (cases)
+    case 1
+    then show ?thesis by auto
+  next
+    case 2
+    hence t: "finish_dec_lane rects bound_id (start_time + 1) = Some (time, rest)"
+      by auto
+    from 2 have "lane_detection a = Boundaries [bound_id]" by auto        
+    from case_cons(1)[OF t case_cons(3)] have ind: "\<forall>t. 0 \<le> t - (start_time + 1) \<and> t - (start_time + 1) < time - (start_time + 1) \<longrightarrow>
+      lane_detection (rects ! (t - (start_time + 1))) = Boundaries [bound_id]"
+      by auto                
+    show ?thesis
+    proof (rule allI, rule impI)
+      fix t
+      assume asm: "0 \<le> t - start_time \<and> t - start_time < time - start_time"
+      consider "t - start_time \<le> 0" | "0 < t - start_time" by linarith
+      thus "lane_detection ((a # rects) ! (t - start_time)) = Boundaries [bound_id]"
+      proof (cases)
+        case 1
+        then show ?thesis using `lane_detection a = Boundaries [bound_id]` by auto
+      next
+        case 2
+        with asm have "0 \<le> t - (start_time + 1) \<and> t - (start_time + 1) < time - (start_time + 1)" 
+          by auto
+        with ind have *: "lane_detection (rects ! (t - (start_time + 1))) = Boundaries [bound_id]"
+          by auto
+        from sym[OF nth_Cons_pos[OF 2]] have "rects ! (t - start_time - 1) = (a # rects) ! (t - start_time)"
+          by auto
+        then show ?thesis using * by auto
+      qed      
+    qed      
+  qed    
+qed    
+
+theorem finish_dec_lane_general_correctness:
+  assumes "finish_dec_lane rects bound_id start_time = Some (time, rest)"
+  assumes "bound_id = Suc n"
+  shows "(LEAST n. start_time \<le> n \<and> n \<le> start_time + length rects \<and> 
+                   lane_detection (rects ! (n - start_time)) = Lane (bound_id - 1) \<and> 
+                   (\<forall>m. 0 \<le> m - start_time \<and> m - start_time < n - start_time \<longrightarrow> lane_detection (rects ! (m - start_time)) = Boundaries [bound_id])) = time"
+proof (rule Least_equality)
+  have "start_time \<le> time" using finish_dec_lane_at_least[OF assms] by auto
+  moreover
+  have "time \<le> start_time + length rects" using finish_dec_lane_at_most[OF assms] by auto    
+  moreover
+  have "lane_detection (rects ! (time - start_time)) = Lane (bound_id - 1)"
+    using finish_dec_lane_boundaries[OF assms] by auto
+  moreover
+  have "(\<forall>m. 0 \<le> m - start_time \<and> m - start_time < time - start_time \<longrightarrow> lane_detection (rects ! (m - start_time)) = Boundaries [bound_id])"    
+    using finish_dec_lane_bound_id[OF assms] by auto
+  ultimately show "start_time \<le> time \<and>
+    time \<le> start_time + length rects \<and>
+    lane_detection (rects ! (time - start_time)) = Lane (bound_id - 1) \<and>
+    (\<forall>m. 0 \<le> m - start_time \<and> m - start_time < time - start_time \<longrightarrow> lane_detection (rects ! (m - start_time)) = Boundaries [bound_id])"
+    by auto  
+next
+  fix y
+  assume bas: "start_time \<le> y \<and>
+         y \<le> start_time + length rects \<and>
+         lane_detection (rects ! (y - start_time)) = Lane (bound_id - 1) \<and>
+         (\<forall>m. 0 \<le> m - start_time \<and> m - start_time < y - start_time \<longrightarrow> lane_detection (rects ! (m - start_time)) = Boundaries [bound_id])"
+  show "time \<le> y"
+  proof (rule ccontr)
+    assume "\<not> time \<le> y"
+    hence "y < time" by auto      
+    from bas have 1: "0 \<le> y - start_time" by auto
+    with `y < time` have 2: "y - start_time < time - start_time" using bas diff_less_mono by auto
+    have "(\<forall>m. 0 \<le> m - start_time \<and> m - start_time < time - start_time \<longrightarrow> lane_detection (rects ! (m - start_time)) = Boundaries [bound_id])"
+      using finish_dec_lane_bound_id[OF assms] by auto
+    with 1 and 2 have "lane_detection (rects ! (y - start_time)) = Boundaries [bound_id]" by auto
+    with bas show "False" by auto        
+  qed    
+qed
   
 text "This is the definition (or function) for (detecting) the occurrence of lane changing to the 
   left in right-hand traffic."
@@ -4301,10 +6588,254 @@ fun increase_lane :: "rectangle list \<Rightarrow> ((nat \<times> nat) \<times> 
                                   | Boundaries _ \<Rightarrow> None  (* it has to start in a lane -- not boundaries or outside *)
                                   | Lane n \<Rightarrow> (case start_inc_lane rects n 0 of 
                                                  None \<Rightarrow> None 
-                                               | Some (num1, rest1) \<Rightarrow> (case finish_inc_lane rest1 (n + 1) (num1 + 1) of 
+                                               | Some (num1, rest1) \<Rightarrow> (case finish_inc_lane rest1 n num1 of 
                                                                          None \<Rightarrow> None 
-                                                                       | Some (num2, rest2) \<Rightarrow> Some ((num1, num2), rest2))))"   
+                                                                       | Some (num2, rest2) \<Rightarrow> Some ((num1, num2), rest2))))" 
 
+fun increase_lane2 :: "rectangle list \<Rightarrow> ((nat \<times> nat) \<times> rectangle list) option" where
+  "increase_lane2 []    = None" |
+  "increase_lane2 rects = (case initial_lane rects of  Outside \<Rightarrow> None  | Boundaries _ \<Rightarrow> None  
+                                  | Lane n \<Rightarrow> do {
+                                                (num1, rest1) \<leftarrow> start_inc_lane rects n 0;
+                                                (num2, rest2) \<leftarrow> finish_inc_lane rest1 n num1;
+                                                Some ((num1, num2), rest2) 
+                                              })"
+  
+lemma increase_lane_some_not_nil:
+  assumes "increase_lane rects = Some ((time1, time2) , rest)"
+  shows "rects \<noteq> []"
+  using assms by auto    
+
+theorem increase_lane_some_outbound:
+  assumes "increase_lane rects = Some ((time1, time2), rest)"
+  shows "initial_lane rects \<noteq> Outside \<and> initial_lane rects \<noteq> Boundaries bds"
+  using assms
+proof (rule contrapos_pp)
+  assume "\<not> (initial_lane rects \<noteq> Outside \<and> initial_lane rects \<noteq> Boundaries bds)"  
+  hence "initial_lane rects = Outside \<or> initial_lane rects = Boundaries bds"
+    by auto
+  moreover
+  { assume "initial_lane rects = Outside"
+    hence "increase_lane rects = None" by(induction rects)(auto)
+    hence "increase_lane rects \<noteq> Some ((time1, time2), rest)" by auto }
+  moreover
+  { assume "initial_lane rects = Boundaries bds"
+    hence "increase_lane rects = None" by (induction rects) (auto)
+    hence "increase_lane rects \<noteq> Some ((time1, time2), rest)" by auto }
+  ultimately show "increase_lane rects \<noteq> Some ((time1, time2), rest)" by auto    
+qed
+    
+theorem increase_lane_initial_lane:
+  assumes "increase_lane rects = Some ((time1, time2), rest)"
+  shows "\<exists>n. initial_lane rects = Lane n"
+proof -
+  from increase_lane_some_outbound[OF assms] have 
+    no: "initial_lane rects \<noteq> Outside" and nb: "(\<forall>bds. initial_lane rects \<noteq> Boundaries bds)" by auto
+  show "\<exists>n . initial_lane rects = Lane n"
+  proof (induction "initial_lane rects")
+    case Outside
+    then show ?case using no by auto
+  next
+    case (Lane x)
+    then show ?case by (auto intro: exI[where x="x"])
+  next
+    case (Boundaries x)
+    from sym[OF this] show ?case using nb by auto 
+  qed
+qed
+  
+theorem increase_lane_initial_lane_obtains:
+  assumes "increase_lane rects = Some ((time1, time2), rest)"
+  obtains n where "initial_lane rects = Lane n"
+  using increase_lane_initial_lane[OF assms] by auto   
+    
+theorem increase_lane_start_inc_lane:   
+  assumes "increase_lane rects = Some ((time1, time2), rest)"
+  shows "start_inc_lane rects ((glane \<circ> initial_lane) rects) 0 = Some (time1, drop (time1 + 1) rects)"
+proof -
+  from increase_lane_initial_lane_obtains[OF assms] obtain n where "initial_lane rects = Lane n"
+    by auto
+  from increase_lane_some_not_nil[OF assms] obtain a rects' where rects: "rects = a # rects'"
+    by (meson list.exhaust_sel)
+  with `initial_lane rects = Lane n` have "initial_lane (a  #rects') = Lane n" by auto
+  from assms(1) 
+    have *: "(case start_inc_lane (a # rects') n 0 of None \<Rightarrow> None
+       | Some (num1, rest1) \<Rightarrow> (case finish_inc_lane rest1 n num1 of None \<Rightarrow> None | Some (num2, rest2) \<Rightarrow> Some ((num1, num2), rest2))) = Some ((time1, time2), rest)" 
+    unfolding rects increase_lane.simps `initial_lane (a # rects') = Lane n`
+    by auto
+  hence "start_inc_lane (a # rects') n 0 \<noteq> None" using option.distinct 
+    by (metis (no_types, lifting) option.simps(4))
+  then obtain num1 rest1 where "start_inc_lane (a # rects') n 0 = Some (num1, rest1)" by auto
+  with * have **: "(case finish_inc_lane rest1 n num1 of None \<Rightarrow> None | Some (num2, rest2) \<Rightarrow> Some ((num1, num2), rest2)) = Some ((time1, time2), rest)"
+    by auto
+  hence "finish_inc_lane rest1 n num1 \<noteq> None" using option.distinct   
+    by (metis (no_types, lifting) option.simps(4))
+  then obtain num2 rest2 where "finish_inc_lane rest1 n num1 = Some (num2, rest2)" by auto
+  with ** have "num1 = time1" and "num2 = time2" and "rest2 = rest" by auto
+  from start_inc_lane_drop[OF `start_inc_lane (a # rects') n 0 = Some (num1, rest1)`] 
+  have "rest1 = drop (num1 + 1) (a # rects')" by auto
+  with `num1 = time1` and `start_inc_lane (a # rects') n 0 = Some (num1, rest1)` show ?thesis
+    unfolding rects comp_def `initial_lane (a # rects') = Lane n` by auto   
+qed
+      
+theorem 
+  assumes "increase_lane rects = Some ((time1, time2),  rest)"
+  defines "ori_lane \<equiv> glane (initial_lane rects)"
+  defines "rects' \<equiv> drop (time1 + 1) rects"    
+  shows "(LEAST n. n \<le> length rects \<and> 
+                    lane_detection (rects ! n) = Boundaries [ori_lane + 1] \<and> 
+                    (\<forall>m. m < n \<longrightarrow> lane_detection (rects ! m) = Lane ori_lane)) = time1" and 
+        "(LEAST n. time1  \<le> n \<and> n \<le> time1  + length rects' \<and> 
+                    lane_detection (rects' ! (n - time1)) = Lane ori_lane \<and> 
+                    (\<forall>m. 0 \<le> m - time1 \<and> m - time1 < n - time1 \<longrightarrow> lane_detection (rects' ! (m - time1)) = Boundaries [ori_lane])) = time2"        
+proof - 
+  from assms(1) ori_lane_def
+  show "(LEAST n. n \<le> length rects \<and> 
+                    lane_detection (rects ! n) = Boundaries [ori_lane + 1] \<and> 
+                    (\<forall>m. m < n \<longrightarrow> lane_detection (rects ! m) = Lane ori_lane)) = time1"
+  proof (induction rects)
+    case Nil
+    then show ?case by auto
+  next
+    case (Cons a rects)
+    note case_cons = this
+    from increase_lane_some_outbound[OF case_cons(2)] obtain n where "initial_lane (a # rects) = Lane n"
+      using detection_opt.exhaust_sel by blast
+    hence "initial_lane (a # rects) = Lane ori_lane" unfolding case_cons by auto  
+    with `initial_lane (a # rects) = Lane n` have "n = ori_lane" using detection_opt.exhaust_sel by auto    
+    from `initial_lane (a # rects) = Lane n` case_cons(2) 
+      have cs: "(case start_inc_lane (a # rects) n 0 of None \<Rightarrow> None
+         | Some (num1, rest1) \<Rightarrow> (case finish_inc_lane rest1 n num1 of None \<Rightarrow> None | Some (num2, rest2) \<Rightarrow> Some ((num1, num2), rest2))) = Some ((time1, time2), rest)" 
+      unfolding increase_lane.simps by auto
+    have "\<exists> num1 rest1. start_inc_lane (a # rects) n 0 = Some (num1, rest1)"
+    proof (rule ccontr)
+      assume "\<nexists>num1 rest1. start_inc_lane (a # rects) n 0 = Some (num1, rest1)"
+      hence *: "\<forall>num1 rest1. start_inc_lane (a # rects) n 0 \<noteq> Some (num1, rest1)" by auto
+      have "start_inc_lane (a # rects) n 0 = None"
+      proof (rule ccontr)
+        assume "start_inc_lane (a # rects) n 0 \<noteq> None"
+        then obtain val1 val2 where **: "start_inc_lane (a # rects) n 0 = Some (val1, val2)" by auto
+        with * have "start_inc_lane (a # rects) n 0 \<noteq> Some (val1, val2)" by auto
+        with ** show "False" by auto        
+      qed
+      with cs have "None = Some ((time1, time2), rest)" by auto
+      thus "False" by auto    
+    qed
+    then obtain num1 rest1 where "start_inc_lane (a # rects) n 0 = Some (num1, rest1)"
+      by auto
+    with cs have cs2: "(case finish_inc_lane rest1 n num1 of None \<Rightarrow> None | Some (num2, rest2) \<Rightarrow> Some ((num1, num2), rest2)) = Some ((time1, time2), rest)"
+      by auto
+    have "\<exists>num2 rest2. finish_inc_lane rest1 n num1 = Some (num2, rest2)" 
+    proof (rule ccontr)
+      assume " \<nexists>num2 rest2. finish_inc_lane rest1 n num1 = Some (num2, rest2) "  
+      hence ***: "\<forall>num2 rest2. finish_inc_lane rest1 n num1 \<noteq> Some (num2, rest2)" by auto
+      have "finish_inc_lane rest1 n num1 = None"
+      proof (rule ccontr)
+        assume "finish_inc_lane rest1 n num1 \<noteq> None"  
+        then obtain val1 val2 where finish_some: "finish_inc_lane rest1 n num1 = Some (val1, val2)"
+          by auto
+        with *** have "finish_inc_lane rest1 n num1 \<noteq> Some (val1, val2)" by auto
+        with finish_some show "False" by auto    
+      qed
+      with cs2 have "None = Some ((time1, time2), rest)" by auto  
+      thus False by auto
+    qed
+    then obtain num2 rest2 where "finish_inc_lane rest1 n num1 = Some (num2, rest2)"by auto
+    with cs2 have "time1 = num1" and "time2 = num2" by auto
+    with start_inc_lane_correctness0[OF `start_inc_lane (a # rects) n 0 = Some (num1, rest1)`]
+      show ?case unfolding `n = ori_lane` by auto
+  qed     
+next
+  from assms(1) ori_lane_def rects'_def
+  show "(LEAST n. time1 \<le> n \<and>
+              n \<le> time1 + length rects' \<and>
+              lane_detection (rects' ! (n - time1)) = Lane ori_lane \<and>
+              (\<forall>m. 0 \<le> m - time1 \<and> m - time1 < n - time1 \<longrightarrow> lane_detection (rects' ! (m - time1)) = Boundaries [ori_lane])) = time2"
+  proof (induction rects)
+    case Nil
+    then show ?case by auto
+  next
+    case (Cons a rects)
+    note case_cons = this 
+    from increase_lane_some_outbound[OF case_cons(2)] obtain n where "initial_lane (a # rects) = Lane n"
+      using detection_opt.exhaust_sel by blast
+    hence "initial_lane (a # rects) = Lane ori_lane" unfolding case_cons by auto  
+    with `initial_lane (a # rects) = Lane n` have "n = ori_lane" using detection_opt.exhaust_sel by auto    
+    from `initial_lane (a # rects) = Lane n` case_cons(2) 
+      have cs: "(case start_inc_lane (a # rects) n 0 of None \<Rightarrow> None
+         | Some (num1, rest1) \<Rightarrow> (case finish_inc_lane rest1 n num1 of None \<Rightarrow> None | Some (num2, rest2) \<Rightarrow> Some ((num1, num2), rest2))) = Some ((time1, time2), rest)" 
+      unfolding increase_lane.simps by auto
+    have "\<exists> num1 rest1. start_inc_lane (a # rects) n 0 = Some (num1, rest1)"
+    proof (rule ccontr)
+      assume "\<nexists>num1 rest1. start_inc_lane (a # rects) n 0 = Some (num1, rest1)"
+      hence *: "\<forall>num1 rest1. start_inc_lane (a # rects) n 0 \<noteq> Some (num1, rest1)" by auto
+      have "start_inc_lane (a # rects) n 0 = None"
+      proof (rule ccontr)
+        assume "start_inc_lane (a # rects) n 0 \<noteq> None"
+        then obtain val1 val2 where **: "start_inc_lane (a # rects) n 0 = Some (val1, val2)" by auto
+        with * have "start_inc_lane (a # rects) n 0 \<noteq> Some (val1, val2)" by auto
+        with ** show "False" by auto        
+      qed
+      with cs have "None = Some ((time1, time2), rest)" by auto
+      thus "False" by auto    
+    qed
+    then obtain num1 rest1 where "start_inc_lane (a # rects) n 0 = Some (num1, rest1)"
+      by auto
+    with start_inc_lane_drop[OF this] have "rest1 = drop (num1) (rects)" by auto  
+    from `start_inc_lane (a # rects) n 0 = Some (num1, rest1)` cs have cs2: 
+      "(case finish_inc_lane rest1 n num1 of None \<Rightarrow> None | Some (num2, rest2) \<Rightarrow> Some ((num1, num2), rest2)) = Some ((time1, time2), rest)"
+      by auto
+    have "\<exists>num2 rest2. finish_inc_lane rest1 n num1 = Some (num2, rest2)" 
+    proof (rule ccontr)
+      assume " \<nexists>num2 rest2. finish_inc_lane rest1 n num1 = Some (num2, rest2) "  
+      hence ***: "\<forall>num2 rest2. finish_inc_lane rest1 n num1 \<noteq> Some (num2, rest2)" by auto
+      have "finish_inc_lane rest1 n num1 = None"
+      proof (rule ccontr)
+        assume "finish_inc_lane rest1 n num1 \<noteq> None"  
+        then obtain val1 val2 where finish_some: "finish_inc_lane rest1 n num1 = Some (val1, val2)"
+          by auto
+        with *** have "finish_inc_lane rest1 n num1 \<noteq> Some (val1, val2)" by auto
+        with finish_some show "False" by auto    
+      qed
+      with cs2 have "None = Some ((time1, time2), rest)" by auto  
+      thus False by auto
+    qed
+    then obtain num2 rest2 where "finish_inc_lane rest1 n num1 = Some (num2, rest2)"by auto
+    with cs2 have "time1 = num1" and "time2 = num2" by auto    
+    with `rest1 = drop (num1) (rects)` case_cons(4) have "rects' = rest1" by auto        
+    from finish_inc_lane_general_correctness[OF `finish_inc_lane rest1 n num1 = Some (num2, rest2)`]       
+    show ?case unfolding sym[OF `time2 = num2`] sym[OF `time1 = num1`] `n = ori_lane` sym[OF `rects' = rest1`]
+      by auto      
+  qed    
+qed
+  
+theorem increase_lane_decrease_length:
+  assumes "increase_lane rects = Some ((t1, t2), rest)"
+  shows "length rest < length rects"
+proof -
+  from assms have "rects \<noteq> []" by auto
+  then obtain a rects' where rects: "rects = a # rects'" by (meson list.exhaust_sel)
+  from increase_lane_initial_lane_obtains[OF assms] obtain n where il: "initial_lane rects = Lane n"
+    by auto
+  hence il2: "initial_lane (a # rects') = Lane n" unfolding `rects = a # rects'` by auto      
+  from increase_lane_start_inc_lane[OF assms] have sil: "start_inc_lane (a # rects') n 0 = Some (t1, drop (t1 + 1) (a # rects'))"
+    unfolding rects comp_def il2 by auto
+  from assms(1) 
+    have *: "(case finish_inc_lane (drop (t1 + 1) (a # rects')) n t1 of None \<Rightarrow> None | Some (num2, rest2) \<Rightarrow> Some ((t1, num2), rest2)) = Some ((t1, t2), rest)" 
+    unfolding rects increase_lane.simps il2 using sil by auto
+  hence "finish_inc_lane (drop (t1 + 1) (a # rects')) n t1 \<noteq> None" using option.distinct 
+    by (metis (no_types, lifting) option.simps(4))
+  then obtain num2 rest2 where **: "finish_inc_lane (drop (t1 + 1) (a # rects')) n t1 = Some (num2, rest2)"
+    by auto
+  with * have "num2 = t2" and "rest2 = rest" by auto 
+  with finish_inc_lane_decrease_length[OF **] have "length rest < length (drop (t1 + 1) (a # rects'))"
+    by auto
+  also have "... \<le> length (a # rects')" by auto
+  finally have "length rest < length (a # rects')" by auto    
+  thus ?thesis unfolding rects by auto          
+qed
+  
+    
 text "This is the definition (or function) for (detecting) the occurrence of lane changing to the 
   right in right-hand traffic."
   
@@ -4315,19 +6846,453 @@ fun decrease_lane :: "rectangle list \<Rightarrow> ((nat \<times> nat) \<times> 
                                   | Boundaries _ \<Rightarrow> None 
                                   | Lane n \<Rightarrow> (case start_dec_lane rects n 0 of 
                                                  None \<Rightarrow> None 
-                                               | Some (num1, rest1) \<Rightarrow> (case finish_dec_lane rest1 n (num1 + 1) of 
+                                               | Some (num1, rest1) \<Rightarrow> (case finish_dec_lane rest1 n num1 of 
                                                                          None \<Rightarrow> None 
                                                                        | Some (num2, rest2) \<Rightarrow> Some ((num1, num2), rest2))))"   
   
-fun overtaking :: "rectangle list \<Rightarrow> (nat \<times> nat) list" where  
+fun decrease_lane2 :: "rectangle list \<Rightarrow> ((nat \<times> nat) \<times> rectangle list) option" where
+  "decrease_lane2 [] = None" | 
+  "decrease_lane2 rects = (case initial_lane rects of 
+                                  Outside \<Rightarrow> None
+                             |    Boundaries _ \<Rightarrow> None
+                             |    Lane n \<Rightarrow> do {
+                                              (num1, rest1) \<leftarrow> start_dec_lane rects n 0;
+                                              (num2, rest2) \<leftarrow> finish_dec_lane rest1 n num1;
+                                              Some ((num1, num2), rest2) 
+                                            })"  
+  
+theorem 
+  "decrease_lane2 rects = decrease_lane rects"
+proof (induction rects)
+  case Nil
+  then show ?case by auto
+next
+  case (Cons a rects)
+  note case_cons = this  
+  have "\<exists>n ns. initial_lane (a # rects) = Outside \<or> initial_lane (a # rects) = Boundaries ns \<or>
+               initial_lane (a # rects) = Lane n" 
+  proof (induction "initial_lane (a # rects)")
+    case Outside
+    then show ?case by auto
+  next
+    case (Lane x)
+    from sym[OF this] show ?case by auto
+  next
+    case (Boundaries x)
+    from sym[OF this] show ?case by auto
+  qed  
+  then obtain n  ns where "initial_lane (a # rects) = Outside \<or> initial_lane (a # rects) = Boundaries ns \<or>
+               initial_lane (a # rects) = Lane n" by auto     
+  then consider "initial_lane (a # rects) = Outside" | "initial_lane (a # rects) = Boundaries ns" |
+                "initial_lane (a # rects) = Lane n" by auto     
+  then show ?case
+  proof (cases)
+    case 1
+    then show ?thesis by auto
+  next
+    case 2
+    then show ?thesis by auto
+  next
+    case 3
+    hence in0: "decrease_lane2 (a # rects) = start_dec_lane (a # rects) n 0 \<bind> (\<lambda>(num1, rest1). finish_dec_lane rest1 n num1 \<bind> (\<lambda>(num2, rest2). Some ((num1, num2), rest2)))"  
+      (is "?l0 = ?r0")
+      by auto
+    have "\<exists> num1 rest1. start_dec_lane (a # rects) n 0 = None \<or> start_dec_lane (a # rects) n 0 = Some (num1, rest1)"
+    proof (induction "start_dec_lane (a # rects) n 0")
+      case None
+      then show ?case by auto
+    next
+      case (Some option)
+      from sym[OF this] show ?case by auto
+    qed
+    then obtain num1 rest1 where " start_dec_lane (a # rects) n 0 = None \<or> start_dec_lane (a # rects) n 0 = Some (num1, rest1)" 
+      by auto   
+    moreover
+    { assume start_none: "start_dec_lane (a # rects) n 0 = None"
+      hence "?r0 = None" by auto 
+      also have "... = decrease_lane (a # rects)" unfolding decrease_lane.simps 3 using start_none
+        by auto
+      finally have "?l0 = decrease_lane (a # rects)" using in0 by auto }
+    moreover
+    { assume start_some: "start_dec_lane (a # rects) n 0 = Some (num1, rest1)"
+      hence in1: "?r0 = finish_dec_lane rest1 n num1 \<bind> (\<lambda>(num2, rest2). Some ((num1, num2), rest2))"
+        by auto
+      have "\<exists> num2 rest2. finish_dec_lane rest1 n num1 = None \<or> finish_dec_lane rest1 n num1 = Some (num2, rest2)"
+      proof (induction "finish_dec_lane rest1 n num1")
+        case None
+        then show ?case by auto
+      next
+        case (Some option)
+        from sym[OF this] show ?case by auto
+      qed  
+      then obtain num2 rest2 where "finish_dec_lane rest1 n num1 = None \<or> finish_dec_lane rest1 n num1 = Some (num2, rest2)"
+        by auto
+      then consider "finish_dec_lane rest1 n num1 = None" | "finish_dec_lane rest1 n num1 = Some (num2, rest2)"
+        by auto
+      hence "finish_dec_lane rest1 n num1 \<bind> (\<lambda>(num2, rest2). Some ((num1, num2), rest2)) = 
+              decrease_lane (a # rects)"
+        by (cases) (unfold decrease_lane.simps 3, auto simp add:start_some)
+      with in0 and in1 have ?thesis by auto   
+    }      
+    ultimately show ?thesis by auto                
+  qed        
+qed
+
+theorem decrease_lane_neq: 
+  assumes "decrease_lane rects = Some ((t1, t2), rest)"
+  shows "rects \<noteq> []"
+  using assms by auto
+
+theorem decrease_lane_obtains:
+  assumes "decrease_lane rects = Some ((t1, t2), rest)"
+  obtains a rects' where "rects = a # rects'"
+  using decrease_lane_neq[OF assms] by (meson list.exhaust_sel)
+    
+theorem decrease_lane_neq_outside_or_bound:
+  assumes "decrease_lane rects = Some ((t1, t2), rest)"
+  defines "il \<equiv> initial_lane rects"  
+  shows "il \<noteq> Outside \<and> il \<noteq> Boundaries bs"
+proof -
+  from decrease_lane_obtains[OF assms(1)] obtain a rects' where "rects = a # rects'" by auto
+  from assms(1) have "il \<noteq> Outside" unfolding `rects = a # rects'` decrease_lane.simps
+    il_def by auto
+  from assms(1) have "il \<noteq> Boundaries bs" unfolding `rects = a # rects'` decrease_lane.simps
+    il_def by auto
+  with `il \<noteq> Outside` show ?thesis by auto      
+qed  
+    
+theorem decrease_lane_eq_lane:
+  assumes "decrease_lane rects = Some ((t1, t2), rest)"
+  defines "il \<equiv> initial_lane rects"
+  shows "\<exists>i . il = Lane i"
+  using assms(2) 
+proof (induction il)
+  case Outside
+  with decrease_lane_neq_outside_or_bound[OF assms(1)]   show ?case by auto
+next
+  case (Lane x)
+  then show ?case by (auto intro:exI[where x="x"])
+next
+  case (Boundaries x)
+  with decrease_lane_neq_outside_or_bound[OF assms(1)]   show ?case by metis
+qed    
+
+theorem decrease_lane_eq_lane_obtains:
+  assumes "decrease_lane rects = Some ((t1, t2), rest)"
+  defines "il \<equiv> initial_lane rects"
+  obtains i where "il = Lane i"
+  using decrease_lane_eq_lane[OF assms(1)] unfolding il_def by auto
+    
+theorem start_dec_lane_Suc_n:
+  assumes "start_dec_lane rects ori_lane start_time = Some (time, rest)"
+  shows "\<exists>n. ori_lane = Suc n"  
+proof (rule ccontr)
+  assume "\<nexists>n. ori_lane = Suc n"  
+  hence "\<forall>n. ori_lane \<noteq> Suc n"  by auto
+  hence "ori_lane = 0" using Zero_not_Suc  using not0_implies_Suc by blast
+  hence "start_dec_lane rects ori_lane start_time = None" by auto
+  with assms(1) show "False" by auto      
+qed
+
+theorem start_dec_lane_Suc_n_obtain:
+  assumes "start_dec_lane rects ori_lane start_time = Some (time, rest)"
+  obtains n where "ori_lane = Suc n" using start_dec_lane_Suc_n[OF assms] by auto
+  
+theorem decrease_lane_start_dec_lane_not_none:
+  assumes "decrease_lane rects = Some ((t1, t2), rest)"
+  defines "il \<equiv> initial_lane rects"
+  shows "start_dec_lane rects (glane il) 0 \<noteq> None"
+proof -
+  from decrease_lane_eq_lane_obtains[OF assms(1)] obtain i where "il = Lane i"
+    unfolding il_def by auto
+  hence "glane il = i" by auto
+  from decrease_lane_obtains[OF assms(1)] obtain a rects' where "rects = a # rects'" by auto    
+  have "initial_lane (a # rects') = Lane i" using `il = Lane i` unfolding il_def `rects = a # rects'`
+    by auto      
+  from assms(1) `glane il = i` show ?thesis unfolding `rects = a # rects'` decrease_lane.simps    
+    il_def `initial_lane (a # rects') = Lane i` 
+    by (metis (no_types, lifting) detection_opt.case_eq_if is_Lane_def option.distinct(1) option.simps(4))      
+qed      
+
+theorem decrease_lane_start_dec_lane_some:
+  assumes "decrease_lane rects = Some ((t1, t2), rest)"
+  defines "il \<equiv> initial_lane rects"
+  shows "\<exists>t rs. start_dec_lane rects (glane il) 0 = Some (t, rs)"
+proof -
+  from decrease_lane_start_dec_lane_not_none[OF assms(1)] have " start_dec_lane rects (glane (initial_lane rects)) 0 \<noteq> None"
+    by auto
+  thus ?thesis unfolding il_def  by auto
+qed
+  
+theorem decrease_lane_finish_dec_lane_some:
+  assumes "decrease_lane rects = Some ((time1, time2), rest)" 
+  defines "il \<equiv> initial_lane rects"
+  defines "res \<equiv> start_dec_lane rects (glane il) 0" 
+  defines "res2 \<equiv> finish_dec_lane (snd (the res)) (glane il) (fst (the res))"    
+  shows "fst (the res) = time1" and "snd (the res) = drop (time1 + 1) rects" and "fst (the res2) = time2" and "snd (the res2) = rest"
+proof -
+  from decrease_lane_eq_lane_obtains[OF assms(1)] obtain i where "il = Lane i"
+    unfolding il_def by auto
+  hence "glane il = i" by auto
+  from decrease_lane_obtains[OF assms(1)] obtain a rects' where "rects = a # rects'" by auto
+  have "initial_lane (a # rects') = Lane i" using `il = Lane i` unfolding il_def `rects = a # rects'`
+    by auto
+  from decrease_lane_start_dec_lane_some[OF assms(1)] obtain t1 rs1 where
+    *: "start_dec_lane (a # rects') i 0 = Some (t1, rs1)" unfolding `rects = a # rects'` 
+    `initial_lane (a # rects') = Lane i` by auto
+  with assms(3) have "fst (the res) = t1" and "snd (the res) = rs1" unfolding res_def
+    `rects = a # rects'` `glane il = i` by auto      
+  from * assms(1) have 0: "finish_dec_lane rs1 (glane il) t1 \<noteq> None"
+    unfolding `rects = a # rects'` decrease_lane.simps `initial_lane (a # rects') = Lane i`
+    by (metis (no_types, lifting) \<open>glane il = i\<close> case_prod_conv decrease_lane.simps(1) 
+        detection_opt.simps(10) lane.decrease_lane_neq lane_axioms option.simps(4) option.simps(5))
+  from start_dec_lane_Suc_n_obtain[OF *] obtain n where "i = Suc n" by auto      
+  from start_dec_lane_drop[OF * this] have "rs1 = drop (t1 + 1) rects" unfolding `rects = a # rects'`
+    by auto      
+  from 0 obtain t2 rs2 where **: "finish_dec_lane rs1 (glane il) t1 = Some (t2, rs2)"
+    by auto    
+  from assms(1) have "(case finish_dec_lane rs1 i t1 of None \<Rightarrow> None | 
+      Some (num2, rest2) \<Rightarrow> Some ((t1, num2), rest2)) = Some ((time1, time2), rest)" 
+     unfolding `rects = a # rects'` decrease_lane.simps
+    `initial_lane (a # rects') = Lane i` using * by auto
+  with ** have ***:"t1 = time1 \<and> t2 = time2 \<and> rs2 = rest" unfolding `glane il = i` by auto         
+  from *** show "fst (the res) = time1" unfolding `fst (the res) = t1` by auto 
+  from *** show "fst (the res2) = time2" using ** unfolding res2_def `snd (the res) = rs1` `glane il = i`
+      `fst (the res) = time1`  by auto
+  from *** show "snd (the res2) = rest" using ** unfolding res2_def `snd (the res) = rs1` 
+      `fst (the res) = time1` by auto
+  from `snd (the res) = rs1` `rs1 = drop (t1 + 1) rects` show "snd (the res) = drop (time1 + 1) rects"
+    using *** by auto    
+qed
+  
+theorem decrease_lane_correctness':  
+  assumes "decrease_lane rects = Some ((t1, t2), rest)"
+  defines "il \<equiv> initial_lane rects"
+  defines "res \<equiv> start_dec_lane rects (glane il) 0" 
+  defines "stime \<equiv> fst (the res)"
+  defines "rects2 \<equiv> snd (the res)"    
+  shows "(LEAST n. n \<le> length rects \<and> 
+                   lane_detection (rects ! n) = Boundaries [glane il] \<and> 
+                   (\<forall>m. m < n  \<longrightarrow> lane_detection (rects ! m) = Lane (glane il))) = t1" and 
+         "(LEAST n. stime \<le> n \<and> n \<le> stime + length rects2 \<and> 
+                   lane_detection (rects2 ! (n - stime)) = Lane (glane il - 1) \<and> 
+                   (\<forall>m. 0 \<le> m - stime \<and> m - stime < n - stime \<longrightarrow> lane_detection (rects2 ! (m - stime)) = Boundaries [glane il])) = t2"  
+proof -
+  from decrease_lane_eq_lane_obtains[OF assms(1)] obtain i where "il = Lane i"
+    unfolding il_def by auto
+  hence "glane il = i" by auto  
+  from decrease_lane_finish_dec_lane_some[OF assms(1)] have "fst (the res) = t1"
+    unfolding res_def il_def by auto
+  from decrease_lane_obtains[OF assms(1)] obtain a rects' where rects: "rects = a # rects'" by auto
+  have "initial_lane (a # rects') = Lane i" using `il = Lane i` unfolding il_def `rects = a # rects'`
+    by auto      
+  from decrease_lane_start_dec_lane_some[OF assms(1)] obtain time1 rs1 where
+    *: "start_dec_lane (a # rects') i 0 = Some (time1, rs1)" unfolding `rects = a # rects'` 
+    `initial_lane (a # rects') = Lane i` by auto
+  from start_dec_lane_Suc_n_obtain[OF *] obtain n where "i = Suc n" by auto      
+  from start_dec_lane_correctness0[OF * `i = Suc n`] show "(LEAST n. n \<le> length rects \<and> 
+                   lane_detection (rects ! n) = Boundaries [glane il] \<and> 
+                   (\<forall>m. m < n  \<longrightarrow> lane_detection (rects ! m) = Lane (glane il))) = t1"
+    unfolding rects `glane il = i` using `fst (the res) = t1` unfolding res_def rects `glane il = i`
+    * by auto
+  define res2 where "res2 \<equiv> finish_dec_lane (snd (the res)) (glane il) (fst (the res))"
+  from decrease_lane_finish_dec_lane_some[OF assms(1)] have "fst (the res2) = t2" and "snd (the res2) = rest"
+    unfolding res2_def res_def il_def by auto
+  hence "res2 = Some (t2, rest)" 
+    by (metis (mono_tags, lifting) \<open>il = Lane i\<close> assms(1) detection_opt.simps(10) glane_def il_def 
+        lane.decrease_lane.simps(2) lane_axioms option.collapse option.simps(3) option.simps(4) 
+        option.simps(5) prod.collapse prod.simps(2) rects res2_def res_def)      
+  hence "finish_dec_lane rs1 i time1 = Some (t2, rest)" unfolding res2_def res_def
+      rects `glane il = i` * by auto
+  from finish_dec_lane_general_correctness[OF this `i = Suc n`] show "(LEAST n. stime \<le> n \<and> n \<le> stime + length rects2 \<and> 
+                   lane_detection (rects2 ! (n - stime)) = Lane (glane il - 1) \<and> 
+                   (\<forall>m. 0 \<le> m - stime \<and> m - stime < n - stime \<longrightarrow> lane_detection (rects2 ! (m - stime)) = Boundaries [glane il])) = t2"
+    unfolding stime_def `fst (the res) = t1`  rects2_def res_def rects `glane il = i` * by auto      
+qed  
+    
+theorem decrease_lane_correctness:  
+  assumes "decrease_lane rects = Some ((t1, t2), rest)"    
+  defines "bound_id \<equiv> glane (initial_lane rects)"  
+  defines "rects2 \<equiv> drop (t1 + 1) rects"
+  shows "(LEAST n. n \<le> length rects \<and> 
+                   lane_detection (rects ! n) = Boundaries [bound_id] \<and> 
+                   (\<forall>m. m < n  \<longrightarrow> lane_detection (rects ! m) = Lane bound_id)) = t1" and 
+        "(LEAST n. t1 \<le> n \<and> n \<le> t1 + length rects2 \<and> 
+                   lane_detection (rects2 ! (n - t1)) = Lane (bound_id - 1) \<and> 
+                   (\<forall>m. 0 \<le> m - t1 \<and> m - t1 < n - t1 \<longrightarrow> lane_detection (rects2 ! (m - t1)) = Boundaries [bound_id])) = t2"    
+proof -
+  define il where "il \<equiv> initial_lane rects"
+  define res where "res \<equiv> start_dec_lane rects (glane il) 0" 
+  define stime where "stime \<equiv> fst (the res)"
+  define rects' where "rects' \<equiv> snd (the res)"   
+  note abb = il_def res_def stime_def rects'_def  
+  from decrease_lane_correctness'[OF assms(1)]
+  have i1: "(LEAST n. n \<le> length rects \<and> 
+                   lane_detection (rects ! n) = Boundaries [glane il] \<and> 
+                   (\<forall>m. m < n  \<longrightarrow> lane_detection (rects ! m) = Lane (glane il))) = t1" and 
+       i2: "(LEAST n. stime \<le> n \<and> n \<le> stime + length rects' \<and> 
+                   lane_detection (rects' ! (n - stime)) = Lane (glane il - 1) \<and> 
+                   (\<forall>m. 0 \<le> m - stime \<and> m - stime < n - stime \<longrightarrow> lane_detection (rects' ! (m - stime)) = Boundaries [glane il])) = t2"
+    unfolding abb by auto     
+  from i1 show "(LEAST n. n \<le> length rects \<and> 
+                   lane_detection (rects ! n) = Boundaries [bound_id] \<and> 
+                   (\<forall>m. m < n  \<longrightarrow> lane_detection (rects ! m) = Lane bound_id)) = t1"
+    unfolding il_def bound_id_def by auto
+  from decrease_lane_finish_dec_lane_some[OF assms(1)] have "fst (the res) = t1" and 
+    "snd (the res) = drop (t1 + 1) rects" unfolding res_def il_def by auto       
+  hence "stime = t1" and "rects' = rects2" unfolding stime_def rects'_def rects2_def by auto
+  with i2 show "(LEAST n. t1 \<le> n \<and> n \<le> t1 + length rects2 \<and> 
+                   lane_detection (rects2 ! (n - t1)) = Lane (bound_id - 1) \<and> 
+                   (\<forall>m. 0 \<le> m - t1 \<and> m - t1 < n - t1 \<longrightarrow> lane_detection (rects2 ! (m - t1)) = Boundaries [bound_id])) = t2"
+    unfolding il_def bound_id_def by auto    
+qed
+  
+theorem finish_dec_lane_neq0:
+  assumes "finish_dec_lane rects bound_id start_time = Some (time, rest)"
+  shows "\<exists>n. bound_id = Suc n"
+proof (rule ccontr)
+  assume "\<nexists>n. bound_id = Suc n"    
+  hence "\<forall>n. bound_id \<noteq> Suc n" by auto
+  hence "bound_id = 0" using Zero_not_Suc  using not0_implies_Suc by blast
+  with assms(1) show "False" by auto         
+qed
+  
+theorem finish_dec_lane_neq0_obtains:
+  assumes "finish_dec_lane rects bound_id start_time = Some (time, rest)"
+  obtains n where "bound_id = Suc n"
+  using finish_dec_lane_neq0[OF assms] by auto
+     
+theorem finish_dec_lane_decrease_length:
+  assumes "finish_dec_lane rects bound_id start_time = Some (time, rest)"
+  shows "length rest < length rects"
+  using assms
+proof (induction rects arbitrary:start_time)
+  case Nil
+  from finish_dec_lane_neq0_obtains[OF assms] obtain n where "bound_id = Suc n" by auto  
+  then show ?case using Nil by auto
+next
+  case (Cons a rects)
+  note case_cons = this  
+  from finish_dec_lane_neq0_obtains[OF assms] obtain n where bds: "bound_id = Suc n" by auto  
+  from finish_dec_lane_case_final[OF case_cons(2) bds] have 
+    "lane_detection (hd (a # rects)) = Lane (bound_id - 1) \<and> start_time = time \<and> rest = tl (a # rects) \<or>
+     lane_detection (hd (a # rects)) = Boundaries [bound_id] \<and> finish_dec_lane (tl (a # rects)) bound_id (start_time + 1) = Some (time, rest) "       
+    (is "?c1 \<or> ?c2")
+    by auto
+  moreover
+  { assume "?c1"
+    hence "rest = rects" by auto
+    hence ?case by auto }
+  moreover
+  { assume "?c2"
+    hence "finish_dec_lane rects bound_id (start_time + 1) = Some (time, rest)"
+      by auto
+    from case_cons(1)[OF this] have ?case by auto }
+  ultimately show ?case by auto
+qed
+  
+theorem decrease_lane_decrease_length:
+  assumes "decrease_lane rects = Some ((t3, t4), rest)"
+  shows "length rest < length rects"  
+proof -
+  from assms have "rects \<noteq> []" by auto
+  then obtain a rects' where rects: "rects = a# rects'" by (meson list.exhaust_sel)
+  from decrease_lane_eq_lane_obtains[OF assms] obtain n where il: "initial_lane (a # rects') = Lane n"
+    unfolding rects by auto
+  from decrease_lane_finish_dec_lane_some[OF assms] have 
+    "fst (the (start_dec_lane rects (glane (initial_lane rects)) 0)) = t3" and
+    "snd (the (start_dec_lane rects (glane (initial_lane rects)) 0)) = drop (t3 + 1) rects"
+    unfolding rects using surjective_pairing by auto
+  hence "start_dec_lane rects (glane (initial_lane rects)) 0 = Some (t3, drop (t3 + 1) rects)"
+    by (metis assms decrease_lane_start_dec_lane_not_none option.collapse prod.collapse rects)    
+  hence sdl: "start_dec_lane (a # rects') n 0 = Some (t3, drop (t3 + 1) (a # rects'))"
+    unfolding rects il by auto
+  from assms(1)
+  have *: "(case finish_dec_lane (drop (t3 + 1) rects) n t3 of None \<Rightarrow> None | Some (num2, rest2) \<Rightarrow> Some ((t3, num2), rest2)) = 
+            Some ((t3, t4), rest)"
+    unfolding rects decrease_lane.simps il using sdl by auto
+  hence "finish_dec_lane (drop (t3 + 1) (a # rects')) n t3 \<noteq> None" 
+    unfolding rects using option.distinct
+    by (metis (no_types, lifting) option.simps(4))
+  then obtain num2 rest2 where **: "finish_dec_lane (drop (t3 + 1) (a # rects')) n t3 = Some (num2, rest2)"
+    by auto
+  with * have "num2 = t4" and "rest2 = rest" unfolding rects by auto
+  with finish_dec_lane_decrease_length[OF **] have "length rest < length (drop (t3 + 1) (a # rects'))" 
+    by auto
+  also have "... \<le> length (a # rects')" by auto
+  finally have "length rest < length (a # rects')" by auto
+  thus ?thesis unfolding rects by auto              
+qed
+    
+theorem increase_lane_decrease_lane_length:
+  assumes "increase_lane rects = Some ((t1, t2), rest1)"
+  assumes "decrease_lane rest1 = Some ((t3, t4), rest2)"
+  shows "length rest2 < length rects"
+proof -
+  from increase_lane_decrease_length[OF assms(1)] have "length rest1 < length rects"
+    by auto
+  moreover
+  from decrease_lane_decrease_length[OF assms(2)] have "length rest2 < length rest1"
+    by auto
+  ultimately show ?thesis by auto    
+qed
+     
+function overtaking :: "rectangle list \<Rightarrow> (nat \<times> nat \<times> nat \<times> nat) list" where  
   "overtaking [] = []" | 
   "overtaking rects = (case increase_lane rects of 
                           None \<Rightarrow> [] 
-                       |  Some ((start1, end1), rest1) \<Rightarrow> (case decrease_lane rest1 of 
-                                                            None \<Rightarrow> overtaking (tl rects)
-                                                          | Some ((start2, end2), _) \<Rightarrow> (start1, end2) # overtaking (tl rects)))"  
+                       |  Some ((t1, t2), rest1) \<Rightarrow> (case decrease_lane rest1 of 
+                                                            None \<Rightarrow> overtaking rest1
+                                                          | Some ((t3, t4), rest2) \<Rightarrow> (t1, t2, t3, t4) # overtaking rest2))"  
+  by pat_completeness auto
+  termination by (relation "Wellfounded.measure length")          
+    (auto simp add:increase_lane_some_not_nil increase_lane_decrease_length 
+                   increase_lane_decrease_lane_length)
+    
+fun time_points_to_ov_bools :: "(nat \<times> nat \<times> nat \<times> nat) list \<Rightarrow> bool list" where
+  "time_points_to_ov_bools []  = []" | 
+  "time_points_to_ov_bools (tp # tps) = (case tp of (t1, t2, t3, t4) \<Rightarrow> 
+                                            replicate t1 False @ 
+                                            replicate (t4 - t1 + 1) True @ 
+                                            time_points_to_ov_bools tps)"
+  
+definition overtaking_trace :: "rectangle list \<Rightarrow> bool list" where
+  "overtaking_trace rects = (time_points_to_ov_bools \<circ> overtaking) rects"       
 
+\<comment> \<open>Detecting on_fast_lane which is interval @{term "{t1 ..< t2}"}\<close>    
+fun time_points_to_fl_bools :: "(nat \<times> nat \<times> nat \<times> nat) list \<Rightarrow> bool list" where
+  "time_points_to_fl_bools []  = []" | 
+  "time_points_to_fl_bools (tp # tps) = (case tp of (t1, t2, t3, t4) \<Rightarrow> 
+                                            replicate t1 False @ 
+                                            replicate (t2 - t1)   True @
+                                            replicate (t4 - t2 + 1) False @ 
+                                            time_points_to_fl_bools tps)"
 
+definition fast_lane_trace :: "rectangle list \<Rightarrow> bool list" where
+  "fast_lane_trace rects = (time_points_to_fl_bools \<circ> overtaking) rects"  
+  
+text "Detecting merging which is t3 only"
+  
+fun time_points_to_merge_bools :: "(nat \<times> nat \<times> nat \<times> nat) list \<Rightarrow> bool list" where
+  "time_points_to_merge_bools []  = []" | 
+  "time_points_to_merge_bools (tp # tps) = (case tp of (t1, t2, t3, t4) \<Rightarrow> 
+                                            replicate t3 False @ [True] @  
+                                            replicate (t4 - t3) False @ 
+                                            time_points_to_merge_bools tps)"
+  
+definition merging_trace :: "rectangle list \<Rightarrow> bool list" where
+  "merging_trace rects = (time_points_to_merge_bools \<circ> overtaking) rects"  
+  
+\<comment> \<open>Detecting returning to original lane which is @{term "{t3 .. t4}"}\<close>
+fun time_points_to_ori_bools :: "(nat \<times> nat \<times> nat \<times> nat) list \<Rightarrow>  bool list" where
+  "time_points_to_ori_bools [] = []" | 
+  "time_points_to_ori_bools (tp # tps) = (case tp of (t1, t2, t3, t4) \<Rightarrow> 
+                                            replicate t3 False @   
+                                            replicate (t4 - t3 + 1) True @ 
+                                            time_points_to_merge_bools tps)"
+  
+definition original_lane_trace :: "rectangle list \<Rightarrow> bool list" where
+  "original_lane_trace rects \<equiv> (time_points_to_ori_bools \<circ> overtaking) rects"
   
 end
   
