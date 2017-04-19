@@ -1,5 +1,5 @@
 theory Overtaking_Aux
-  imports Analysis   "$AFP/Affine_Arithmetic/Polygon"
+  imports Analysis "Affine_Arithmetic/Polygon"
 begin
   
 (* type of finite sequence *)  

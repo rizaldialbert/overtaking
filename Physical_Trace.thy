@@ -1,7 +1,8 @@
 theory Physical_Trace
   imports Complex_Main Analysis
   Overtaking_Aux
-  "$AFP/Affine_Arithmetic/Affine_Arithmetic"
+  "Affine_Arithmetic/Affine_Code"
+  "Affine_Arithmetic/Intersection"
 begin
   
 section "Auxiliaries"
