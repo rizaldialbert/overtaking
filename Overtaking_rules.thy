@@ -1,6 +1,7 @@
 theory Overtaking_rules
 imports 
   Main Overtaking_Aux Environment_Executable
+  "./safe_distance/Safe_Distance_Isar"
 begin   
     
 section "Trace"    
@@ -168,7 +169,96 @@ definition original_lane_checker :: "black_boxes \<Rightarrow> lane_type \<Right
   "original_lane_checker bb env \<equiv> 
             rects_to_words (\<lambda>x. lane.original_lane_trace env x) original_lane_atom (bb_to_rects bb)"
   
+\<comment>\<open>Detecting vehicles behind\<close>
+
+fun relevant_lane_id :: "detection_opt \<Rightarrow> nat list" where
+  "relevant_lane_id Outside = []" | 
+  "relevant_lane_id (Lane x) = [x]" | 
+  "relevant_lane_id (Boundaries ns) = ns"
   
+fun list_intersect :: "'a list \<Rightarrow> 'a list \<Rightarrow> bool" where
+  "list_intersect [] _ = False" | 
+  "list_intersect (a # as) bs = (case find (\<lambda>x. x = a) bs of 
+                                    Some _ \<Rightarrow> True 
+                                 |  None \<Rightarrow> list_intersect as bs)"
+  
+theorem list_intersect_sound: 
+  "list_intersect as bs \<longleftrightarrow> (\<exists>x. x \<in> set as \<and> x \<in> set bs)"
+proof (induction as)
+  case Nil
+  then show ?case by auto
+next
+  case (Cons a as)  
+  note case_cons = this  
+  define res where "res \<equiv> find (\<lambda>x. x = a) bs"    
+  then show ?case unfolding list_intersect.simps 
+  proof (induction res)
+    case None      
+    have "list_intersect as bs = (\<exists>x. x \<in> set (a # as) \<and> x \<in> set bs)" (is "?lhs = ?rhs")
+    proof -
+      from sym[OF None] have " (\<nexists>x. x \<in> set bs \<and> x = a)" unfolding find_None_iff by auto
+      hence "a \<notin> set bs" by auto
+      hence "?rhs = (\<exists>x. x \<in> set as \<and> x \<in> set bs)" by auto
+      also have "... = ?lhs" using case_cons by auto          
+      finally show ?thesis by auto
+    qed      
+    with sym[OF None] show ?case by auto   
+  next
+    case (Some option)
+    note case_option = this  
+    from sym[OF this] have " \<exists>i<length bs. bs ! i = a \<and> option = bs ! i \<and> (\<forall>j<i. bs ! j \<noteq> a)" 
+      unfolding find_Some_iff  by auto
+    hence "a \<in> set bs" by auto        
+    hence " (\<exists>x. x \<in> set (a # as) \<and> x \<in> set bs)" by auto     
+    with sym[OF case_option] show ?case by auto
+  qed          
+qed  
     
+fun is_relevant :: "nat list \<Rightarrow> detection_opt \<Rightarrow> bool" where
+  "is_relevant _ Outside = False" | 
+  "is_relevant ids (Lane x)  = (x \<in> set ids)" | 
+  "is_relevant ids (Boundaries ns)  = list_intersect ns ids"  
+  
+definition (in lane) trim_vehicles_same_lane :: "raw_state list \<Rightarrow> detection_opt \<Rightarrow> raw_state list" where
+  "trim_vehicles_same_lane states l = (let  ids = relevant_lane_id l in 
+                                      takeWhile (is_relevant ids \<circ> lane_detection \<circ> rectangle.truncate) states)"
+
+definition (in lane) vehicles_behind :: "raw_state list \<Rightarrow> raw_state \<Rightarrow> raw_state list" where
+  "vehicles_behind states r = (let re = rectangle.truncate r; 
+                                   states2 = (trim_vehicles_same_lane states (lane_detection re)) in
+                                   takeWhile (\<lambda>x. Xcoord x \<le> Xcoord re) states2)"  
+  
+definition (in lane) sd_raw_state :: "raw_state \<Rightarrow> raw_state \<Rightarrow> real \<Rightarrow> bool" where
+  "sd_raw_state ego other \<delta> \<equiv> (let se = Xcoord ego - Length ego / 2; 
+                               ve = fst (velocity ego); ae = fst (acceleration ego);
+                               so = Xcoord other + Length other / 2; 
+                               vo = fst (velocity other); ao = fst (acceleration other)
+                            in checker_r12 se ve ae so vo ao \<delta>)" 
+  
+fun (in lane) sd_rear' :: "raw_state list \<Rightarrow> raw_state \<Rightarrow> real \<Rightarrow> bool" where
+  "sd_rear' [] _ _ = True" | 
+  "sd_rear' (r # rs) ego \<delta> = (if sd_raw_state ego r \<delta> then sd_rear' rs ego \<delta> else False)"  
+
+definition (in lane) sd_rear :: "raw_state list \<Rightarrow> raw_state \<Rightarrow> real \<Rightarrow> bool" where
+  "sd_rear rs ego \<delta> = (let vehicles = vehicles_behind rs ego in sd_rear' vehicles ego \<delta>)" 
+      
+fun (in lane) sd_rears :: "raw_state list list \<Rightarrow> raw_state list \<Rightarrow> real \<Rightarrow> bool list" where
+  "sd_rears _ [] _ = []" |
+  "sd_rears [] (ego # egos) \<delta> = (sd_rear [] ego \<delta>) # sd_rears [] egos \<delta>" |
+  "sd_rears (rs # rss) (ego # egos) \<delta> = (sd_rear rs ego \<delta>) # sd_rears rss egos \<delta>"  
+        
+theorem (in lane)
+  "length (sd_rears rss egos \<delta>) = length egos"
+  by (induction rule:sd_rears.induct) (auto)
+    
+definition sd_rear_checker' :: "black_boxes \<Rightarrow> lane_type \<Rightarrow> real \<Rightarrow> bool list" where
+  "sd_rear_checker' bb env \<delta> \<equiv> (let ego_run = snd (fst bb); other_runs = map snd (snd bb) in 
+                                 lane.sd_rears env other_runs ego_run \<delta>)"  
+  
+definition sd_rear_checker :: "black_boxes \<Rightarrow> lane_type \<Rightarrow> real \<Rightarrow> tr_atom set list" where
+  "sd_rear_checker bb env \<delta> \<equiv> (let result = sd_rear_checker' bb env \<delta> 
+                               in  map (\<lambda>x. if x then {sd_rear_atom} else {}) result)"
+
+  
     
 end

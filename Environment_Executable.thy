@@ -1,7 +1,6 @@
 theory Environment_Executable
 imports
   Main Physical_Trace Overtaking_Aux
-  "$AFP/Affine_Arithmetic/Polygon"
 begin
 
 section "Lanelets"
@@ -1192,8 +1191,7 @@ interpretation lsc: simple_boundary "curve_eq" "{0..1}"
 lemma pathstart_first_point:
   "pathstart curve_eq = first_point"
 proof -
-  from nonempty_points obtain f and fs where "points = f # fs" using 
-    linorder_list0.selsort.cases by blast
+  from nonempty_points obtain f and fs where "points = f # fs" by (meson list.exhaust_sel)      
   hence "first_chain = f" by auto
   have "curve_eq = curve_eq3 (map (\<lambda>p. linepath (fst p) (snd p)) points)" 
     unfolding points_path2_def by auto
@@ -6014,7 +6012,7 @@ theorem start_dec_lane_cases_imp:
   defines "ld_res \<equiv> lane_detection (hd rects)"     
   shows "ld_res = Lane ori_lane \<or> ld_res = Boundaries [ori_lane]"
   using assms start_dec_lane_cases2[OF assms(1-2)] start_dec_lane_cases_lane[OF assms(1-2)]
-  start_dec_lane_cases_bound[OF assms(1-2)] by auto
+  start_dec_lane_cases_bound[OF assms(1-2)] by metis
 
 theorem start_dec_lane_case_final:
   assumes "start_dec_lane rects ori_lane start_time = Some (time, rest)"
@@ -6381,7 +6379,7 @@ theorem finish_dec_lane_cases_imp:
   defines "ld_res \<equiv> lane_detection (hd rects)"
   shows "ld_res = Lane (bound_id -1) \<or> ld_res = Boundaries [bound_id]"
   using assms finish_dec_lane_cases2[OF assms(1-2)] finish_dec_lane_cases_lane[OF assms(1-2)]
-  finish_dec_lane_cases_bound[OF assms(1-2)] by auto
+  finish_dec_lane_cases_bound[OF assms(1-2)] by metis
   
 theorem finish_dec_lane_case_final:
   assumes "finish_dec_lane rects bound_id start_time = Some (time, rest)"
@@ -7294,37 +7292,7 @@ fun time_points_to_ori_bools :: "(nat \<times> nat \<times> nat \<times> nat) li
 definition original_lane_trace :: "rectangle list \<Rightarrow> bool list" where
   "original_lane_trace rects \<equiv> (time_points_to_ori_bools \<circ> overtaking) rects"
   
-\<comment>\<open>Detecting vehicles behind\<close>
-
-fun relevant_lane_id :: "detection_opt \<Rightarrow> nat list" where
-  "relevant_lane_id Outside = []" | 
-  "relevant_lane_id (Lane x) = [x]" | 
-  "relevant_lane_id (Boundaries ns) = ns"
-  
-fun list_intersect :: "'a list \<Rightarrow> 'a list \<Rightarrow> bool" where
-  "list_intersect [] _ = False" | 
-  "list_intersect (a # as) bs = (case find (\<lambda>x. x = a) bs of 
-                                    Some _ \<Rightarrow> True 
-                                 |  None \<Rightarrow> list_intersect as bs)"
-  
-theorem 
-  "list_intersect as bs \<longleftrightarrow> (\<exists>x. x \<in> set as \<and> x \<in> set bs)"
-  sorry  
     
-fun is_relevant :: "detection_opt \<Rightarrow> nat list \<Rightarrow> bool" where
-  "is_relevant Outside _ = False" | 
-  "is_relevant (Lane x) ids = (x \<in> set ids)" | 
-  "is_relevant (Boundaries ns) ids = list_intersect ns ids"  
-
-definition trim_vehicles_same_lane :: "rectangle list \<Rightarrow> detection_opt \<Rightarrow> nat list" where
-  "trim_vehicles_same_lane rects l = (let ids = relevant_lane_id l in undefined)"
-
-fun vehicles_behind :: "rectangle list \<Rightarrow> rectangle \<Rightarrow> nat list" where
-  "vehicles_behind [] _ = []" |
-  "vehicles_behind (ro # rects) re"
-  
-  
-  
 end
   
 

@@ -2758,7 +2758,7 @@ next
 qed    
   
     
-definition checker_r_2:: "real \<Rightarrow> real \<Rightarrow> real \<Rightarrow> real \<Rightarrow> real \<Rightarrow> real \<Rightarrow> real \<Rightarrow> bool" where
+(* definition checker_r_2:: "real \<Rightarrow> real \<Rightarrow> real \<Rightarrow> real \<Rightarrow> real \<Rightarrow> real \<Rightarrow> real \<Rightarrow> bool" where
 "checker_r_2 s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta> \<equiv> let distance = s\<^sub>o - s\<^sub>e;
 				precond = check_precond s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o;
         safe_dist_1r = safe_distance_normal.safe_distance_1r v\<^sub>e a\<^sub>e \<delta>;
@@ -2772,8 +2772,7 @@ definition checker_r_2:: "real \<Rightarrow> real \<Rightarrow> real \<Rightarro
 theorem checker_r_2_correctness:
   "\<delta> > (- v\<^sub>o / a\<^sub>o) \<Longrightarrow> (checker_r_2 s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta> \<longrightarrow> check_precond s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<and> safe_distance_normal.no_collision_react a\<^sub>e v\<^sub>e s\<^sub>e a\<^sub>o v\<^sub>o s\<^sub>o \<delta> {0..})"
   sorry 
-    (*TODO prove correctness - will probably be similar to proof of checker_r_1_correctness*)
-
+ *)
 subsection \<open>serialize printing\<close>
 
 consts print::"String.literal \<Rightarrow> unit"
