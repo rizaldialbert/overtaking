@@ -3985,13 +3985,35 @@ qed
   
 subsection "Lanelet"
   
+definition pathstart_boundary :: "(real2 \<times> real2) list \<Rightarrow> real2" where
+  "pathstart_boundary points = pathstart (curve_eq3 (points_path2 points))" 
+  
+definition pathfinish_boundary :: "(real2 \<times> real2) list \<Rightarrow> real2" where
+  "pathfinish_boundary points = pathfinish (curve_eq3 (points_path2 points))"  
+  
+definition non_intersecting_boundary :: "(real2 \<times> real2) list \<Rightarrow> (real2 \<times> real2) list \<Rightarrow> bool" where
+  "non_intersecting_boundary points1 points2 = 
+  (\<forall>t1 \<in> {0..1}. \<forall>t2 \<in> {0..1}. (curve_eq3 (points_path2 points1)) t1 \<noteq>  (curve_eq3 (points_path2 points2)) t2)"  
+    
 locale lanelet = le: lanelet_simple_boundary points_le + ri: lanelet_simple_boundary points_ri
   for points_le and points_ri +
-  assumes non_intersecting: "\<forall>t1 \<in> {0..1}. \<forall>t2 \<in> {0..1}. le.curve_eq t1 \<noteq> ri.curve_eq t2"
-  assumes same_init_x: "fst (pathstart le.curve_eq) = fst (pathstart ri.curve_eq)"
-  assumes same_final_x: "fst (pathfinish le.curve_eq) = fst (pathfinish ri.curve_eq)"    
+  assumes non_intersecting': "non_intersecting_boundary points_le points_ri"
+  assumes same_init_x': "fst (pathstart_boundary points_le) = fst (pathstart_boundary points_ri)"  
+  assumes same_final_x': "fst (pathfinish_boundary points_le) = fst (pathfinish_boundary points_ri)" 
 begin  
-       
+
+theorem non_intersecting:
+  "\<forall>t1 \<in> {0..1}. \<forall>t2 \<in> {0..1}. le.curve_eq t1 \<noteq> ri.curve_eq t2"
+  using non_intersecting' unfolding non_intersecting_boundary_def by auto
+
+theorem same_init_x: 
+  "fst (pathstart le.curve_eq) = fst (pathstart ri.curve_eq)"
+  using same_init_x' unfolding pathstart_boundary_def by auto 
+
+theorem same_final_x: 
+  "fst (pathfinish le.curve_eq) = fst (pathfinish ri.curve_eq)"    
+  using same_final_x' unfolding pathfinish_boundary_def by auto
+    
 lemma same_init_x_alt_def:
   "fst (fst le.first_chain) = fst (fst ri.first_chain)"
   using le.pathstart_first_point ri.pathstart_first_point same_init_x by auto
