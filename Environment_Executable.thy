@@ -3843,6 +3843,9 @@ next
   with assms have "\<not> segments_intersects2 l1 l2" unfolding segment_intersection_def by auto  
   with segments_intersects_correctness_none show ?thesis by auto
 qed
+  
+lemma segment_intersection_comm: "segment_intersection l1 l2 \<longleftrightarrow> segment_intersection l2 l1"
+  using segment_intersection_completeness segment_intersection_correctness by blast
 
 fun segments_intersect_polychain :: "real2 \<times> real2 \<Rightarrow> (real2 \<times> real2) list \<Rightarrow> bool" where
   "segments_intersect_polychain line [] = False" | 
@@ -3921,7 +3924,12 @@ qed
 fun segments_intersect :: "(real2 \<times> real2) option \<Rightarrow> (real2 \<times> real2) option \<Rightarrow> bool" where
   "segments_intersect (Some l1) (Some l2) = segment_intersection l1 l2"
 | "segments_intersect _ _ = False"
+
+thm segments_intersect.induct
   
+lemma segments_intersect_comm: "segments_intersect l1 l2 \<longleftrightarrow> segments_intersect l2 l1"
+  by (rule segments_intersect.induct) (auto simp add: segment_intersection_comm)
+
 fun lanes_intersect' :: "(real2 \<times> real2) list \<Rightarrow> (real2 \<times> real2) list \<Rightarrow> (real2 \<times> real2) option \<Rightarrow> (real2 \<times> real2) option \<Rightarrow> bool" where
   "lanes_intersect' [] [] l1 l2 \<longleftrightarrow> segments_intersect l1 l2"
 | "lanes_intersect' (l # le) [] l1 l2 \<longleftrightarrow> segments_intersect l1 l2 \<or> lanes_intersect' le [] (Some l) l2"
@@ -3933,7 +3941,7 @@ fun lanes_intersect' :: "(real2 \<times> real2) list \<Rightarrow> (real2 \<time
 (* checks if two lanes intersect *)
 fun lanes_intersect :: "(real2 \<times> real2) list \<Rightarrow> (real2 \<times> real2) list \<Rightarrow> bool" where
   "lanes_intersect le ri = lanes_intersect' le ri None None"
-  
+
 lemma lanes_intersect_ri_empty: "\<not>lanes_intersect' le [] l1 None"
   by (induction le arbitrary: l1) auto
 
@@ -4687,6 +4695,13 @@ qed
   
 theorem lanes_intersect_iff: "lanes_intersect points_le points_ri \<longleftrightarrow> (\<exists>t1 \<in> {0..1}. \<exists>t2 \<in> {0..1}. le.curve_eq t1 = ri.curve_eq t2)"
   using lanes_intersect_correctness lanes_intersect_completeness by auto
+
+    
+interpretation swap_lanelets: generalized_lanelet points_ri points_le
+  by unfold_locales
+  
+lemma lanes_intersect_comm: "lanes_intersect points_le points_ri \<longleftrightarrow> lanes_intersect points_ri points_le"
+  using lanes_intersect_iff swap_lanelets.lanes_intersect_iff by metis
 
 end  
   
