@@ -122,7 +122,7 @@ theorem mpri: "monotone_polychain points_ri" unfolding points_ri_def by eval
     
 global_interpretation rlsb: lanelet_simple_boundary points_ri
   using points_ri_def by (unfold_locales) (auto simp add:ppri mpri)
-    
+
 theorem pathstart_boundary [code]:
   "pathstart_boundary [x] = fst x"
   "pathstart_boundary (x # y # zs) = fst x"
@@ -132,9 +132,19 @@ theorem pathfinish_boundary [code]:
   "pathfinish_boundary [x] = snd x"
   "pathfinish_boundary (x # y # zs) = pathfinish_boundary (y # zs)"
   unfolding pathfinish_boundary_def points_path2_def by auto
-  
-theorem "pathfinish_boundary points_ri = (3,1)" by eval    
+        
+theorem "pathfinish_boundary points_ri = (3,1)" by eval  
     
-term "lanelet"  
+value [code] "above_and_inside_polychains points_le (3,1)"    
+ 
+global_interpretation l: lanelet points_ri points_le
+  defines right = l.direction_right and pida = l.point_in_drivable_area
+  by (unfold_locales) (eval+) 
+    
+value [code] "right"    
+value [code] "pida (1,0.5)"
+  
+term "rotation_matrix'"  
+    
   
 end

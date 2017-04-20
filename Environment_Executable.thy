@@ -2865,7 +2865,7 @@ definition find_intersection :: "real2 \<times> real2 \<Rightarrow> real2 \<time
                         c2 = fst (fst l2) * snd (snd l2) - (fst (snd l2) * snd (fst l2));
            det_val = det2 (a1, b1) (a2, b2) 
        in 
-        if det_val = 0 then undefined else (1 / det_val) *\<^sub>R (b2 * c1 - b1 * c2, a1 * c2 - a2 * c1))"
+        if det_val = 0 then 0 else (1 / det_val) *\<^sub>R (b2 * c1 - b1 * c2, a1 * c2 - a2 * c1))"
 
 abbreviation in_x_domain :: "real2 \<times> real2 \<Rightarrow> real \<Rightarrow> bool" where
   "in_x_domain l x \<equiv> fst (fst l) \<le> x \<and> x \<le> fst (snd l) \<or>  fst (snd l) \<le> x \<and> x \<le> fst (fst l)"  
@@ -3940,6 +3940,9 @@ lemma lanes_intersect_ri_empty: "\<not>lanes_intersect' le [] l1 None"
 lemma lanes_intersect_le_empty: "\<not>lanes_intersect' [] ri None l2"
   by (induction ri arbitrary: l2) auto
 
+theorem lanes_intersect_commute:
+  "lanes_intersect le ri = lanes_intersect ri le" sorry   
+    
 (* we only need to check line segments that have a common x value *)
 fun segments_relevant :: "(real2 \<times> real2) \<Rightarrow> (real2 \<times> real2) \<Rightarrow> bool" where
   "segments_relevant l1 l2 \<longleftrightarrow> (fst (fst l1) \<le> fst (fst l2) \<and> fst (fst l2) \<le> fst (snd l1)) \<or> (fst (fst l2) \<le> fst (fst l1) \<and> fst (fst l1) \<le> fst (snd l2))"
@@ -4686,8 +4689,7 @@ proof -
 qed
   
 theorem lanes_intersect_iff: "lanes_intersect points_le points_ri \<longleftrightarrow> (\<exists>t1 \<in> {0..1}. \<exists>t2 \<in> {0..1}. le.curve_eq t1 = ri.curve_eq t2)"
-  using lanes_intersect_correctness lanes_intersect_completeness by auto
-
+  using lanes_intersect_correctness lanes_intersect_completeness by auto    
 end  
   
 subsection "Lanelet"
@@ -4700,18 +4702,33 @@ definition pathfinish_boundary :: "(real2 \<times> real2) list \<Rightarrow> rea
   
 definition non_intersecting_boundary :: "(real2 \<times> real2) list \<Rightarrow> (real2 \<times> real2) list \<Rightarrow> bool" where
   "non_intersecting_boundary points1 points2 = 
-  (\<forall>t1 \<in> {0..1}. \<forall>t2 \<in> {0..1}. (curve_eq3 (points_path2 points1)) t1 \<noteq>  (curve_eq3 (points_path2 points2)) t2)"  
-    
+  (\<forall>t1 \<in> {0..1}. \<forall>t2 \<in> {0..1}. (curve_eq3 (points_path2 points1)) t1 \<noteq>  (curve_eq3 (points_path2 points2)) t2)"
+
+theorem lanes_intersect:
+  assumes "lanelet_simple_boundary points_le" and "lanelet_simple_boundary points_ri"
+  shows "\<not> lanes_intersect points_le points_ri = non_intersecting_boundary points_le points_ri"
+proof -
+  from assms interpret gl: generalized_lanelet points_le points_ri 
+    apply (unfold_locales)
+    unfolding lanelet_simple_boundary_def lanelet_simple_boundary_axioms_def lanelet_curve_def 
+    by (auto)
+  have *: "non_intersecting_boundary points_le points_ri = (\<forall>t1 \<in> {0..1}. \<forall>t2 \<in> {0..1}. gl.le.curve_eq t1 \<noteq> gl.ri.curve_eq t2)"
+    unfolding non_intersecting_boundary_def points_path2_def by auto    
+  from gl.lanes_intersect_completeness gl.lanes_intersect_correctness show ?thesis
+    unfolding * by auto  
+qed      
+      
 locale lanelet = le: lanelet_simple_boundary points_le + ri: lanelet_simple_boundary points_ri
   for points_le and points_ri +
-  assumes non_intersecting': "non_intersecting_boundary points_le points_ri"
+  assumes non_intersecting': "\<not> lanes_intersect points_le points_ri"
   assumes same_init_x': "fst (pathstart_boundary points_le) = fst (pathstart_boundary points_ri)"  
   assumes same_final_x': "fst (pathfinish_boundary points_le) = fst (pathfinish_boundary points_ri)" 
 begin  
-
+    
 theorem non_intersecting:
   "\<forall>t1 \<in> {0..1}. \<forall>t2 \<in> {0..1}. le.curve_eq t1 \<noteq> ri.curve_eq t2"
-  using non_intersecting' unfolding non_intersecting_boundary_def by auto
+  using lanes_intersect non_intersecting' unfolding non_intersecting_boundary_def 
+  using le.lanelet_simple_boundary_axioms ri.lanelet_simple_boundary_axioms by auto
 
 theorem same_init_x: 
   "fst (pathstart le.curve_eq) = fst (pathstart ri.curve_eq)"
@@ -5594,24 +5611,334 @@ next
   then show ?case unfolding drop_Suc_Cons by auto
 qed  
   
+definition boundaries_non_intersect :: "(real2 \<times> real2) list list \<Rightarrow> bool" where  
+  "boundaries_non_intersect boundaries \<equiv> \<forall>i<length boundaries. \<forall>j. i < j \<and> j< length boundaries \<longrightarrow> (\<forall>t1\<in>{0..1}. \<forall>t2\<in>{0..1}. 
+              lanelet_curve.curve_eq (boundaries ! i) t1 \<noteq> lanelet_curve.curve_eq (boundaries ! j) t2)"
+
+fun lanes_intersect_list :: "(real2 \<times> real2) list \<Rightarrow> (real2 \<times> real2) list list \<Rightarrow> bool" where
+  "lanes_intersect_list bound1 [] = True" | 
+  "lanes_intersect_list bound1 (bound2 # bounds) = (if \<not> lanes_intersect bound1 bound2 then lanes_intersect_list bound1 bounds else False)"
+  
+lemma univ_at_0:
+  assumes "0 < m"
+  shows "(\<forall>i::nat. i < m \<longrightarrow> P i) \<longleftrightarrow> (P 0 \<and> (\<forall>i. 0 < i \<and> i < m \<longrightarrow> P i))"
+proof 
+  assume 0: "\<forall>i<m. P i"
+  hence "P 0" using assms by auto
+  from 0 have "(\<forall>i. 0 < i \<and> i < m \<longrightarrow> P i)" by auto   
+  with `P 0` show "P 0 \<and> (\<forall>i. 0 < i \<and> i < m \<longrightarrow> P i)" by auto
+next
+  assume 1:"P 0 \<and> (\<forall>i. 0 < i \<and> i < m \<longrightarrow> P i)"
+  with assms show "\<forall>i<m. P i"  using nat_neq_iff by auto    
+qed
+  
+lemma univ_suc_at_0:
+  assumes "1 < m"              
+  shows "(\<forall>i::nat. Suc i < m \<longrightarrow> P i) \<longleftrightarrow> (P 0 \<and>(\<forall>i. 0 < i \<and> Suc i < m \<longrightarrow> P i))" 
+proof                
+  assume 0: " \<forall>i. Suc i < m \<longrightarrow> P i "  
+  hence "P 0" using assms by auto  
+  from 0 have "(\<forall>i. 0 < i \<and> Suc i < m \<longrightarrow> P i)" by auto       
+  with `P 0` show "P 0 \<and> (\<forall>i. 0 < i \<and> Suc i < m \<longrightarrow> P i)" by auto
+next                                                     
+  assume 1: " P 0 \<and> (\<forall>i. 0 < i \<and> Suc i < m \<longrightarrow> P i)"     
+  with assms show "\<forall>i. Suc i < m \<longrightarrow> P i"  using nat_neq_iff by auto                
+qed                                              
+  
+theorem lanes_intersect_list_correctness:
+  assumes "lanelet_simple_boundary bound1"
+  assumes "\<forall>j. j < length bounds \<longrightarrow> lanelet_simple_boundary (bounds ! j)"    
+  shows "lanes_intersect_list bound1 bounds = (\<forall>j. j < length bounds \<longrightarrow> (\<forall>t1\<in>{0..1}. \<forall>t2 \<in> {0..1}. lanelet_curve.curve_eq bound1 t1 \<noteq> lanelet_curve.curve_eq (bounds ! j) t2))"  
+  using assms
+proof (induction bounds)
+  case Nil  
+  then show ?case by auto
+next
+  case (Cons a bounds)
+  note case_cons = this
+  from case_cons(3) have "lanelet_simple_boundary a" by auto
+  with case_cons(2) interpret gl: generalized_lanelet bound1 a 
+    apply (unfold_locales)      
+    unfolding lanelet_simple_boundary_def lanelet_curve_def lanelet_simple_boundary_axioms_def
+    by auto      
+  have "lanes_intersect bound1 a \<or> \<not> lanes_intersect bound1 a" by auto
+  moreover
+  { assume 0: "lanes_intersect bound1 a"
+    hence 1: "lanes_intersect_list bound1 (a # bounds) = False" by auto  
+    from gl.lanes_intersect_completeness[OF 0] obtain t1 t2 where "t1 \<in> {0..1}" and "t2 \<in> {0..1}"
+      and "gl.le.curve_eq t1 = gl.ri.curve_eq t2" by auto
+    hence "\<not> (\<forall>j<length (a # bounds). \<forall>t1\<in>{0..1}. \<forall>t2\<in>{0..1}. gl.le.curve_eq t1 \<noteq> curve_eq3 (points_path2 ((a # bounds) ! j)) t2)"
+      by fastforce
+    with 1 have ?case by auto }    
+  moreover
+  { assume 0: "\<not> lanes_intersect bound1 a"
+    hence 1: "lanes_intersect_list bound1 (a # bounds) = lanes_intersect_list bound1 bounds"
+      by auto
+    have 2: "\<forall>j<length bounds. lanelet_simple_boundary (bounds ! j)" using case_cons(3) by auto    
+    from case_cons(1)[OF assms(1) 2] 1 have 3: "lanes_intersect_list bound1 bounds = 
+    (\<forall>j<length bounds. \<forall>t1\<in>{0..1}. \<forall>t2\<in>{0..1}. gl.le.curve_eq t1 \<noteq> curve_eq3 (points_path2 (bounds ! j)) t2)"   
+      by auto 
+    have "0 < length (a # bounds)" by auto            
+    have *: "(\<forall>j<length (a # bounds). \<forall>t1\<in>{0..1}. \<forall>t2\<in>{0..1}. gl.le.curve_eq t1 \<noteq> curve_eq3 (points_path2 ((a # bounds) ! j)) t2) = 
+     ((\<forall>t1\<in>{0..1}. \<forall>t2\<in>{0..1}. gl.le.curve_eq t1 \<noteq> curve_eq3 (points_path2 ((a # bounds) ! 0)) t2) \<and> 
+     (\<forall>j. 0 < j \<and> j <length (a # bounds) \<longrightarrow> (\<forall>t1\<in>{0..1}. \<forall>t2\<in>{0..1}. gl.le.curve_eq t1 \<noteq> curve_eq3 (points_path2 ((a # bounds) ! j)) t2)))" 
+      (is "?big = (?conj1 \<and> ?conj2)") 
+      using univ_at_0[OF `0 < length (a # bounds)`] by auto
+    have "?conj1" using gl.lanes_intersect_correctness[OF 0] by auto  
+    hence 4: "?big = ?conj2" using * by auto    
+    hence ?case unfolding 1 3 4 by auto }
+  ultimately show ?case by auto
+qed    
+  
+fun boundaries_non_intersect_ex :: "(real2 \<times> real2) list list \<Rightarrow> bool"  where
+  "boundaries_non_intersect_ex [] = True" | 
+  "boundaries_non_intersect_ex (bound # bounds) = 
+        (if lanes_intersect_list bound bounds then boundaries_non_intersect_ex bounds else False)"
+  
+lemma bni_correct:
+  assumes "\<forall>j. j < length (a # bounds) \<longrightarrow> lanelet_simple_boundary ((a # bounds) ! j)"     
+  shows "boundaries_non_intersect (a # bounds) = (lanes_intersect_list a bounds \<and> boundaries_non_intersect bounds)"
+proof -
+  have lsba: "lanelet_simple_boundary a" using assms by auto
+  have tail: "\<forall>j. j < length (bounds) \<longrightarrow> lanelet_simple_boundary ((bounds) ! j)" using assms by auto
+  have "0 < length (a # bounds)" by auto  
+  have step0: "boundaries_non_intersect (a # bounds) = (\<forall>i<length (a # bounds).
+        \<forall>j. i < j \<and> j < length (a # bounds) \<longrightarrow>
+            (\<forall>t1\<in>{0..1}. \<forall>t2\<in>{0..1}. curve_eq3 (points_path2 ((a # bounds) ! i)) t1 \<noteq> curve_eq3 (points_path2 ((a # bounds) ! j)) t2))"
+  (is "_ = ?quant")
+  unfolding boundaries_non_intersect_def by auto
+  from univ_at_0[OF `0 < length (a # bounds)`, where P="\<lambda>i. \<forall>j. i < j \<and> j < length (a # bounds) \<longrightarrow>
+            (\<forall>t1\<in>{0..1}. \<forall>t2\<in>{0..1}. curve_eq3 (points_path2 ((a # bounds) ! i)) t1 \<noteq> curve_eq3 (points_path2 ((a # bounds) ! j)) t2)"]
+  have step1: "?quant = ((\<forall>j. 0 < j \<and> j < length (a # bounds) \<longrightarrow>
+        (\<forall>t1\<in>{0..1}. \<forall>t2\<in>{0..1}. curve_eq3 (points_path2 ((a # bounds) ! 0)) t1 \<noteq> curve_eq3 (points_path2 ((a # bounds) ! j)) t2)) \<and>
+   (\<forall>i. 0 < i \<and> i < length (a # bounds) \<longrightarrow>
+        (\<forall>j. i < j \<and> j < length (a # bounds) \<longrightarrow>
+             (\<forall>t1\<in>{0..1}. \<forall>t2\<in>{0..1}. curve_eq3 (points_path2 ((a # bounds) ! i)) t1 \<noteq> curve_eq3 (points_path2 ((a # bounds) ! j)) t2))))"    
+    (is "_ = (?conj1 \<and> ?conj2)")
+    by auto
+  have step2: "?conj1 = lanes_intersect_list a bounds" using lanes_intersect_list_correctness[OF lsba tail]
+    by auto
+  have step3: "?conj2 = boundaries_non_intersect bounds" 
+  proof       
+    assume "?conj2"
+    show "boundaries_non_intersect bounds" unfolding boundaries_non_intersect_def
+    proof (rule allI, rule impI, rule allI, rule impI)
+      fix i j
+      assume "i < length bounds"
+      assume "i < j \<and> j < length bounds"
+      hence f: "0 < i + 1 \<and> i + 1 < length (a # bounds)" and s: "i + 1 < j + 1 \<and> j + 1 < length (a # bounds)" 
+        by auto
+      have " (\<forall>t1\<in>{0..1}. \<forall>t2\<in>{0..1}. curve_eq3 (points_path2 ((a # bounds) ! (i+1))) t1 \<noteq> curve_eq3 (points_path2 ((a # bounds) ! (j + 1))) t2)"
+        using spec[OF `?conj2`, of "i+1"] f s by auto
+      thus " \<forall>t1\<in>{0..1}. \<forall>t2\<in>{0..1}. curve_eq3 (points_path2 (bounds ! i)) t1 \<noteq> curve_eq3 (points_path2 (bounds ! j)) t2"  
+        by auto          
+    qed
+  next
+    assume *: "boundaries_non_intersect bounds"
+    show "?conj2"
+    proof (rule allI, rule impI, rule allI, rule impI)
+      fix i j
+      assume **: "0 < i \<and> i < length (a # bounds)"
+      hence "0 < i" by auto  
+      from ** have f: "0 \<le> i -1 \<and> i - 1 < length bounds" by auto  
+      assume ***:"i < j \<and> j < length (a # bounds)"
+      hence "0 < j" using `0 < i` by auto  
+      from *** have s: "i - 1 < j - 1 \<and> j -1 < length bounds" using `0 < i \<and>  i < length (a # bounds)`
+        by auto          
+      from * have "(\<forall>t1\<in>{0..1}. \<forall>t2\<in>{0..1}. curve_eq3 (points_path2 (bounds ! (i-1))) t1 \<noteq> curve_eq3 (points_path2 (bounds ! (j-1))) t2)"
+        unfolding boundaries_non_intersect_def using s f by auto
+      thus "\<forall>t1\<in>{0..1}. \<forall>t2\<in>{0..1}. curve_eq3 (points_path2 ((a # bounds) ! i)) t1 \<noteq> curve_eq3 (points_path2 ((a # bounds) ! j)) t2"    
+        using sym[OF nth_Cons_pos[OF `0 < i`, of "a" "bounds"]] sym[OF nth_Cons_pos[OF `0 < j`, of "a" "bounds"]] by auto
+    qed      
+  qed
+  from step0 step1 step2 step3 show ?thesis by auto      
+qed
+   
+theorem boundaries_non_intersect_ex:
+  assumes "\<forall>j. j < length bounds \<longrightarrow> lanelet_simple_boundary (bounds ! j)"     
+  shows "boundaries_non_intersect_ex bounds = boundaries_non_intersect bounds"
+  using assms  
+proof (induction bounds)
+  case Nil
+  then show ?case unfolding boundaries_non_intersect_def by auto
+next
+  case (Cons a bounds)
+  note case_cons = this  
+  from case_cons(2) have *: "lanelet_simple_boundary a" by auto    
+  from case_cons(2) have **: "\<forall>j < length bounds . lanelet_simple_boundary (bounds  !j)" by auto    
+  have "\<not> lanes_intersect_list a bounds \<or>  lanes_intersect_list a bounds" by auto
+  moreover
+  { assume 0: " lanes_intersect_list a bounds"
+    from 0 have " boundaries_non_intersect_ex (a # bounds) = boundaries_non_intersect_ex bounds"  
+      by auto
+    also have "... = boundaries_non_intersect bounds" using case_cons(1)[OF **] by auto          
+    finally have 1: " boundaries_non_intersect_ex (a # bounds) = boundaries_non_intersect bounds"
+      by auto
+    have "boundaries_non_intersect (a # bounds) = boundaries_non_intersect bounds"
+      using bni_correct[OF case_cons(2)] 0 by auto     
+    hence ?case using 1 by auto }
+  moreover
+  { assume 1: "\<not> lanes_intersect_list a bounds"
+    hence 2: "boundaries_non_intersect_ex (a # bounds) = False" by auto
+    have "boundaries_non_intersect (a # bounds) = False"  using bni_correct[OF case_cons(2)] 1 by auto
+    hence ?case using 2 by auto }    
+  ultimately show ?case by auto 
+qed    
+  
+fun lanelets :: "(real2 \<times> real2) list list \<Rightarrow> bool" where
+  "lanelets [] = True" | 
+  "lanelets [x] = True" | 
+  "lanelets (x # y # zs) = (  (\<not> lanes_intersect y x 
+                              \<and>  (fst (pathstart_boundary y) = fst (pathstart_boundary x)) 
+                              \<and>  (fst (pathfinish_boundary y) = fst (pathfinish_boundary x))) 
+                            \<and> lanelets (y # zs))"
+
+theorem lanelets_correctness:
+  assumes "\<forall>j. j < length boundaries \<longrightarrow> lanelet_simple_boundary (boundaries ! j)"     
+  shows "lanelets boundaries = (\<forall>i. Suc i < length boundaries \<longrightarrow> lanelet (boundaries ! Suc i) (boundaries ! i))"  
+  using assms
+proof (induction boundaries rule:lanelets.induct)
+  case 1
+  then show ?case by auto
+next                        
+  case (2 x)
+  then show ?case by auto       
+next
+  case (3 x y zs)  
+  note case3 = this
+  from case3(2) have tail: "\<forall>j<length (y # zs). lanelet_simple_boundary ((y # zs) ! j)" by auto    
+  from case3 have "lanelet_simple_boundary x" and "lanelet_simple_boundary y" by auto  
+  have "1 < length (x # y # zs)" by auto  
+  have step1: "(\<forall>i. Suc i < length (x # y # zs) \<longrightarrow> lanelet ((x # y # zs) ! Suc i) ((x # y # zs) ! i)) = 
+      (lanelet y x \<and> (\<forall>i. 0 < i \<and> Suc i < length (x # y # zs) \<longrightarrow> lanelet ((x # y # zs) ! Suc i) ((x # y # zs) ! i)))" 
+    using univ_suc_at_0[OF `1 < length (x # y # zs)`, where P="\<lambda>i. lanelet ((x # y # zs) ! Suc i) ((x # y # zs) ! i)"]   
+    by auto
+  have eq: "(\<forall>i. 0 < i \<and> Suc i < length (x # y # zs) \<longrightarrow> lanelet ((x # y # zs) ! Suc i) ((x # y # zs) ! i)) = 
+        (\<forall>i. Suc i < length (y # zs) \<longrightarrow> lanelet ((y # zs) ! Suc i) ((y # zs) ! i))"      
+    by auto
+  have step0: "lanelets (x # y # zs) = (  (\<not> lanes_intersect y x 
+                              \<and>  (fst (pathstart_boundary y) = fst (pathstart_boundary x)) 
+                              \<and>  (fst (pathfinish_boundary y) = fst (pathfinish_boundary x))) 
+                            \<and> lanelets (y # zs))" (is "_ = (?conj1 \<and> ?conj2)")by auto
+  have step2: "?conj1 = lanelet y x" unfolding lanelet_def lanelet_axioms_def using `lanelet_simple_boundary x`
+      `lanelet_simple_boundary y` by auto
+  from case3(1)[OF tail] have step3: "?conj2 = (\<forall>i. Suc i < length (y # zs) \<longrightarrow> lanelet ((y # zs) ! Suc i) ((y # zs) ! i)) "
+    by auto  
+  show ?case unfolding step0 step2 step1 eq sym[OF step3] by auto       
+qed  
+  
+fun simple_boundaries :: "(real2 \<times> real2) list list \<Rightarrow> bool" where
+  "simple_boundaries [] = True" | 
+  "simple_boundaries (x # xs) = (if monotone_polychain x then simple_boundaries xs else False)"
+
+theorem simple_boundaries_correctness:
+  assumes "\<forall>i < length xs. lanelet_curve (xs ! i)"
+  shows "simple_boundaries xs \<longleftrightarrow> (\<forall>i < length xs. lanelet_simple_boundary (xs ! i))" 
+  using assms
+proof (induction xs)
+  case Nil
+  then show ?case by auto
+next
+  case (Cons a xs)
+  note case_cons = this
+  from case_cons have "lanelet_curve a" by auto  
+  from case_cons(2) have " \<forall>i<length xs. lanelet_curve (xs ! i)" by auto
+  hence *: "simple_boundaries xs = (\<forall>i<length xs. lanelet_simple_boundary (xs ! i))"    
+    using case_cons(1) by auto
+  have "monotone_polychain a \<or> \<not> monotone_polychain a" by auto
+  moreover
+  { assume "monotone_polychain a"
+    hence "simple_boundaries (a # xs) = simple_boundaries xs" by auto  
+    also have "... =  (\<forall>i<length xs. lanelet_simple_boundary (xs ! i))" using * by auto
+    finally have eq: "simple_boundaries (a # xs) = (\<forall>i<length xs. lanelet_simple_boundary (xs ! i))"
+      by auto
+    from `monotone_polychain a` and `lanelet_curve a` have "lanelet_simple_boundary a" 
+      unfolding lanelet_simple_boundary_def lanelet_simple_boundary_axioms_def by auto
+    have "0 < length (a # xs)" by auto    
+    from `lanelet_simple_boundary a` eq have ?case 
+      using univ_at_0[OF `0 < length (a # xs)`, where P="\<lambda>i. lanelet_simple_boundary ((a # xs) ! i)"]
+      by auto } 
+  moreover
+  { assume "\<not> monotone_polychain a"
+    hence "\<not> lanelet_simple_boundary a" unfolding lanelet_simple_boundary_def lanelet_simple_boundary_axioms_def
+      by auto
+    from `\<not> monotone_polychain a` have eq: "simple_boundaries (a # xs) = False" by auto  
+    have " (\<forall>i<length (a # xs). lanelet_simple_boundary ((a # xs) ! i)) = False" 
+      using `\<not> lanelet_simple_boundary a` by auto
+    with eq have ?case by auto }
+  ultimately show ?case by auto 
+qed    
+  
+fun lanelet_curves :: "(real2 \<times> real2) list list \<Rightarrow> bool" where
+  "lanelet_curves [] = True" | 
+  "lanelet_curves (x # xs) = (if x \<noteq> [] \<and> polychain x then lanelet_curves xs else False)"
+  
+theorem lanelet_curves_correctness:
+  "lanelet_curves xs = (\<forall>i < length xs. lanelet_curve (xs ! i))"
+proof (induction xs)
+  case Nil
+  then show ?case by auto
+next
+  case (Cons a xs)
+  note case_cons = this
+  have "a \<noteq> [] \<and> polychain a \<or> \<not> (a \<noteq> [] \<and> polychain a)" by auto
+  moreover
+  { assume t:"a \<noteq> [] \<and> polychain a"
+    from t have "lanelet_curve a" unfolding lanelet_curve_def by auto    
+    from t have *: "lanelet_curves (a # xs) =  lanelet_curves xs" by auto
+    also have "... = (\<forall>i<length xs. lanelet_curve (xs ! i))" using case_cons by auto
+    finally have **:"lanelet_curves (a # xs) = (\<forall>i<length xs. lanelet_curve (xs ! i))" by auto
+    have "0 < length (a # xs)" by auto    
+    from ** `lanelet_curve a` have ?case
+      unfolding univ_at_0[OF `0 < length (a # xs)`, where P="\<lambda>i. lanelet_curve ((a # xs) ! i)"]
+      by auto }
+  moreover
+  { assume f:"\<not> (a \<noteq> [] \<and> polychain a)"
+    from f have *: "lanelet_curves (a # xs) = False" by auto 
+    from f have "\<not> lanelet_curve a" unfolding lanelet_curve_def by auto
+    hence "(\<forall>i<length (a # xs). lanelet_curve ((a # xs) ! i)) = False" by auto    
+    with * have ?case by auto } 
+  ultimately show ?case by auto 
+qed  
+    
 locale lane =
   fixes boundaries :: "(real2 \<times> real2) list list"
-  fixes border :: nat  
-  assumes "2 \<le> length boundaries"
-  assumes "0 \<le> border" and "border < length boundaries "    
-  assumes "\<forall>i. Suc i \<le> length boundaries \<longrightarrow> lanelet (boundaries ! Suc i) (boundaries ! i)"
-  assumes "\<forall>i j. i + 1 \<le> border \<and> j + 1 \<le> border \<and> i < j \<longrightarrow> 
-                  lanelet.direction_right (boundaries ! (i+1)) (boundaries ! i) = 
-                  lanelet.direction_right (boundaries ! (j+1)) (boundaries ! j)"
-  assumes "\<forall>i j. border \<le> i  \<and>  i + 1 < length boundaries \<and> border \<le> j  \<and> j + 1 < length boundaries \<and> i < j \<longrightarrow> 
-                  lanelet.direction_right (boundaries ! (i+1)) (boundaries ! i) = 
-                  lanelet.direction_right (boundaries ! (j+1)) (boundaries ! j)"
-  assumes "\<forall>i j. i + 1 \<le> border \<and> border \<le> j \<and> j + 1 < length boundaries \<longrightarrow> 
-                  lanelet.direction_right (boundaries ! (i+1)) (boundaries ! i) \<noteq>
-                  lanelet.direction_right (boundaries ! (j+1)) (boundaries ! j)"    
-  assumes "\<forall>i j t1 t2. lanelet_curve.curve_eq (boundaries ! i) t1 \<noteq> lanelet_curve.curve_eq (boundaries ! j) t2"
+  assumes atleast2: "2 \<le> length boundaries"
+  assumes lcurves: "lanelet_curves boundaries"  
+  assumes sim_bound: "simple_boundaries boundaries"    
+  assumes lanelet: "lanelets boundaries"
+  assumes ni: "boundaries_non_intersect_ex boundaries"  
 begin
-
+      
+lemma all_lanelet_curves:
+  "\<forall>i<length boundaries. lanelet_curve (boundaries ! i)"
+  using lanelet_curves_correctness lcurves by auto   
+  
+lemma all_simple_boundaries:
+  "(\<forall>i. i < length boundaries \<longrightarrow> lanelet_simple_boundary (boundaries ! i))"
+  using simple_boundaries_correctness[OF all_lanelet_curves] sim_bound by auto  
+  
+lemma lanelet2:
+  "(\<forall>i. Suc i < length boundaries \<longrightarrow> lanelet (boundaries ! Suc i) (boundaries ! i))"
+  using lanelets_correctness[OF all_simple_boundaries] lanelet by auto
+  
+lemma boundaries_non_intersect:
+  "boundaries_non_intersect boundaries"
+proof -
+  from lanelet2 have "\<forall>i. Suc i < length boundaries \<longrightarrow> lanelet_simple_boundary (boundaries ! i)"
+    unfolding lanelet_def by auto
+  hence 0: "\<forall>i. i < length boundaries - 1 \<longrightarrow> lanelet_simple_boundary (boundaries ! i)" by auto
+  from atleast2 have "1 < length boundaries" by auto  
+  have **: " length boundaries - 1 < length boundaries" using atleast2 by auto      
+  hence *: "Suc (length boundaries - 2) = length boundaries - 1" using Suc_diff_Suc[OF `1 < length boundaries`]
+    by auto
+  from spec[OF lanelet2, of "length boundaries - 2"] this have "lanelet_simple_boundary (boundaries ! (length boundaries - 1))"
+    unfolding lanelet_def * using ** by auto       
+  with 0 have "\<forall>i. i < length boundaries \<longrightarrow> lanelet_simple_boundary (boundaries ! i)" 
+    by (metis Suc_lessI \<open>\<forall>i. Suc i < length boundaries \<longrightarrow> lanelet_simple_boundary (boundaries ! i)\<close> diff_Suc_1)
+  from boundaries_non_intersect_ex[OF this] ni show ?thesis by auto
+qed
+  
 fun in_lane :: "rectangle \<Rightarrow> nat option" where
   "in_lane rect = it_in_lane boundaries rect 0"
   
@@ -8020,10 +8347,41 @@ fun time_points_to_ori_bools :: "(nat \<times> nat \<times> nat \<times> nat) li
   
 definition original_lane_trace :: "rectangle list \<Rightarrow> bool list" where
   "original_lane_trace rects \<equiv> (time_points_to_ori_bools \<circ> overtaking) rects"
-  
-    
 end
   
+subsection "Lane with two lanelets"
+  
+(* lane  with two lanelets only *)  
+locale lane2' = bound0: lanelet_simple_boundary points0 + 
+                bound1: lanelet_simple_boundary points1 + 
+                bound2: lanelet_simple_boundary points2 +
+                lane0: lanelet points1 points0 + 
+                lane1: lanelet points2 points1 +
+                Lane: lane "[points0, points1, points2]"  for points0 points1 and points2 +
+   assumes not_intersect02: "\<not> lanes_intersect points0 points2"              
+begin
+ 
+definition in_lane2 :: "rectangle \<Rightarrow> nat option" where
+  "in_lane2 rect = (if lane0.rectangle_inside rect then Some 0 else 
+                    if lane1.rectangle_inside rect then Some 1 else None)"
+ 
+term "lane.in_lane"  
+  
+(* TODO prove in_lane2 is equal to Lane.in_lane --- needs commutativity *)
 
+definition lane_boundaries_touched2 :: "rectangle \<Rightarrow> nat list" where
+  "lane_boundaries_touched2 rect = (let touch0 = bound0.rectangle_intersect rect;
+                                        touch1 = bound1.rectangle_intersect rect;
+                                        touch2 = bound2.rectangle_intersect rect;
+                                        res = List.enumerate 0 [touch0, touch1, touch2];
+                                        fil = takeWhile (\<lambda>x. snd x) res in 
+                                        map fst fil)"   
+  
+theorem [code]:  "Lane.in_lane = in_lane2" sorry  
+theorem [code]:  "Lane.lane_boundaries_touched = lane_boundaries_touched2" sorry 
+  
+end
+  
+  
 
 end
