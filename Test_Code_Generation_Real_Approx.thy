@@ -3,6 +3,7 @@ imports
   Environment_Executable
   "~~/src/HOL/Library/Code_Real_Approx_By_Float"
 begin                                                          
+
 type_synonym segment = "(real*real)*real*real"
 
 text \<open>TODO: missing in \<open>Code_Real_Approx_By_Float\<close> or is there some deeper reason?
@@ -222,10 +223,36 @@ global_interpretation l2': lane2' bound0 bound1 bound2
   time_points_to_merge_bools = l2'.Lane.time_points_to_merge_bools and 
   time_points_to_ori_bools = l2'.Lane.time_points_to_ori_bools
   by (unfold_locales) (eval+)  
-    
-value [code] "decrease_lane"    
-     
 
-    
-    
+lemma [code]: "start_dec_lane uu i num =
+  (case i of
+    0 \<Rightarrow> None
+  | Suc v \<Rightarrow>
+    case uu of
+     [] \<Rightarrow> None
+  | (rect # rects) \<Rightarrow> 
+    (case lane_detection rect of Outside \<Rightarrow> None
+     | Lane n \<Rightarrow>
+         if n = Suc v then start_dec_lane rects n (num + 1) else None
+     | Boundaries ns \<Rightarrow>
+         if tl ns = [] \<and> hd ns = Suc v then Some (num, rects)
+         else None))"
+  by (auto split: nat.splits list.splits)
+
+lemma [code]: "finish_dec_lane uu i num =
+  (case i of
+    0 \<Rightarrow> None
+  | Suc v \<Rightarrow>
+    case uu of
+      [] \<Rightarrow> None
+   | (rect # rects) \<Rightarrow>
+  (case lane_detection rect of Outside \<Rightarrow> None
+   | Lane n \<Rightarrow> if n = Suc v - 1 then Some (num, rects) else None
+   | Boundaries ns \<Rightarrow>
+       if tl ns = [] \<and> hd ns = Suc v
+       then finish_dec_lane rects (Suc v) (num + 1) else None))"
+  by (auto split: nat.splits list.splits)
+
+value [code] "decrease_lane"
+     
 end
