@@ -5193,7 +5193,7 @@ definition intersect_boundaries where
 subsubsection "Rectangle containment"
         
 definition vertices_inside :: "rectangle \<Rightarrow> bool" where
-  "vertices_inside rect \<equiv> (let vertices = get_vertices_rotated rect; 
+  "vertices_inside rect \<equiv> (let vertices = get_vertices rect; 
                                 insides = map point_in_drivable_area vertices in 
                                 insides ! 0 \<and> insides ! 1 \<and> insides ! 2 \<and> insides ! 3)"
       
@@ -5208,7 +5208,7 @@ proof -
                      "map point_in_drivable_area (get_vertices_rotated rect) ! 1" and
                      "map point_in_drivable_area (get_vertices_rotated rect) ! 2" and 
                      "map point_in_drivable_area (get_vertices_rotated rect) ! 3"
-    unfolding vertices_inside_def Let_def by auto 
+    unfolding vertices_inside_def Let_def sorry
   with nth_map and l have c: "point_in_drivable_area (get_vertices_rotated rect ! 0)\<and>  
                            point_in_drivable_area (get_vertices_rotated rect ! 1)\<and>
                            point_in_drivable_area (get_vertices_rotated rect ! 2)\<and>
@@ -7642,7 +7642,7 @@ fun increase_lane :: "rectangle list \<Rightarrow> ((nat \<times> nat) \<times> 
                                   | Boundaries _ \<Rightarrow> None  (* it has to start in a lane -- not boundaries or outside *)
                                   | Lane n \<Rightarrow> (case start_inc_lane rects n 0 of 
                                                  None \<Rightarrow> None 
-                                               | Some (num1, rest1) \<Rightarrow> (case finish_inc_lane rest1 n num1 of 
+                                               | Some (num1, rest1) \<Rightarrow> (case finish_inc_lane rest1 (n + 1) (num1 + 1) of 
                                                                          None \<Rightarrow> None 
                                                                        | Some (num2, rest2) \<Rightarrow> Some ((num1, num2), rest2))))" 
 
@@ -7705,7 +7705,7 @@ theorem increase_lane_initial_lane_obtains:
     
 theorem increase_lane_start_inc_lane:   
   assumes "increase_lane rects = Some ((time1, time2), rest)"
-  shows "start_inc_lane rects ((glane \<circ> initial_lane) rects) 0 = Some (time1, drop (time1 + 1) rects)"
+  shows "start_inc_lane rects ((glane \<circ> initial_lane) rects) 0 = Some (time1, drop (time1+1) rects)"
 proof -
   from increase_lane_initial_lane_obtains[OF assms] obtain n where "initial_lane rects = Lane n"
     by auto
@@ -7714,23 +7714,23 @@ proof -
   with `initial_lane rects = Lane n` have "initial_lane (a  #rects') = Lane n" by auto
   from assms(1) 
     have *: "(case start_inc_lane (a # rects') n 0 of None \<Rightarrow> None
-       | Some (num1, rest1) \<Rightarrow> (case finish_inc_lane rest1 n num1 of None \<Rightarrow> None | Some (num2, rest2) \<Rightarrow> Some ((num1, num2), rest2))) = Some ((time1, time2), rest)" 
+       | Some (num1, rest1) \<Rightarrow> (case finish_inc_lane rest1 (n + 1) (num1 + 1) of None \<Rightarrow> None | Some (num2, rest2) \<Rightarrow> Some ((num1, num2), rest2))) = Some ((time1, time2), rest)" 
     unfolding rects increase_lane.simps `initial_lane (a # rects') = Lane n`
     by auto
   hence "start_inc_lane (a # rects') n 0 \<noteq> None" using option.distinct 
     by (metis (no_types, lifting) option.simps(4))
   then obtain num1 rest1 where "start_inc_lane (a # rects') n 0 = Some (num1, rest1)" by auto
-  with * have **: "(case finish_inc_lane rest1 n num1 of None \<Rightarrow> None | Some (num2, rest2) \<Rightarrow> Some ((num1, num2), rest2)) = Some ((time1, time2), rest)"
+  with * have **: "(case finish_inc_lane rest1 (n+1) (num1+1) of None \<Rightarrow> None | Some (num2, rest2) \<Rightarrow> Some ((num1, num2), rest2)) = Some ((time1, time2), rest)"
     by auto
-  hence "finish_inc_lane rest1 n num1 \<noteq> None" using option.distinct   
+  hence "finish_inc_lane rest1 (n+1) (num1+1) \<noteq> None" using option.distinct  
     by (metis (no_types, lifting) option.simps(4))
-  then obtain num2 rest2 where "finish_inc_lane rest1 n num1 = Some (num2, rest2)" by auto
+  then obtain num2 rest2 where "finish_inc_lane rest1 (n+1) (num1+1) = Some (num2, rest2)" by auto
   with ** have "num1 = time1" and "num2 = time2" and "rest2 = rest" by auto
   from start_inc_lane_drop[OF `start_inc_lane (a # rects') n 0 = Some (num1, rest1)`] 
   have "rest1 = drop (num1 + 1) (a # rects')" by auto
   with `num1 = time1` and `start_inc_lane (a # rects') n 0 = Some (num1, rest1)` show ?thesis
     unfolding rects comp_def `initial_lane (a # rects') = Lane n` by auto   
-qed
+qed 
       
 theorem 
   assumes "increase_lane rects = Some ((time1, time2),  rest)"
@@ -7739,9 +7739,9 @@ theorem
   shows "(LEAST n. n \<le> length rects \<and> 
                     lane_detection (rects ! n) = Boundaries [ori_lane + 1] \<and> 
                     (\<forall>m. m < n \<longrightarrow> lane_detection (rects ! m) = Lane ori_lane)) = time1" and 
-        "(LEAST n. time1  \<le> n \<and> n \<le> time1  + length rects' \<and> 
-                    lane_detection (rects' ! (n - time1)) = Lane ori_lane \<and> 
-                    (\<forall>m. 0 \<le> m - time1 \<and> m - time1 < n - time1 \<longrightarrow> lane_detection (rects' ! (m - time1)) = Boundaries [ori_lane])) = time2"        
+        "(LEAST n. time1+1  \<le> n \<and> n \<le> time1+1  + length rects' \<and> 
+                    lane_detection (rects' ! (n - (time1+1))) = Lane (ori_lane + 1) \<and> 
+                    (\<forall>m. 0 \<le> m - (time1+1) \<and> m - (time1+1) < n - (time1+1) \<longrightarrow> lane_detection (rects' ! (m - (time1+1))) = Boundaries [ori_lane + 1])) = time2"        
 proof - 
   from assms(1) ori_lane_def
   show "(LEAST n. n \<le> length rects \<and> 
@@ -7759,7 +7759,7 @@ proof -
     with `initial_lane (a # rects) = Lane n` have "n = ori_lane" using detection_opt.exhaust_sel by auto    
     from `initial_lane (a # rects) = Lane n` case_cons(2) 
       have cs: "(case start_inc_lane (a # rects) n 0 of None \<Rightarrow> None
-         | Some (num1, rest1) \<Rightarrow> (case finish_inc_lane rest1 n num1 of None \<Rightarrow> None | Some (num2, rest2) \<Rightarrow> Some ((num1, num2), rest2))) = Some ((time1, time2), rest)" 
+         | Some (num1, rest1) \<Rightarrow> (case finish_inc_lane rest1 (n+1) (num1+1) of None \<Rightarrow> None | Some (num2, rest2) \<Rightarrow> Some ((num1, num2), rest2))) = Some ((time1, time2), rest)" 
       unfolding increase_lane.simps by auto
     have "\<exists> num1 rest1. start_inc_lane (a # rects) n 0 = Some (num1, rest1)"
     proof (rule ccontr)
@@ -7777,34 +7777,35 @@ proof -
     qed
     then obtain num1 rest1 where "start_inc_lane (a # rects) n 0 = Some (num1, rest1)"
       by auto
-    with cs have cs2: "(case finish_inc_lane rest1 n num1 of None \<Rightarrow> None | Some (num2, rest2) \<Rightarrow> Some ((num1, num2), rest2)) = Some ((time1, time2), rest)"
+    with cs have cs2: "(case finish_inc_lane rest1 (n+1) (num1+1) of None \<Rightarrow> None | Some (num2, rest2) \<Rightarrow> Some ((num1, num2), rest2)) = Some ((time1, time2), rest)"
       by auto
-    have "\<exists>num2 rest2. finish_inc_lane rest1 n num1 = Some (num2, rest2)" 
+    have "\<exists>num2 rest2. finish_inc_lane rest1 (n+1) (num1+1) = Some (num2, rest2)" 
     proof (rule ccontr)
-      assume " \<nexists>num2 rest2. finish_inc_lane rest1 n num1 = Some (num2, rest2) "  
-      hence ***: "\<forall>num2 rest2. finish_inc_lane rest1 n num1 \<noteq> Some (num2, rest2)" by auto
-      have "finish_inc_lane rest1 n num1 = None"
+      assume " \<nexists>num2 rest2. finish_inc_lane rest1 (n+1) (num1+1) = Some (num2, rest2) "  
+      hence ***: "\<forall>num2 rest2. finish_inc_lane rest1 (n+1) (num1+1) \<noteq> Some (num2, rest2)" by auto
+      have "finish_inc_lane rest1 (n+1) (num1+1) = None"
       proof (rule ccontr)
-        assume "finish_inc_lane rest1 n num1 \<noteq> None"  
-        then obtain val1 val2 where finish_some: "finish_inc_lane rest1 n num1 = Some (val1, val2)"
+        assume "finish_inc_lane rest1 (n+1) (num1+1) \<noteq> None"  
+        then obtain val1 val2 where finish_some: "finish_inc_lane rest1 (n+1) (num1+1) = Some (val1, val2)"
           by auto
-        with *** have "finish_inc_lane rest1 n num1 \<noteq> Some (val1, val2)" by auto
+        with *** have "finish_inc_lane rest1 (n+1) (num1+1) \<noteq> Some (val1, val2)" by auto
         with finish_some show "False" by auto    
       qed
       with cs2 have "None = Some ((time1, time2), rest)" by auto  
       thus False by auto
     qed
-    then obtain num2 rest2 where "finish_inc_lane rest1 n num1 = Some (num2, rest2)"by auto
+    then obtain num2 rest2 where "finish_inc_lane rest1 (n+1) (num1+1) = Some (num2, rest2)"by auto
     with cs2 have "time1 = num1" and "time2 = num2" by auto
     with start_inc_lane_correctness0[OF `start_inc_lane (a # rects) n 0 = Some (num1, rest1)`]
       show ?case unfolding `n = ori_lane` by auto
   qed     
 next
   from assms(1) ori_lane_def rects'_def
-  show "(LEAST n. time1 \<le> n \<and>
-              n \<le> time1 + length rects' \<and>
-              lane_detection (rects' ! (n - time1)) = Lane ori_lane \<and>
-              (\<forall>m. 0 \<le> m - time1 \<and> m - time1 < n - time1 \<longrightarrow> lane_detection (rects' ! (m - time1)) = Boundaries [ori_lane])) = time2"
+  show "(LEAST n. time1 + 1 \<le> n \<and>
+              n \<le> time1+ 1 + length rects' \<and>
+              lane_detection (rects' ! (n - (time1 + 1))) = Lane (ori_lane + 1) \<and>
+              (\<forall>m. 0 \<le> m - (time1 + 1) \<and> m - (time1 + 1) < n - (time1 + 1) \<longrightarrow>
+                   lane_detection (rects' ! (m - (time1 + 1))) = Boundaries [ori_lane + 1])) = time2"
   proof (induction rects)
     case Nil
     then show ?case by auto
@@ -7817,7 +7818,7 @@ next
     with `initial_lane (a # rects) = Lane n` have "n = ori_lane" using detection_opt.exhaust_sel by auto    
     from `initial_lane (a # rects) = Lane n` case_cons(2) 
       have cs: "(case start_inc_lane (a # rects) n 0 of None \<Rightarrow> None
-         | Some (num1, rest1) \<Rightarrow> (case finish_inc_lane rest1 n num1 of None \<Rightarrow> None | Some (num2, rest2) \<Rightarrow> Some ((num1, num2), rest2))) = Some ((time1, time2), rest)" 
+         | Some (num1, rest1) \<Rightarrow> (case finish_inc_lane rest1 (n+1) (num1+1) of None \<Rightarrow> None | Some (num2, rest2) \<Rightarrow> Some ((num1, num2), rest2))) = Some ((time1, time2), rest)" 
       unfolding increase_lane.simps by auto
     have "\<exists> num1 rest1. start_inc_lane (a # rects) n 0 = Some (num1, rest1)"
     proof (rule ccontr)
@@ -7837,32 +7838,33 @@ next
       by auto
     with start_inc_lane_drop[OF this] have "rest1 = drop (num1) (rects)" by auto  
     from `start_inc_lane (a # rects) n 0 = Some (num1, rest1)` cs have cs2: 
-      "(case finish_inc_lane rest1 n num1 of None \<Rightarrow> None | Some (num2, rest2) \<Rightarrow> Some ((num1, num2), rest2)) = Some ((time1, time2), rest)"
+      "(case finish_inc_lane rest1 (n+1) (num1+1) of None \<Rightarrow> None | Some (num2, rest2) \<Rightarrow> Some ((num1, num2), rest2)) = Some ((time1, time2), rest)"
       by auto
-    have "\<exists>num2 rest2. finish_inc_lane rest1 n num1 = Some (num2, rest2)" 
+    have "\<exists>num2 rest2. finish_inc_lane rest1 (n+1) (num1+1) = Some (num2, rest2)" 
     proof (rule ccontr)
-      assume " \<nexists>num2 rest2. finish_inc_lane rest1 n num1 = Some (num2, rest2) "  
-      hence ***: "\<forall>num2 rest2. finish_inc_lane rest1 n num1 \<noteq> Some (num2, rest2)" by auto
-      have "finish_inc_lane rest1 n num1 = None"
+      assume " \<nexists>num2 rest2. finish_inc_lane rest1 (n+1) (num1+1) = Some (num2, rest2) "  
+      hence ***: "\<forall>num2 rest2. finish_inc_lane rest1 (n+1) (num1+1) \<noteq> Some (num2, rest2)" by auto
+      have "finish_inc_lane rest1 (n+1) (num1+1) = None"
       proof (rule ccontr)
-        assume "finish_inc_lane rest1 n num1 \<noteq> None"  
-        then obtain val1 val2 where finish_some: "finish_inc_lane rest1 n num1 = Some (val1, val2)"
+        assume "finish_inc_lane rest1 (n+1) (num1+1) \<noteq> None"  
+        then obtain val1 val2 where finish_some: "finish_inc_lane rest1 (n+1) (num1+1) = Some (val1, val2)"
           by auto
-        with *** have "finish_inc_lane rest1 n num1 \<noteq> Some (val1, val2)" by auto
+        with *** have "finish_inc_lane rest1 (n+1) (num1+1) \<noteq> Some (val1, val2)" by auto
         with finish_some show "False" by auto    
       qed
       with cs2 have "None = Some ((time1, time2), rest)" by auto  
       thus False by auto
     qed
-    then obtain num2 rest2 where "finish_inc_lane rest1 n num1 = Some (num2, rest2)"by auto
+    then obtain num2 rest2 where "finish_inc_lane rest1 (n+1) (num1+1) = Some (num2, rest2)"by auto
     with cs2 have "time1 = num1" and "time2 = num2" by auto    
     with `rest1 = drop (num1) (rects)` case_cons(4) have "rects' = rest1" by auto        
-    from finish_inc_lane_general_correctness[OF `finish_inc_lane rest1 n num1 = Some (num2, rest2)`]       
+    from finish_inc_lane_general_correctness[OF `finish_inc_lane rest1 (n+1) (num1+1) = Some (num2, rest2)`]       
     show ?case unfolding sym[OF `time2 = num2`] sym[OF `time1 = num1`] `n = ori_lane` sym[OF `rects' = rest1`]
       by auto      
   qed    
 qed
-  
+   
+        
 theorem increase_lane_decrease_length:
   assumes "increase_lane rects = Some ((t1, t2), rest)"
   shows "length rest < length rects"
@@ -7875,11 +7877,11 @@ proof -
   from increase_lane_start_inc_lane[OF assms] have sil: "start_inc_lane (a # rects') n 0 = Some (t1, drop (t1 + 1) (a # rects'))"
     unfolding rects comp_def il2 by auto
   from assms(1) 
-    have *: "(case finish_inc_lane (drop (t1 + 1) (a # rects')) n t1 of None \<Rightarrow> None | Some (num2, rest2) \<Rightarrow> Some ((t1, num2), rest2)) = Some ((t1, t2), rest)" 
+    have *: "(case finish_inc_lane (drop (t1 + 1) (a # rects')) (n+1) (t1+1) of None \<Rightarrow> None | Some (num2, rest2) \<Rightarrow> Some ((t1, num2), rest2)) = Some ((t1, t2), rest)" 
     unfolding rects increase_lane.simps il2 using sil by auto
-  hence "finish_inc_lane (drop (t1 + 1) (a # rects')) n t1 \<noteq> None" using option.distinct 
+  hence "finish_inc_lane (drop (t1 + 1) (a # rects')) (n+1) (t1+1) \<noteq> None" using option.distinct 
     by (metis (no_types, lifting) option.simps(4))
-  then obtain num2 rest2 where **: "finish_inc_lane (drop (t1 + 1) (a # rects')) n t1 = Some (num2, rest2)"
+  then obtain num2 rest2 where **: "finish_inc_lane (drop (t1 + 1) (a # rects')) (n+1) (t1+1) = Some (num2, rest2)"
     by auto
   with * have "num2 = t2" and "rest2 = rest" by auto 
   with finish_inc_lane_decrease_length[OF **] have "length rest < length (drop (t1 + 1) (a # rects'))"
@@ -7887,7 +7889,7 @@ proof -
   also have "... \<le> length (a # rects')" by auto
   finally have "length rest < length (a # rects')" by auto    
   thus ?thesis unfolding rects by auto          
-qed
+qed 
   
     
 text "This is the definition (or function) for (detecting) the occurrence of lane changing to the 
@@ -7900,7 +7902,7 @@ fun decrease_lane :: "rectangle list \<Rightarrow> ((nat \<times> nat) \<times> 
                                   | Boundaries _ \<Rightarrow> None 
                                   | Lane n \<Rightarrow> (case start_dec_lane rects n 0 of 
                                                  None \<Rightarrow> None 
-                                               | Some (num1, rest1) \<Rightarrow> (case finish_dec_lane rest1 n num1 of 
+                                               | Some (num1, rest1) \<Rightarrow> (case finish_dec_lane rest1 n (num1 + 1) of 
                                                                          None \<Rightarrow> None 
                                                                        | Some (num2, rest2) \<Rightarrow> Some ((num1, num2), rest2))))"   
   
@@ -7911,7 +7913,7 @@ fun decrease_lane2 :: "rectangle list \<Rightarrow> ((nat \<times> nat) \<times>
                              |    Boundaries _ \<Rightarrow> None
                              |    Lane n \<Rightarrow> do {
                                               (num1, rest1) \<leftarrow> start_dec_lane rects n 0;
-                                              (num2, rest2) \<leftarrow> finish_dec_lane rest1 n num1;
+                                              (num2, rest2) \<leftarrow> finish_dec_lane rest1 n (num1+1);
                                               Some ((num1, num2), rest2) 
                                             })"  
   
@@ -7948,7 +7950,7 @@ next
     then show ?thesis by auto
   next
     case 3
-    hence in0: "decrease_lane2 (a # rects) = start_dec_lane (a # rects) n 0 \<bind> (\<lambda>(num1, rest1). finish_dec_lane rest1 n num1 \<bind> (\<lambda>(num2, rest2). Some ((num1, num2), rest2)))"  
+    hence in0: "decrease_lane2 (a # rects) = start_dec_lane (a # rects) n 0 \<bind> (\<lambda>(num1, rest1). finish_dec_lane rest1 n (num1+1) \<bind> (\<lambda>(num2, rest2). Some ((num1, num2), rest2)))"  
       (is "?l0 = ?r0")
       by auto
     have "\<exists> num1 rest1. start_dec_lane (a # rects) n 0 = None \<or> start_dec_lane (a # rects) n 0 = Some (num1, rest1)"
@@ -7969,21 +7971,21 @@ next
       finally have "?l0 = decrease_lane (a # rects)" using in0 by auto }
     moreover
     { assume start_some: "start_dec_lane (a # rects) n 0 = Some (num1, rest1)"
-      hence in1: "?r0 = finish_dec_lane rest1 n num1 \<bind> (\<lambda>(num2, rest2). Some ((num1, num2), rest2))"
+      hence in1: "?r0 = finish_dec_lane rest1 n (num1+1) \<bind> (\<lambda>(num2, rest2). Some ((num1, num2), rest2))"
         by auto
-      have "\<exists> num2 rest2. finish_dec_lane rest1 n num1 = None \<or> finish_dec_lane rest1 n num1 = Some (num2, rest2)"
-      proof (induction "finish_dec_lane rest1 n num1")
+      have "\<exists> num2 rest2. finish_dec_lane rest1 n (num1+1) = None \<or> finish_dec_lane rest1 n (num1+1) = Some (num2, rest2)"
+      proof (induction "finish_dec_lane rest1 n (num1+1)")
         case None
         then show ?case by auto
       next
         case (Some option)
         from sym[OF this] show ?case by auto
       qed  
-      then obtain num2 rest2 where "finish_dec_lane rest1 n num1 = None \<or> finish_dec_lane rest1 n num1 = Some (num2, rest2)"
+      then obtain num2 rest2 where "finish_dec_lane rest1 n (num1+1) = None \<or> finish_dec_lane rest1 n (num1+1) = Some (num2, rest2)"
         by auto
-      then consider "finish_dec_lane rest1 n num1 = None" | "finish_dec_lane rest1 n num1 = Some (num2, rest2)"
+      then consider "finish_dec_lane rest1 n (num1+1) = None" | "finish_dec_lane rest1 n (num1+1) = Some (num2, rest2)"
         by auto
-      hence "finish_dec_lane rest1 n num1 \<bind> (\<lambda>(num2, rest2). Some ((num1, num2), rest2)) = 
+      hence "finish_dec_lane rest1 n (num1+1) \<bind> (\<lambda>(num2, rest2). Some ((num1, num2), rest2)) = 
               decrease_lane (a # rects)"
         by (cases) (unfold decrease_lane.simps 3, auto simp add:start_some)
       with in0 and in1 have ?thesis by auto   
@@ -8082,7 +8084,7 @@ theorem decrease_lane_finish_dec_lane_some:
   assumes "decrease_lane rects = Some ((time1, time2), rest)" 
   defines "il \<equiv> initial_lane rects"
   defines "res \<equiv> start_dec_lane rects (glane il) 0" 
-  defines "res2 \<equiv> finish_dec_lane (snd (the res)) (glane il) (fst (the res))"    
+  defines "res2 \<equiv> finish_dec_lane (snd (the res)) (glane il) (fst (the res) + 1)"    
   shows "fst (the res) = time1" and "snd (the res) = drop (time1 + 1) rects" and "fst (the res2) = time2" and "snd (the res2) = rest"
 proof -
   from decrease_lane_eq_lane_obtains[OF assms(1)] obtain i where "il = Lane i"
@@ -8096,16 +8098,16 @@ proof -
     `initial_lane (a # rects') = Lane i` by auto
   with assms(3) have "fst (the res) = t1" and "snd (the res) = rs1" unfolding res_def
     `rects = a # rects'` `glane il = i` by auto      
-  from * assms(1) have 0: "finish_dec_lane rs1 (glane il) t1 \<noteq> None"
+  from * assms(1) have 0: "finish_dec_lane rs1 (glane il) (t1+1) \<noteq> None"
     unfolding `rects = a # rects'` decrease_lane.simps `initial_lane (a # rects') = Lane i`
     by (metis (no_types, lifting) \<open>glane il = i\<close> case_prod_conv decrease_lane.simps(1) 
         detection_opt.simps(10) lane.decrease_lane_neq lane_axioms option.simps(4) option.simps(5))
   from start_dec_lane_Suc_n_obtain[OF *] obtain n where "i = Suc n" by auto      
   from start_dec_lane_drop[OF * this] have "rs1 = drop (t1 + 1) rects" unfolding `rects = a # rects'`
     by auto      
-  from 0 obtain t2 rs2 where **: "finish_dec_lane rs1 (glane il) t1 = Some (t2, rs2)"
+  from 0 obtain t2 rs2 where **: "finish_dec_lane rs1 (glane il) (t1+1) = Some (t2, rs2)"
     by auto    
-  from assms(1) have "(case finish_dec_lane rs1 i t1 of None \<Rightarrow> None | 
+  from assms(1) have "(case finish_dec_lane rs1 i (t1+1) of None \<Rightarrow> None | 
       Some (num2, rest2) \<Rightarrow> Some ((t1, num2), rest2)) = Some ((time1, time2), rest)" 
      unfolding `rects = a # rects'` decrease_lane.simps
     `initial_lane (a # rects') = Lane i` using * by auto
@@ -8123,7 +8125,7 @@ theorem decrease_lane_correctness':
   assumes "decrease_lane rects = Some ((t1, t2), rest)"
   defines "il \<equiv> initial_lane rects"
   defines "res \<equiv> start_dec_lane rects (glane il) 0" 
-  defines "stime \<equiv> fst (the res)"
+  defines "stime \<equiv> fst (the res)+1"
   defines "rects2 \<equiv> snd (the res)"    
   shows "(LEAST n. n \<le> length rects \<and> 
                    lane_detection (rects ! n) = Boundaries [glane il] \<and> 
@@ -8149,14 +8151,14 @@ proof -
                    (\<forall>m. m < n  \<longrightarrow> lane_detection (rects ! m) = Lane (glane il))) = t1"
     unfolding rects `glane il = i` using `fst (the res) = t1` unfolding res_def rects `glane il = i`
     * by auto
-  define res2 where "res2 \<equiv> finish_dec_lane (snd (the res)) (glane il) (fst (the res))"
+  define res2 where "res2 \<equiv> finish_dec_lane (snd (the res)) (glane il) (fst (the res) + 1)"
   from decrease_lane_finish_dec_lane_some[OF assms(1)] have "fst (the res2) = t2" and "snd (the res2) = rest"
     unfolding res2_def res_def il_def by auto
   hence "res2 = Some (t2, rest)" 
     by (metis (mono_tags, lifting) \<open>il = Lane i\<close> assms(1) detection_opt.simps(10) glane_def il_def 
         lane.decrease_lane.simps(2) lane_axioms option.collapse option.simps(3) option.simps(4) 
         option.simps(5) prod.collapse prod.simps(2) rects res2_def res_def)      
-  hence "finish_dec_lane rs1 i time1 = Some (t2, rest)" unfolding res2_def res_def
+  hence "finish_dec_lane rs1 i (time1+1) = Some (t2, rest)" unfolding res2_def res_def
       rects `glane il = i` * by auto
   from finish_dec_lane_general_correctness[OF this `i = Suc n`] show "(LEAST n. stime \<le> n \<and> n \<le> stime + length rects2 \<and> 
                    lane_detection (rects2 ! (n - stime)) = Lane (glane il - 1) \<and> 
@@ -8171,13 +8173,13 @@ theorem decrease_lane_correctness:
   shows "(LEAST n. n \<le> length rects \<and> 
                    lane_detection (rects ! n) = Boundaries [bound_id] \<and> 
                    (\<forall>m. m < n  \<longrightarrow> lane_detection (rects ! m) = Lane bound_id)) = t1" and 
-        "(LEAST n. t1 \<le> n \<and> n \<le> t1 + length rects2 \<and> 
-                   lane_detection (rects2 ! (n - t1)) = Lane (bound_id - 1) \<and> 
-                   (\<forall>m. 0 \<le> m - t1 \<and> m - t1 < n - t1 \<longrightarrow> lane_detection (rects2 ! (m - t1)) = Boundaries [bound_id])) = t2"    
+        "(LEAST n. t1 + 1 \<le> n \<and> n \<le> t1 + 1 + length rects2 \<and> 
+                   lane_detection (rects2 ! (n - (t1+1))) = Lane (bound_id - 1) \<and> 
+                   (\<forall>m. 0 \<le> m - (t1+1) \<and> m - (t1+1) < n - (t1+1) \<longrightarrow> lane_detection (rects2 ! (m - (t1+1))) = Boundaries [bound_id])) = t2"    
 proof -
   define il where "il \<equiv> initial_lane rects"
   define res where "res \<equiv> start_dec_lane rects (glane il) 0" 
-  define stime where "stime \<equiv> fst (the res)"
+  define stime where "stime \<equiv> fst (the res)+1"
   define rects' where "rects' \<equiv> snd (the res)"   
   note abb = il_def res_def stime_def rects'_def  
   from decrease_lane_correctness'[OF assms(1)]
@@ -8194,10 +8196,10 @@ proof -
     unfolding il_def bound_id_def by auto
   from decrease_lane_finish_dec_lane_some[OF assms(1)] have "fst (the res) = t1" and 
     "snd (the res) = drop (t1 + 1) rects" unfolding res_def il_def by auto       
-  hence "stime = t1" and "rects' = rects2" unfolding stime_def rects'_def rects2_def by auto
-  with i2 show "(LEAST n. t1 \<le> n \<and> n \<le> t1 + length rects2 \<and> 
-                   lane_detection (rects2 ! (n - t1)) = Lane (bound_id - 1) \<and> 
-                   (\<forall>m. 0 \<le> m - t1 \<and> m - t1 < n - t1 \<longrightarrow> lane_detection (rects2 ! (m - t1)) = Boundaries [bound_id])) = t2"
+  hence "stime = t1 + 1" and "rects' = rects2" unfolding stime_def rects'_def rects2_def by auto
+  with i2 show "(LEAST n. t1 + 1 \<le> n \<and> n \<le> t1 + 1 + length rects2 \<and> 
+                   lane_detection (rects2 ! (n - (t1+1))) = Lane (bound_id - 1) \<and> 
+                   (\<forall>m. 0 \<le> m - (t1+1) \<and> m - (t1+1) < n - (t1+1) \<longrightarrow> lane_detection (rects2 ! (m - (t1+1))) = Boundaries [bound_id])) = t2"
     unfolding il_def bound_id_def by auto    
 qed
   
@@ -8262,13 +8264,13 @@ proof -
   hence sdl: "start_dec_lane (a # rects') n 0 = Some (t3, drop (t3 + 1) (a # rects'))"
     unfolding rects il by auto
   from assms(1)
-  have *: "(case finish_dec_lane (drop (t3 + 1) rects) n t3 of None \<Rightarrow> None | Some (num2, rest2) \<Rightarrow> Some ((t3, num2), rest2)) = 
+  have *: "(case finish_dec_lane (drop (t3 + 1) rects) n (t3+1) of None \<Rightarrow> None | Some (num2, rest2) \<Rightarrow> Some ((t3, num2), rest2)) = 
             Some ((t3, t4), rest)"
     unfolding rects decrease_lane.simps il using sdl by auto
-  hence "finish_dec_lane (drop (t3 + 1) (a # rects')) n t3 \<noteq> None" 
+  hence "finish_dec_lane (drop (t3 + 1) (a # rects')) n (t3+1) \<noteq> None" 
     unfolding rects using option.distinct
     by (metis (no_types, lifting) option.simps(4))
-  then obtain num2 rest2 where **: "finish_dec_lane (drop (t3 + 1) (a # rects')) n t3 = Some (num2, rest2)"
+  then obtain num2 rest2 where **: "finish_dec_lane (drop (t3 + 1) (a # rects')) n (t3+1) = Some (num2, rest2)"
     by auto
   with * have "num2 = t4" and "rest2 = rest" unfolding rects by auto
   with finish_dec_lane_decrease_length[OF **] have "length rest < length (drop (t3 + 1) (a # rects'))" 
@@ -8297,7 +8299,7 @@ function overtaking :: "rectangle list \<Rightarrow> (nat \<times> nat \<times> 
                           None \<Rightarrow> [] 
                        |  Some ((t1, t2), rest1) \<Rightarrow> (case decrease_lane rest1 of 
                                                             None \<Rightarrow> overtaking rest1
-                                                          | Some ((t3, t4), rest2) \<Rightarrow> (t1, t2, t3, t4) # overtaking rest2))"  
+                                                          | Some ((t3, t4), rest2) \<Rightarrow> (t1, t2, t2 + t3 + 1, t2 + t4 + 1) # overtaking rest2))"  
   by pat_completeness auto
   termination by (relation "Wellfounded.measure length")          
     (auto simp add:increase_lane_some_not_nil increase_lane_decrease_length 
@@ -8309,9 +8311,11 @@ fun time_points_to_ov_bools :: "(nat \<times> nat \<times> nat \<times> nat) lis
                                             replicate t1 False @ 
                                             replicate (t4 - t1 + 1) True @ 
                                             time_points_to_ov_bools tps)"
-  
+      
 definition overtaking_trace :: "rectangle list \<Rightarrow> bool list" where
-  "overtaking_trace rects = (time_points_to_ov_bools \<circ> overtaking) rects"       
+  "overtaking_trace rects = (let temp = (time_points_to_ov_bools \<circ> overtaking) rects;
+                                 diff = length rects - length temp in
+                            if diff > 0 then temp @ replicate diff False else temp)"       
 
 \<comment> \<open>Detecting on_fast_lane which is interval @{term "{t1 ..< t2}"}\<close>    
 fun time_points_to_fl_bools :: "(nat \<times> nat \<times> nat \<times> nat) list \<Rightarrow> bool list" where
@@ -8323,7 +8327,9 @@ fun time_points_to_fl_bools :: "(nat \<times> nat \<times> nat \<times> nat) lis
                                             time_points_to_fl_bools tps)"
 
 definition fast_lane_trace :: "rectangle list \<Rightarrow> bool list" where
-  "fast_lane_trace rects = (time_points_to_fl_bools \<circ> overtaking) rects"  
+  "fast_lane_trace rects = (let temp = (time_points_to_fl_bools \<circ> overtaking) rects; 
+                                diff = length rects - length temp in 
+                            if  diff > 0 then temp @ replicate diff False else temp)"  
   
 text "Detecting merging which is t3 only"
   
@@ -8335,7 +8341,9 @@ fun time_points_to_merge_bools :: "(nat \<times> nat \<times> nat \<times> nat) 
                                             time_points_to_merge_bools tps)"
   
 definition merging_trace :: "rectangle list \<Rightarrow> bool list" where
-  "merging_trace rects = (time_points_to_merge_bools \<circ> overtaking) rects"  
+  "merging_trace rects = (let temp = (time_points_to_merge_bools \<circ> overtaking) rects; 
+                              diff = length rects - length temp in 
+                          if diff > 0 then temp @ replicate diff False else temp)"  
   
 \<comment> \<open>Detecting returning to original lane which is @{term "{t3 .. t4}"}\<close>
 fun time_points_to_ori_bools :: "(nat \<times> nat \<times> nat \<times> nat) list \<Rightarrow>  bool list" where
@@ -8346,7 +8354,9 @@ fun time_points_to_ori_bools :: "(nat \<times> nat \<times> nat \<times> nat) li
                                             time_points_to_merge_bools tps)"
   
 definition original_lane_trace :: "rectangle list \<Rightarrow> bool list" where
-  "original_lane_trace rects \<equiv> (time_points_to_ori_bools \<circ> overtaking) rects"
+  "original_lane_trace rects \<equiv> (let temp = (time_points_to_ori_bools \<circ> overtaking) rects; 
+                                     diff = length rects - length temp in 
+                                if diff > 0 then temp @ replicate diff False else temp)"
 end
   
 subsection "Lane with two lanelets"
@@ -8357,7 +8367,7 @@ locale lane2' = bound0: lanelet_simple_boundary points0 +
                 bound2: lanelet_simple_boundary points2 +
                 lane0: lanelet points1 points0 + 
                 lane1: lanelet points2 points1 +
-                Lane: lane "[points0, points1, points2]"  for points0 points1 and points2 +
+                Lane: lane "[points0, points1, points2]"  for points0 and points1 and points2 +
    assumes not_intersect02: "\<not> lanes_intersect points0 points2"              
 begin
  
@@ -8366,15 +8376,14 @@ definition in_lane2 :: "rectangle \<Rightarrow> nat option" where
                     if lane1.rectangle_inside rect then Some 1 else None)"
  
 term "lane.in_lane"  
+term "filter"  
   
-(* TODO prove in_lane2 is equal to Lane.in_lane --- needs commutativity *)
-
 definition lane_boundaries_touched2 :: "rectangle \<Rightarrow> nat list" where
   "lane_boundaries_touched2 rect = (let touch0 = bound0.rectangle_intersect rect;
                                         touch1 = bound1.rectangle_intersect rect;
                                         touch2 = bound2.rectangle_intersect rect;
                                         res = List.enumerate 0 [touch0, touch1, touch2];
-                                        fil = takeWhile (\<lambda>x. snd x) res in 
+                                        fil = filter (\<lambda>x. snd x) res in 
                                         map fst fil)"   
   
 theorem [code]:  "Lane.in_lane = in_lane2" sorry  

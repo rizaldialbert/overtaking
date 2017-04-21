@@ -42,10 +42,14 @@ record rectangle =
 definition rotation_matrix' :: "real \<Rightarrow> real2 \<Rightarrow> real2" where
   "rotation_matrix' theta \<equiv>  (\<lambda>p :: real2. (cos theta * fst p - sin theta * snd p, 
                                              sin theta * fst p + cos theta * snd p))"
-
+(* 
 definition rotate_rect :: "rectangle \<Rightarrow> real2 \<Rightarrow> real2" where
   "rotate_rect rect \<equiv> (let centre = (Xcoord rect, Ycoord rect); ori = Orient rect in 
-                              (\<lambda>p. p + centre) \<circ> (rotation_matrix' ori) \<circ> (\<lambda>p. p - centre))"  
+                              (\<lambda>p. p + centre) \<circ> (rotation_matrix' ori) \<circ> (\<lambda>p. p - centre))"   *)
+  
+definition rotate_rect :: "rectangle \<Rightarrow> real2 \<Rightarrow> real2" where
+  "rotate_rect rect \<equiv> (let centre = (Xcoord rect, Ycoord rect); ori = Orient rect in 
+                                                                            (rotation_matrix' ori))"    
   
 (* the vertices are sorted in counter-clockwise manner *)    
 definition get_vertices :: "rectangle \<Rightarrow> real2 list" where
