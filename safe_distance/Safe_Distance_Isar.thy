@@ -2377,13 +2377,13 @@ lemma suff_cond_safe_dist2_code[code]:
   using real_sqrt_ge_zero real_less_rsqrt less_sqrt_iff
   by (auto simp: suff_cond_safe_dist2_def Let_def)
   
-(* 
+text \<open>
 There are two expressions for safe distance. The first safe distance safe_dist1 is always valid. 
 Whenever the distance is bigger than safe_dist1, it is guarantee to be collision free. 
 
 The second one is safe_dist2. If the sufficient condition suff_cond_safe_dist2 is satisfied and 
 the distance is bigger than safe_dist2, it is guarantee to be collision free. 
-*)
+\<close>
 
 definition "check_precond s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<longleftrightarrow> s\<^sub>o > s\<^sub>e \<and> 0 \<le> v\<^sub>e \<and> 0 \<le> v\<^sub>o \<and> a\<^sub>e < 0 \<and> a\<^sub>o < 0 "
 
@@ -2563,6 +2563,14 @@ subsubsection \<open>Checker extended with reaction time delay\<close>
 text \<open>\label{sec:checker_react}\<close>  
 (* We define two checkers for different cases: one checker for the case that \<delta> \<le> other.t_stop (other.t_stop = - v\<^sub>o / a\<^sub>o) and a second checker for the case that \<delta> > other.t_stop *)
 definition "check_precond21 s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta> \<longleftrightarrow> s\<^sub>o > s\<^sub>e \<and> 0 \<le> v\<^sub>e \<and> 0 \<le> v\<^sub>o \<and> a\<^sub>e < 0 \<and> a\<^sub>o < 0 \<and> 0 < \<delta> \<and> \<delta> \<le> - v\<^sub>o / a\<^sub>o"
+    
+definition safe_distance0 where "safe_distance0 v\<^sub>e a\<^sub>o v\<^sub>o \<delta> = v\<^sub>e * \<delta> - v\<^sub>o * \<delta> - a\<^sub>o * \<delta>\<^sup>2 / 2"
+definition safe_distance_1r where "safe_distance_1r a\<^sub>e v\<^sub>e \<delta> = v\<^sub>e * \<delta> - v\<^sub>e\<^sup>2 / a\<^sub>e / 2"  
+definition safe_distance_2r where "safe_distance_2r a\<^sub>e v\<^sub>e a\<^sub>o v\<^sub>o \<delta> = v\<^sub>e * \<delta> - v\<^sub>e\<^sup>2 / 2 / a\<^sub>e + v\<^sub>o\<^sup>2 / 2 / a\<^sub>o"
+definition safe_distance_4r where "safe_distance_4r a\<^sub>e v\<^sub>e a\<^sub>o v\<^sub>o \<delta> =
+                               (v\<^sub>o + a\<^sub>o * \<delta> - v\<^sub>e)\<^sup>2 / 2 / (a\<^sub>o - a\<^sub>e) - v\<^sub>o * \<delta> - 1 / 2 * a\<^sub>o * \<delta>\<^sup>2 + v\<^sub>e * \<delta>" 
+definition safe_distance_3r where "safe_distance_3r a\<^sub>e v\<^sub>e a\<^sub>o v\<^sub>o \<delta> = 
+                                                      v\<^sub>e * \<delta> - v\<^sub>e\<^sup>2 / 2 / a\<^sub>e - v\<^sub>o * \<delta> - 1 / 2 * a\<^sub>o * \<delta>\<^sup>2"  
           
 definition checker_r12 :: "real \<Rightarrow> real \<Rightarrow> real \<Rightarrow> real \<Rightarrow> real \<Rightarrow> real \<Rightarrow> real \<Rightarrow> bool" where
   "checker_r12 s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta> \<equiv> let distance = s\<^sub>o - s\<^sub>e;
@@ -2570,11 +2578,11 @@ definition checker_r12 :: "real \<Rightarrow> real \<Rightarrow> real \<Rightarr
         vo_star = v\<^sub>o + a\<^sub>o * \<delta>;
         t_stop_o_star = - vo_star / a\<^sub>o; 
         t_stop_e = - v\<^sub>e / a\<^sub>e;
-        distance0 = safe_distance_normal.distance0 v\<^sub>e a\<^sub>o v\<^sub>o \<delta>;
-        safe_dist0 = safe_distance_normal.safe_distance_1r a\<^sub>e v\<^sub>e \<delta>;
-        safe_dist1 = safe_distance_normal.safe_distance_2r a\<^sub>e v\<^sub>e a\<^sub>o v\<^sub>o \<delta>;
-        safe_dist2 = safe_distance_normal.safe_distance_4r a\<^sub>e v\<^sub>e a\<^sub>o v\<^sub>o \<delta>;
-        safe_dist3 = safe_distance_normal.safe_distance_3r a\<^sub>e v\<^sub>e a\<^sub>o v\<^sub>o \<delta> in 
+        distance0 = safe_distance0 v\<^sub>e a\<^sub>o v\<^sub>o \<delta>;
+        safe_dist0 = safe_distance_1r a\<^sub>e v\<^sub>e \<delta>;
+        safe_dist1 = safe_distance_2r a\<^sub>e v\<^sub>e a\<^sub>o v\<^sub>o \<delta>;
+        safe_dist2 = safe_distance_4r a\<^sub>e v\<^sub>e a\<^sub>o v\<^sub>o \<delta>;
+        safe_dist3 = safe_distance_3r a\<^sub>e v\<^sub>e a\<^sub>o v\<^sub>o \<delta> in 
    if \<not> precond then 
       False
    else if distance > safe_dist0 \<or> distance > safe_dist3 then 
@@ -2593,8 +2601,32 @@ proof
     assume "\<not> check_precond21 s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta>"  
     with asm show "False" unfolding checker_r12_def Let_def by auto      
   qed
-  from pre interpret sdn: safe_distance_normal a\<^sub>e v\<^sub>e s\<^sub>e a\<^sub>o v\<^sub>o s\<^sub>o \<delta>
-    by (unfold_locales) (auto simp add: check_precond21_def)  
+  from pre have sdn': "safe_distance_normal a\<^sub>e v\<^sub>e s\<^sub>e a\<^sub>o v\<^sub>o s\<^sub>o \<delta>"
+    by (unfold_locales) (auto simp add: check_precond21_def)      
+  interpret sdn: safe_distance_normal a\<^sub>e v\<^sub>e s\<^sub>e a\<^sub>o v\<^sub>o s\<^sub>o \<delta>
+    rewrites "sdn.distance0 = safe_distance0 v\<^sub>e a\<^sub>o v\<^sub>o \<delta>" and
+             "sdn.safe_distance_1r = safe_distance_1r a\<^sub>e v\<^sub>e \<delta>" and
+             "sdn.safe_distance_2r = safe_distance_2r a\<^sub>e v\<^sub>e a\<^sub>o v\<^sub>o \<delta>" and 
+             "sdn.safe_distance_4r = safe_distance_4r a\<^sub>e v\<^sub>e a\<^sub>o v\<^sub>o \<delta>" and 
+             "sdn.safe_distance_3r = safe_distance_3r a\<^sub>e v\<^sub>e a\<^sub>o v\<^sub>o \<delta>"
+  proof -
+    from sdn' show "safe_distance_normal a\<^sub>e v\<^sub>e s\<^sub>e a\<^sub>o v\<^sub>o s\<^sub>o \<delta>" by auto
+  next
+    show "safe_distance_normal.distance0 v\<^sub>e a\<^sub>o v\<^sub>o \<delta> = safe_distance0 v\<^sub>e a\<^sub>o v\<^sub>o \<delta> "
+      unfolding safe_distance_normal.distance0_def[OF sdn'] safe_distance0_def by auto
+  next
+    show "safe_distance_normal.safe_distance_1r a\<^sub>e v\<^sub>e \<delta> = safe_distance_1r a\<^sub>e v\<^sub>e \<delta>"
+      unfolding safe_distance_normal.safe_distance_1r_def[OF sdn'] safe_distance_1r_def by auto
+  next
+    show "safe_distance_normal.safe_distance_2r a\<^sub>e v\<^sub>e a\<^sub>o v\<^sub>o \<delta> = safe_distance_2r a\<^sub>e v\<^sub>e a\<^sub>o v\<^sub>o \<delta>"
+      unfolding safe_distance_normal.safe_distance_2r_def[OF sdn'] safe_distance_2r_def by auto
+  next 
+    show "safe_distance_normal.safe_distance_4r a\<^sub>e v\<^sub>e a\<^sub>o v\<^sub>o \<delta> = safe_distance_4r a\<^sub>e v\<^sub>e a\<^sub>o v\<^sub>o \<delta> "
+      unfolding safe_distance_normal.safe_distance_4r_def[OF sdn'] safe_distance_4r_def by auto
+  next
+    show "safe_distance_normal.safe_distance_3r a\<^sub>e v\<^sub>e a\<^sub>o v\<^sub>o \<delta> = safe_distance_3r a\<^sub>e v\<^sub>e a\<^sub>o v\<^sub>o \<delta>"
+      unfolding safe_distance_normal.safe_distance_3r_def[OF sdn'] safe_distance_3r_def by auto
+  qed    
   have "0 < \<delta>" and "\<delta> \<le> - v\<^sub>o / a\<^sub>o" using pre unfolding check_precond21_def by auto  
   define so_delta where "so_delta = s\<^sub>o + v\<^sub>o * \<delta> + a\<^sub>o * \<delta>\<^sup>2 / 2"
   define q_e_delta where "q_e_delta \<equiv> s\<^sub>e + v\<^sub>e * \<delta>" 
@@ -2603,11 +2635,11 @@ proof
   define t_stop_o_star where "t_stop_o_star \<equiv> - vo_star / a\<^sub>o"
   define t_stop_e where "t_stop_e = - v\<^sub>e / a\<^sub>e"
   define distance where "distance \<equiv> s\<^sub>o - s\<^sub>e"
-  define distance0 where "distance0 = safe_distance_normal.distance0 v\<^sub>e a\<^sub>o v\<^sub>o \<delta>"    
-  define safe_dist0 where "safe_dist0 = safe_distance_normal.safe_distance_1r a\<^sub>e v\<^sub>e \<delta>"          
-  define safe_dist2 where "safe_dist2 \<equiv> safe_distance_normal.safe_distance_4r a\<^sub>e v\<^sub>e a\<^sub>o v\<^sub>o \<delta>"
-  define safe_dist1 where "safe_dist1 \<equiv> safe_distance_normal.safe_distance_2r a\<^sub>e v\<^sub>e a\<^sub>o v\<^sub>o \<delta>"    
-  define safe_dist3 where "safe_dist3 = safe_distance_normal.safe_distance_3r a\<^sub>e v\<^sub>e a\<^sub>o v\<^sub>o \<delta>"        
+  define distance0 where "distance0 = safe_distance0 v\<^sub>e a\<^sub>o v\<^sub>o \<delta>"    
+  define safe_dist0 where "safe_dist0 = safe_distance_1r a\<^sub>e v\<^sub>e \<delta>"          
+  define safe_dist2 where "safe_dist2 \<equiv> safe_distance_4r a\<^sub>e v\<^sub>e a\<^sub>o v\<^sub>o \<delta>"
+  define safe_dist1 where "safe_dist1 \<equiv> safe_distance_2r a\<^sub>e v\<^sub>e a\<^sub>o v\<^sub>o \<delta>"    
+  define safe_dist3 where "safe_dist3 = safe_distance_3r a\<^sub>e v\<^sub>e a\<^sub>o v\<^sub>o \<delta>"        
   note abb = so_delta_def q_e_delta_def u_stop_e_def vo_star_def t_stop_o_star_def t_stop_e_def
              distance_def safe_dist2_def safe_dist1_def safe_dist0_def safe_dist3_def distance0_def
   consider "distance > safe_dist0" | "distance > safe_dist3" | "distance \<le> safe_dist0 \<and> distance \<le> safe_dist3"
@@ -2673,25 +2705,49 @@ next
     define so_delta where "so_delta = s\<^sub>o + v\<^sub>o * \<delta> + a\<^sub>o * \<delta>\<^sup>2 / 2"
     define q_e_delta where "q_e_delta \<equiv> s\<^sub>e + v\<^sub>e * \<delta>" 
     define u_stop_e where "u_stop_e \<equiv> q_e_delta - v\<^sub>e\<^sup>2 / (2 * a\<^sub>e)"
-    define vo_star where "vo_star = v\<^sub>o + a\<^sub>o * \<delta>"
+    define vo_star where "vo_star \<equiv> v\<^sub>o + a\<^sub>o * \<delta>"
     define t_stop_o_star where "t_stop_o_star \<equiv> - vo_star / a\<^sub>o"
-    define t_stop_e where "t_stop_e = - v\<^sub>e / a\<^sub>e"
-    define distance where "distance \<equiv> s\<^sub>o - s\<^sub>e"
-    define distance0 where "distance0 = safe_distance_normal.distance0 v\<^sub>e a\<^sub>o v\<^sub>o \<delta>"    
-    define safe_dist0 where "safe_dist0 = safe_distance_normal.safe_distance_1r a\<^sub>e v\<^sub>e \<delta>"          
-    define safe_dist2 where "safe_dist2 \<equiv> safe_distance_normal.safe_distance_4r a\<^sub>e v\<^sub>e a\<^sub>o v\<^sub>o \<delta>"
-    define safe_dist1 where "safe_dist1 \<equiv> safe_distance_normal.safe_distance_2r a\<^sub>e v\<^sub>e a\<^sub>o v\<^sub>o \<delta>"    
-    define safe_dist3 where "safe_dist3 = safe_distance_normal.safe_distance_3r a\<^sub>e v\<^sub>e a\<^sub>o v\<^sub>o \<delta>"        
+    define t_stop_e where "t_stop_e \<equiv> - v\<^sub>e / a\<^sub>e"
+    define distance where "distance \<equiv> s\<^sub>o - s\<^sub>e"                   
+    define distance0 where "distance0 \<equiv> safe_distance0 v\<^sub>e a\<^sub>o v\<^sub>o \<delta>"    
+    define safe_dist0 where "safe_dist0 \<equiv> safe_distance_1r a\<^sub>e v\<^sub>e \<delta>"          
+    define safe_dist2 where "safe_dist2 \<equiv> safe_distance_4r a\<^sub>e v\<^sub>e a\<^sub>o v\<^sub>o \<delta>"
+    define safe_dist1 where "safe_dist1 \<equiv> safe_distance_2r a\<^sub>e v\<^sub>e a\<^sub>o v\<^sub>o \<delta>"    
+    define safe_dist3 where "safe_dist3 \<equiv> safe_distance_3r a\<^sub>e v\<^sub>e a\<^sub>o v\<^sub>o \<delta>"        
     note abb = so_delta_def q_e_delta_def u_stop_e_def vo_star_def t_stop_o_star_def t_stop_e_def
                distance_def safe_dist2_def safe_dist1_def safe_dist0_def safe_dist3_def distance0_def
-    from pre interpret sdn: safe_distance_normal a\<^sub>e v\<^sub>e s\<^sub>e a\<^sub>o v\<^sub>o s\<^sub>o \<delta>
-      by (unfold_locales) (auto simp add: check_precond21_def)       
+    from pre have sdn': "safe_distance_normal a\<^sub>e v\<^sub>e s\<^sub>e a\<^sub>o v\<^sub>o s\<^sub>o \<delta>"
+      by (unfold_locales) (auto simp add: check_precond21_def)      
+    interpret sdn: safe_distance_normal a\<^sub>e v\<^sub>e s\<^sub>e a\<^sub>o v\<^sub>o s\<^sub>o \<delta>
+      rewrites "sdn.distance0 = safe_distance0 v\<^sub>e a\<^sub>o v\<^sub>o \<delta>" and
+               "sdn.safe_distance_1r = safe_distance_1r a\<^sub>e v\<^sub>e \<delta>" and
+               "sdn.safe_distance_2r = safe_distance_2r a\<^sub>e v\<^sub>e a\<^sub>o v\<^sub>o \<delta>" and 
+               "sdn.safe_distance_4r = safe_distance_4r a\<^sub>e v\<^sub>e a\<^sub>o v\<^sub>o \<delta>" and 
+               "sdn.safe_distance_3r = safe_distance_3r a\<^sub>e v\<^sub>e a\<^sub>o v\<^sub>o \<delta>"
+    proof -
+      from sdn' show "safe_distance_normal a\<^sub>e v\<^sub>e s\<^sub>e a\<^sub>o v\<^sub>o s\<^sub>o \<delta>" by auto
+    next
+      show "safe_distance_normal.distance0 v\<^sub>e a\<^sub>o v\<^sub>o \<delta> = safe_distance0 v\<^sub>e a\<^sub>o v\<^sub>o \<delta> "
+        unfolding safe_distance_normal.distance0_def[OF sdn'] safe_distance0_def by auto
+    next
+      show "safe_distance_normal.safe_distance_1r a\<^sub>e v\<^sub>e \<delta> = safe_distance_1r a\<^sub>e v\<^sub>e \<delta>"
+        unfolding safe_distance_normal.safe_distance_1r_def[OF sdn'] safe_distance_1r_def by auto
+    next
+      show "safe_distance_normal.safe_distance_2r a\<^sub>e v\<^sub>e a\<^sub>o v\<^sub>o \<delta> = safe_distance_2r a\<^sub>e v\<^sub>e a\<^sub>o v\<^sub>o \<delta>"
+        unfolding safe_distance_normal.safe_distance_2r_def[OF sdn'] safe_distance_2r_def by auto
+    next 
+      show "safe_distance_normal.safe_distance_4r a\<^sub>e v\<^sub>e a\<^sub>o v\<^sub>o \<delta> = safe_distance_4r a\<^sub>e v\<^sub>e a\<^sub>o v\<^sub>o \<delta> "
+        unfolding safe_distance_normal.safe_distance_4r_def[OF sdn'] safe_distance_4r_def by auto
+    next
+      show "safe_distance_normal.safe_distance_3r a\<^sub>e v\<^sub>e a\<^sub>o v\<^sub>o \<delta> = safe_distance_3r a\<^sub>e v\<^sub>e a\<^sub>o v\<^sub>o \<delta>"
+        unfolding safe_distance_normal.safe_distance_3r_def[OF sdn'] safe_distance_3r_def by auto
+    qed       
     have "\<not> distance > distance0 \<or>  distance > distance0" by auto 
     moreover
     { assume "\<not> distance > distance0"
       hence "distance \<le> distance0" by auto
       with sdn.cond_3r_1' have "sdn.collision_react {0..\<delta>}" using pre unfolding check_precond21_def abb
-        sdn.other.t_stop_def by auto
+        sdn.other.t_stop_def by auto    
       with sdn.collision_react_subset have "sdn.collision_react {0..}" by auto
       with as2 have "False" by auto }    
     moreover
@@ -2755,7 +2811,7 @@ next
       qed }
     ultimately show "False" by auto  
   qed  
-qed    
+qed            
   
     
 (* definition checker_r_2:: "real \<Rightarrow> real \<Rightarrow> real \<Rightarrow> real \<Rightarrow> real \<Rightarrow> real \<Rightarrow> real \<Rightarrow> bool" where

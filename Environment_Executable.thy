@@ -3855,7 +3855,7 @@ fun segments_intersect_polychain :: "real2 \<times> real2 \<Rightarrow> (real2 \
 lemma not_segments_intersect_polychain_cons:
   assumes "\<not> segments_intersect_polychain line (c # cs)"
   shows "\<not> segments_intersect_polychain line cs"
-  using assms
+  using assms                                                      
 proof (induction cs arbitrary:c)
   case Nil
   then show ?case by auto
@@ -5205,26 +5205,26 @@ definition intersect_boundaries where
 subsubsection "Rectangle containment"
         
 definition vertices_inside :: "rectangle \<Rightarrow> bool" where
-  "vertices_inside rect \<equiv> (let vertices = get_vertices rect; 
+  "vertices_inside rect \<equiv> (let vertices = get_vertices_rotated_translated rect; 
                                 insides = map point_in_drivable_area vertices in 
                                 insides ! 0 \<and> insides ! 1 \<and> insides ! 2 \<and> insides ! 3)"
       
 lemma vertices_inside_pida:
   assumes "vertices_inside rect" 
   assumes "0 \<le> i" and "i < 4"    
-  shows "point_in_drivable_area (get_vertices_rotated rect ! i)"
+  shows "point_in_drivable_area (get_vertices_rotated_translated rect ! i)"
 proof -
-  define vertices where "vertices \<equiv> get_vertices_rotated rect" 
-  from nbr_of_vertex_rotated have l: "length (get_vertices_rotated rect) = 4" by auto
-  from assms(1) have "map point_in_drivable_area (get_vertices_rotated rect) ! 0" and
-                     "map point_in_drivable_area (get_vertices_rotated rect) ! 1" and
-                     "map point_in_drivable_area (get_vertices_rotated rect) ! 2" and 
-                     "map point_in_drivable_area (get_vertices_rotated rect) ! 3"
-    unfolding vertices_inside_def Let_def sorry
-  with nth_map and l have c: "point_in_drivable_area (get_vertices_rotated rect ! 0)\<and>  
-                           point_in_drivable_area (get_vertices_rotated rect ! 1)\<and>
-                           point_in_drivable_area (get_vertices_rotated rect ! 2)\<and>
-                           point_in_drivable_area (get_vertices_rotated rect ! 3)"
+  define vertices where "vertices \<equiv> get_vertices_rotated_translated rect" 
+  from nbr_of_vertex_rotated have l: "length (get_vertices_rotated_translated rect) = 4" sorry
+  from assms(1) have "map point_in_drivable_area (get_vertices_rotated_translated rect) ! 0" and
+                     "map point_in_drivable_area (get_vertices_rotated_translated rect) ! 1" and
+                     "map point_in_drivable_area (get_vertices_rotated_translated rect) ! 2" and 
+                     "map point_in_drivable_area (get_vertices_rotated_translated rect) ! 3"
+    unfolding vertices_inside_def Let_def by auto
+  with nth_map and l have c: "point_in_drivable_area (get_vertices_rotated_translated rect ! 0)\<and>  
+                           point_in_drivable_area (get_vertices_rotated_translated rect ! 1)\<and>
+                           point_in_drivable_area (get_vertices_rotated_translated rect ! 2)\<and>
+                           point_in_drivable_area (get_vertices_rotated_translated rect ! 3)"
     by auto
   consider "i = 0" | "i = 1" | "i = 2" | "i = 3" using assms(2-3) by linarith    
   thus ?thesis using c
@@ -5241,15 +5241,16 @@ definition rectangle_inside :: "rectangle \<Rightarrow> bool" where
   
 theorem vertices_inside_drivable_area:
   assumes "rectangle_inside rect"
-  assumes "p \<in> set (get_vertices_rotated rect)"  
+  assumes "p \<in> set (get_vertices_rotated_translated rect)"  
   shows "p \<in> sr.drivable_area"
 proof -
   from assms(1) have "vertices_inside rect" unfolding rectangle_inside_def by auto  
-  from assms(2) obtain i where "p = (get_vertices_rotated rect) ! i" and 
-    "i < length (get_vertices_rotated rect)" and "0 \<le> i" unfolding in_set_conv_nth  by auto
+  from assms(2) obtain i where "p = (get_vertices_rotated_translated rect) ! i" and 
+    "i < length (get_vertices_rotated_translated rect)" and "0 \<le> i" unfolding in_set_conv_nth  by auto
   with `vertices_inside rect` have "point_in_drivable_area p" unfolding vertices_inside_def Let_def
-    nbr_of_vertex_rotated using vertices_inside_pida[OF `vertices_inside rect` `0 \<le> i`] by auto
-  with pida_correctness show ?thesis by (metis prod.collapse)  
+    nbr_of_vertex_rotated using vertices_inside_pida[OF `vertices_inside rect` `0 \<le> i`] 
+    by (simp add: nbr_of_vertex_rotated_translated)
+  with pida_correctness show ?thesis by (metis prod.collapse)          
 qed
 
 theorem points_in_rectangle_perimeter_drivable_area:

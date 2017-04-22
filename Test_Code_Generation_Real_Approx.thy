@@ -18,13 +18,13 @@ text \<open>TODO: adapt \<open>Code_Real_Approx_By_Float\<close> and its @{const
 
 definition Realfract :: "integer \<Rightarrow> integer \<Rightarrow> real"
   where "Realfract p q = real_of_integer p / real_of_integer q"
-
+    
 lemma [code]: "Ratreal r = (case (quotient_of r) of (x, y) \<Rightarrow>
   Realfract (integer_of_int x) (integer_of_int y))"
   by (cases r)
      (simp add: Realfract_def quotient_of_Fract of_rat_rat
        real_of_integer_def)
-
+          
 ML \<open>val segment_intersection = @{code segment_intersection}\<close>
 ML \<open>
 val segment1 = ((0.0,0.0), (5.0,0.0));
