@@ -325,8 +325,14 @@ section "Representing overtaking traffic rules in LTL with finite trace"
 \<comment>\<open>traffic rules atoms\<close>
 datatype tr_atom = overtaking_atom  | on_fastlane_atom  | sd_rear_atom  |  sd_front_atom  | 
                    surpassing_atom  | safe_side_atom  |  larger_safe_side_atom  | motorised_atom  | 
-                   safe_to_return_atom  |  merging_atom  | original_lane_atom 
-                                                            
+                   safe_to_return_atom  |  merging_atom  | original_lane_atom
+                   
+thm tr_atom.eq.simps
+find_theorems "overtaking_atom"  
+thm "tr_atom.eq.simps" 
+term "equal_class.equal overtaking_atom"  
+  
+  
 \<comment> \<open>abbreviations for meaningful names\<close>                              
 abbreviation overtaking :: "tr_atom ltlf" where "overtaking \<equiv> prop\<^sub>f(overtaking_atom)"                               
 abbreviation on_fastlane :: "tr_atom ltlf" where "on_fastlane \<equiv> prop\<^sub>f(on_fastlane_atom)"                               
@@ -352,7 +358,7 @@ definition \<Phi>2' :: "tr_atom ltlf" where
   "\<Phi>2' \<equiv> G\<^sub>f (overtaking and\<^sub>f (surpassing and\<^sub>f not\<^sub>f motorised) implies\<^sub>f larger_safe_side)"
   
 definition \<Phi>3 :: "tr_atom ltlf" where
-  "\<Phi>3 \<equiv> G\<^sub>f (overtaking and\<^sub>f (on_fastlane and\<^sub>f merging) implies\<^sub>f safe_to_return)"
+  "\<Phi>3 \<equiv> G\<^sub>f (overtaking and\<^sub>f (original_lane and\<^sub>f merging) implies\<^sub>f sd_rear)"
                             
 definition \<Phi>4 :: "tr_atom ltlf" where
   "\<Phi>4 \<equiv> G\<^sub>f (overtaking and\<^sub>f original_lane implies\<^sub>f sd_rear)"
@@ -609,6 +615,6 @@ next
   ultimately show ?case by auto 
 qed
   
-theorem [code]: "semantics_ltlf \<xi> form = monitor_tr \<xi> form"  using monitoring by auto
+theorem  "semantics_ltlf \<xi> form = monitor_tr \<xi> form"  using monitoring by auto
       
 end

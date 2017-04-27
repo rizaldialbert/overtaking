@@ -209,6 +209,13 @@ declare [[ML_print_depth=1000]]
 ML\<open>
 val rectangles = @{code rectangles};
 val test_rectangle = nth rectangles 13;
+val test_rectangle2 = nth rectangles 84;
+val get_vertices = @{code get_vertices_zero};
+val tr_gv = get_vertices test_rectangle2;
+val transpose = @{code List.transpose};
+val test_rectangle3 = nth rectangles 8;
+val get_vertices_rot = @{code get_vertices_rotated_translated};
+val rotated3 =  get_vertices_rot test_rectangle3;
 val in_lane = @{code in_lane};
 val test_in_lane = in_lane test_rectangle
 val rectangle_intersect1 = @{code rectangle_intersect1};
@@ -329,10 +336,25 @@ fun combine_to_trace :: "tr_atom set list list \<Rightarrow> tr_atom set list \<
   "combine_to_trace (x # xs) res = combine_to_trace xs (map (\<lambda>x. union (fst x) (snd x)) (zip x res))"
 
 definition empty_trace :: "tr_atom set list" where "empty_trace \<equiv> replicate 101 {}"
-definition complete_trace where "complete_trace \<equiv> combine_to_trace [toc, tfl, tm, tol, tsd] empty_trace"  
+definition complete_trace where "complete_trace \<equiv> combine_to_trace [toc, tfl, tm, tol, tsd] empty_trace"
   
-theorem "semantics_ltlf complete_trace \<Phi>1"  by eval
-theorem "semantics_ltlf complete_trace \<Phi>3"  by eval
-theorem "semantics_ltlf complete_trace \<Phi>4"  by eval   
+definition semantics_ltlf_tr :: "tr_atom set list \<Rightarrow> tr_atom ltlf \<Rightarrow> bool" where
+  "semantics_ltlf_tr \<equiv> semantics_ltlf"
+    
+ML \<open>
+val monitor = @{code monitor_tr};
+val monitor2 = @{code semantics_ltlf_tr};
+val comp_trace = @{code complete_trace};
+val phi1 = @{code \<Phi>1}
+val test_phi1 = monitor comp_trace phi1;
+val test_phi1' = monitor2 comp_trace phi1;
+val phi3 = @{code \<Phi>3};
+val test_phi3 = monitor comp_trace phi3;
+val test_phi3' = monitor2 comp_trace phi3;
+val phi4 = @{code \<Phi>4};
+val test_phi4 = monitor2 comp_trace phi4;
+\<close>  
+  
+  
     
  

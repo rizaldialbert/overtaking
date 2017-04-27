@@ -3918,14 +3918,11 @@ next
   qed    
 qed
 
-(* polygonal chain intersection *)
-
+subsection "Polygonal Chain Intersection"  
 (* checks if two line segments intersect *)
 fun segments_intersect :: "(real2 \<times> real2) option \<Rightarrow> (real2 \<times> real2) option \<Rightarrow> bool" where
   "segments_intersect (Some l1) (Some l2) = segment_intersection l1 l2"
 | "segments_intersect _ _ = False"
-
-thm segments_intersect.induct
   
 lemma segments_intersect_comm: "segments_intersect l1 l2 \<longleftrightarrow> segments_intersect l2 l1"
   by (rule segments_intersect.induct) (auto simp add: segment_intersection_comm)
@@ -7664,7 +7661,7 @@ fun increase_lane2 :: "rectangle list \<Rightarrow> ((nat \<times> nat) \<times>
   "increase_lane2 rects = (case initial_lane rects of  Outside \<Rightarrow> None  | Boundaries _ \<Rightarrow> None  
                                   | Lane n \<Rightarrow> do {
                                                 (num1, rest1) \<leftarrow> start_inc_lane rects n 0;
-                                                (num2, rest2) \<leftarrow> finish_inc_lane rest1 n num1;
+                                                (num2, rest2) \<leftarrow> finish_inc_lane rest1 (n+1) (num1+1);
                                                 Some ((num1, num2), rest2) 
                                               })"
   
