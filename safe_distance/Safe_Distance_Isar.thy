@@ -1789,9 +1789,9 @@ theorem dist0_sd2r_2:
   assumes "s\<^sub>o - s\<^sub>e > safe_distance_2r"
   shows "s\<^sub>o - s\<^sub>e > distance0_2"
 proof -
-  have "- v\<^sub>e\<^sup>2 / 2 / a\<^sub>e > 0" using zero_le_power2 hyps(3) divide_nonneg_neg by blast
-  hence "v\<^sub>e * \<delta> - v\<^sub>e\<^sup>2 / 2 / a\<^sub>e + v\<^sub>o\<^sup>2 / 2 / a\<^sub>o > v\<^sub>e * \<delta> + v\<^sub>o\<^sup>2 / 2 / a\<^sub>o" by simp
-  hence "safe_distance_2r > distance0_2" using safe_distance_2r_def distance0_2_def by auto
+  have "- v\<^sub>e\<^sup>2 / 2 / a\<^sub>e \<ge> 0" using zero_le_power2 hyps(3) divide_nonneg_neg by (auto simp add:field_simps)
+  hence "v\<^sub>e * \<delta> - v\<^sub>e\<^sup>2 / 2 / a\<^sub>e + v\<^sub>o\<^sup>2 / 2 / a\<^sub>o \<ge> v\<^sub>e * \<delta> + v\<^sub>o\<^sup>2 / 2 / a\<^sub>o" by simp
+  hence "safe_distance_2r \<ge> distance0_2" using safe_distance_2r_def distance0_2_def by auto
   thus ?thesis using assms(2)  by linarith
 qed      
 end
@@ -2876,7 +2876,6 @@ definition safe_distance0_2 where "safe_distance0_2 v\<^sub>e a\<^sub>o v\<^sub>
 definition checker_r2 :: "real \<Rightarrow> real \<Rightarrow> real \<Rightarrow> real \<Rightarrow> real \<Rightarrow> real \<Rightarrow> real \<Rightarrow> bool" where
   "checker_r2 s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta> \<equiv> let distance = s\<^sub>o - s\<^sub>e;
 				precond = check_precond2 s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta>;
-        distance0_2 = safe_distance0_2 v\<^sub>e a\<^sub>o v\<^sub>o \<delta>;
         safe_dist0 = safe_distance_1r a\<^sub>e v\<^sub>e \<delta>;
         safe_dist1 = safe_distance_2r a\<^sub>e v\<^sub>e a\<^sub>o v\<^sub>o \<delta> in 
    if \<not> precond then 
