@@ -8365,10 +8365,11 @@ fun time_points_to_ori_bools :: "(nat \<times> nat \<times> nat \<times> nat) li
   
 definition original_lane_trace :: "rectangle list \<Rightarrow> bool list" where
   "original_lane_trace rects \<equiv> (let temp = (time_points_to_ori_bools \<circ> overtaking) rects; 
-                                     diff = length rects - length temp in 
+                                     diff = length rects - length temp in              
                                 if diff > 0 then temp @ replicate diff False else temp)"
-end
   
+end
+                                                           
 subsection "Lane with two lanelets"
   
 (* lane  with two lanelets only *)  

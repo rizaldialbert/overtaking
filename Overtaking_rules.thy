@@ -349,7 +349,7 @@ abbreviation original_lane :: "tr_atom ltlf" where "original_lane \<equiv> prop\
 subsection "Formalised Traffic Rules in LTL interpreted over finite trace"
   
 definition \<Phi>1 :: "tr_atom ltlf" where
-  "\<Phi>1 \<equiv> G\<^sub>f (overtaking and\<^sub>f on_fastlane implies\<^sub>f sd_rear)"
+  "\<Phi>1 \<equiv> G\<^sub>f (on_fastlane implies\<^sub>f sd_rear)"
 
 definition \<Phi>2 :: "tr_atom ltlf" where
   "\<Phi>2 \<equiv> G\<^sub>f (overtaking and\<^sub>f (surpassing and\<^sub>f motorised) implies\<^sub>f safe_side)"
@@ -358,10 +358,10 @@ definition \<Phi>2' :: "tr_atom ltlf" where
   "\<Phi>2' \<equiv> G\<^sub>f (overtaking and\<^sub>f (surpassing and\<^sub>f not\<^sub>f motorised) implies\<^sub>f larger_safe_side)"
   
 definition \<Phi>3 :: "tr_atom ltlf" where
-  "\<Phi>3 \<equiv> G\<^sub>f (overtaking and\<^sub>f (original_lane and\<^sub>f merging) implies\<^sub>f sd_rear)"
+  "\<Phi>3 \<equiv> G\<^sub>f ((merging implies\<^sub>f safe_to_return) and\<^sub>f (safe_to_return implies\<^sub>f merging))"
                             
 definition \<Phi>4 :: "tr_atom ltlf" where
-  "\<Phi>4 \<equiv> G\<^sub>f (overtaking and\<^sub>f original_lane implies\<^sub>f sd_rear)"
+  "\<Phi>4 \<equiv> G\<^sub>f (original_lane implies\<^sub>f sd_rear)"
          
 subsection "Checker for atomic propositions"
   
@@ -391,12 +391,59 @@ definition (in lane) original_lane_checker :: "black_boxes \<Rightarrow> tr_atom
   "original_lane_checker bb \<equiv> 
             rects_to_words (\<lambda>x. original_lane_trace x) original_lane_atom (bb_to_rects bb)"
   
-\<comment>\<open>Detecting vehicles behind\<close>
+fun min_list_tail :: "'a :: linorder list \<Rightarrow> 'a \<Rightarrow> 'a" where
+  "min_list_tail [] n = n" | 
+  "min_list_tail (x # xs) n = (if x < n then min_list_tail xs x else min_list_tail xs n)"
+  
+lemma min_list_tail_correct:
+  "min_list_tail ys n = x \<Longrightarrow> x \<le> n \<and> (\<forall>y \<in> set ys. x \<le> y)"
+proof (induction ys arbitrary:n)
+  case Nil
+  then show ?case by auto
+next
+  case (Cons a ys)
+  note case_cons = this
+  have "a < n \<or> a \<ge> n" by auto  
+  moreover    
+  { assume "a < n"
+    hence "min_list_tail (a # ys) n = min_list_tail ys a" by auto
+    with case_cons have "x \<le> a" and *: "\<forall>y\<in>set ys. x \<le> y" by auto
+    with `a < n` have "x \<le> n" and "\<forall>y \<in> set (a # ys). x \<le> y" by auto
+    hence " x \<le> n \<and> Ball (set (a # ys)) (op \<le> x)" by auto  }
+  moreover
+  { assume "a \<ge> n"
+    hence "min_list_tail (a # ys) n = min_list_tail ys n" by auto
+    with case_cons have "x \<le> n \<and> (\<forall>y\<in>set ys. x \<le> y)" by auto
+    with `a \<ge> n` have "x \<le> n \<and> (\<forall>y \<in> set (a # ys). x \<le> y)" by auto
+    hence " x \<le> n \<and> Ball (set (a # ys)) (op \<le> x)" by auto  }    
+  ultimately show ?case by auto
+qed  
+  
+fun min_list :: "'a :: linorder list \<Rightarrow> 'a option" where
+  "min_list [] = None" |
+  "min_list xs = Some (min_list_tail (tl xs) (hd xs))"
+
+lemma min_list_correct: 
+  "min_list xs = Some n \<Longrightarrow> \<forall>x\<in> set xs. n \<le> x" 
+  by (induction xs arbitrary:n) (auto simp add:min_list_tail_correct)
+        
+definition min_list_idx :: "'a :: linorder list \<Rightarrow> nat option" where
+  "min_list_idx xs \<equiv> (case min_list xs of 
+                        None \<Rightarrow> None 
+                      | Some n \<Rightarrow> Some (fst (the (find (\<lambda>x. snd x = n) (List.enumerate 0 xs)))))"
+    
+\<comment>\<open>Detecting vehicles behind and in front\<close>
+definition relevant_boundaries :: "nat list \<Rightarrow> nat list" where
+  "relevant_boundaries xs = (case find (\<lambda>x. x = 0) xs of 
+                              None \<Rightarrow> (case min_list xs of 
+                                        None \<Rightarrow> [] 
+                                       | Some x \<Rightarrow> (x - 1) # xs)
+                             | Some x \<Rightarrow> xs)"
 
 fun relevant_lane_id :: "detection_opt \<Rightarrow> nat list" where
   "relevant_lane_id Outside = []" | 
   "relevant_lane_id (Lane x) = [x]" | 
-  "relevant_lane_id (Boundaries ns) = ns"
+  "relevant_lane_id (Boundaries ns) = relevant_boundaries ns"
   
 fun list_intersect :: "'a list \<Rightarrow> 'a list \<Rightarrow> bool" where
   "list_intersect [] _ = False" | 
@@ -436,19 +483,32 @@ next
   qed          
 qed  
     
-fun is_relevant :: "nat list \<Rightarrow> detection_opt \<Rightarrow> bool" where
+fun is_relevant :: "detection_opt \<Rightarrow> detection_opt \<Rightarrow> bool" where
+  "is_relevant Outside _ = False" | 
   "is_relevant _ Outside = False" | 
-  "is_relevant ids (Lane x)  = (x \<in> set ids)" | 
-  "is_relevant ids (Boundaries ns)  = list_intersect ns ids"  
-  
-definition (in lane) trim_vehicles_same_lane :: "raw_state list \<Rightarrow> detection_opt \<Rightarrow> raw_state list" where
-  "trim_vehicles_same_lane states l = (let  ids = relevant_lane_id l in 
-                                      filter (is_relevant ids \<circ> lane_detection \<circ> rectangle.truncate) states)"
+  "is_relevant (Lane x) (Lane y) = (x = y)" | 
+  "is_relevant (Lane x) (Boundaries ys) = (x \<in> set (relevant_boundaries ys))" | 
+  "is_relevant (Boundaries xs) (Lane y) = (y \<in> set (relevant_boundaries xs))" | 
+  "is_relevant (Boundaries xs) (Boundaries ys) = list_intersect (relevant_boundaries xs) (relevant_boundaries ys)"
+    
+definition (in lane) trim_vehicles_same_lane :: "raw_state list \<Rightarrow> detection_opt \<Rightarrow>  raw_state list" where
+  "trim_vehicles_same_lane states l = filter (is_relevant l \<circ> lane_detection \<circ> rectangle.truncate) states"  
 
 definition (in lane) vehicles_behind :: "raw_state list \<Rightarrow> raw_state \<Rightarrow> raw_state list" where
   "vehicles_behind states r = (let re = rectangle.truncate r; 
                                    states2 = (trim_vehicles_same_lane states (lane_detection re)) in
                                    filter (\<lambda>x. Xcoord x \<le> Xcoord re) states2)"  
+  
+definition (in lane) vehicles_infront :: "raw_state list \<Rightarrow> raw_state \<Rightarrow> raw_state list" where
+  "vehicles_infront states r = (let re = rectangle.truncate r; 
+                                    states2 = (trim_vehicles_same_lane states (lane_detection re)) in
+                                    filter (\<lambda>x. Xcoord x > Xcoord re) states2)" 
+  
+definition (in lane) closest_vehicles_infront :: "raw_state list \<Rightarrow> raw_state \<Rightarrow> raw_state option" where
+  "closest_vehicles_infront states r = (let fronts = vehicles_infront states r; 
+                                            xpos =  map Xcoord fronts;
+                                            min_idx = min_list_idx xpos 
+                                        in case min_idx of None \<Rightarrow> None | Some n \<Rightarrow> Some (fronts ! n))"  
   
 definition (in lane) sd_raw_state :: "raw_state \<Rightarrow> raw_state \<Rightarrow> real \<Rightarrow> bool" where
   "sd_raw_state ego other \<delta> \<equiv> (let se = Xcoord ego - Length ego / 2; 
@@ -463,7 +523,7 @@ fun (in lane) sd_rear' :: "raw_state list \<Rightarrow> raw_state \<Rightarrow> 
 
 definition (in lane) sd_rear :: "raw_state list \<Rightarrow> raw_state \<Rightarrow> real \<Rightarrow> bool" where
   "sd_rear rs ego \<delta> = (let vehicles = vehicles_behind rs ego in sd_rear' vehicles ego \<delta>)" 
-      
+                                                       
 fun (in lane) sd_rears :: "raw_state list list \<Rightarrow> raw_state list \<Rightarrow> real \<Rightarrow> bool list" where
   "sd_rears _ [] _ = []" |
   "sd_rears [] (ego # egos) \<delta> = (sd_rear [] ego \<delta>) # sd_rears [] egos \<delta>" |
@@ -481,6 +541,19 @@ definition (in lane) sd_rear_checker :: "black_boxes  \<Rightarrow> real \<Right
   "sd_rear_checker bb \<delta> \<equiv> (let result = sd_rear_checker' bb \<delta> 
                                in  map (\<lambda>x. if x then {sd_rear_atom} else {}) result)"
 
+definition (in lane) safe_to_return_checker' :: "black_boxes \<Rightarrow> bool list" where
+  "safe_to_return_checker' bb \<equiv> (let ego_rects = bb_to_rects bb; 
+                                    ov_nums = overtaking ego_rects; 
+                                    start_ovs = map fst ov_nums
+                                 in undefined)" 
+  
+definition (in lane) safe_to_return_checker :: "black_boxes \<Rightarrow> tr_atom set list" where
+  "safe_to_return_checker bb \<equiv> (let ego_rects = bb_to_rects bb; 
+                                    ov_nums = overtaking ego_rects; 
+                                    start_ovs = map fst ov_nums
+                                 in undefined)"  
+
+  
 function monitor_tr :: "[tr_atom set list, tr_atom ltlf] \<Rightarrow> bool"  and 
          monitor_tr_F :: "tr_atom set list \<Rightarrow> tr_atom ltlf \<Rightarrow> bool" and 
          monitor_tr_G :: "tr_atom set list \<Rightarrow> tr_atom ltlf \<Rightarrow> bool" and 
