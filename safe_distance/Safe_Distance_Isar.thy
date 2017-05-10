@@ -2619,7 +2619,7 @@ theorem soundness_correctness2:
 subsubsection \<open>Checker extended with reaction time delay\<close>
 text \<open>\label{sec:checker_react}\<close>  
 (* We define two checkers for different cases: one checker for the case that \<delta> \<le> other.t_stop (other.t_stop = - v\<^sub>o / a\<^sub>o) and a second checker for the case that \<delta> > other.t_stop *)
-definition "check_precond21 s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta> \<longleftrightarrow> s\<^sub>o > s\<^sub>e \<and> 0 \<le> v\<^sub>e \<and> 0 \<le> v\<^sub>o \<and> a\<^sub>e < 0 \<and> a\<^sub>o < 0 \<and> 0 < \<delta> \<and> \<delta> \<le> - v\<^sub>o / a\<^sub>o"
+definition "check_precond_r1 s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta> \<longleftrightarrow> s\<^sub>o > s\<^sub>e \<and> 0 \<le> v\<^sub>e \<and> 0 \<le> v\<^sub>o \<and> a\<^sub>e < 0 \<and> a\<^sub>o < 0 \<and> 0 < \<delta> \<and> \<delta> \<le> - v\<^sub>o / a\<^sub>o"
     
 definition safe_distance0 where "safe_distance0 v\<^sub>e a\<^sub>o v\<^sub>o \<delta> = v\<^sub>e * \<delta> - v\<^sub>o * \<delta> - a\<^sub>o * \<delta>\<^sup>2 / 2"
 definition safe_distance_1r where "safe_distance_1r a\<^sub>e v\<^sub>e \<delta> = v\<^sub>e * \<delta> - v\<^sub>e\<^sup>2 / a\<^sub>e / 2"  
@@ -2629,13 +2629,12 @@ definition safe_distance_4r where "safe_distance_4r a\<^sub>e v\<^sub>e a\<^sub>
 definition safe_distance_3r where "safe_distance_3r a\<^sub>e v\<^sub>e a\<^sub>o v\<^sub>o \<delta> = 
                                                       v\<^sub>e * \<delta> - v\<^sub>e\<^sup>2 / 2 / a\<^sub>e - v\<^sub>o * \<delta> - 1 / 2 * a\<^sub>o * \<delta>\<^sup>2"  
           
-definition checker_r12 :: "real \<Rightarrow> real \<Rightarrow> real \<Rightarrow> real \<Rightarrow> real \<Rightarrow> real \<Rightarrow> real \<Rightarrow> bool" where
-  "checker_r12 s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta> \<equiv> let distance = s\<^sub>o - s\<^sub>e;
-				precond = check_precond21 s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta>;
+definition checker_r1 :: "real \<Rightarrow> real \<Rightarrow> real \<Rightarrow> real \<Rightarrow> real \<Rightarrow> real \<Rightarrow> real \<Rightarrow> bool" where
+  "checker_r1 s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta> \<equiv> let distance = s\<^sub>o - s\<^sub>e;
+				precond = check_precond_r1 s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta>;
         vo_star = v\<^sub>o + a\<^sub>o * \<delta>;
         t_stop_o_star = - vo_star / a\<^sub>o; 
         t_stop_e = - v\<^sub>e / a\<^sub>e;
-        distance0 = safe_distance0 v\<^sub>e a\<^sub>o v\<^sub>o \<delta>;
         safe_dist0 = safe_distance_1r a\<^sub>e v\<^sub>e \<delta>;
         safe_dist1 = safe_distance_2r a\<^sub>e v\<^sub>e a\<^sub>o v\<^sub>o \<delta>;
         safe_dist2 = safe_distance_4r a\<^sub>e v\<^sub>e a\<^sub>o v\<^sub>o \<delta>;
@@ -2649,17 +2648,17 @@ definition checker_r12 :: "real \<Rightarrow> real \<Rightarrow> real \<Rightarr
    else               
       distance > safe_dist1"  
   
-theorem checker_r12_correctness:
-  "(checker_r12 s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta> \<longleftrightarrow> check_precond21 s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta> \<and> safe_distance_normal.no_collision_react a\<^sub>e v\<^sub>e s\<^sub>e a\<^sub>o v\<^sub>o s\<^sub>o \<delta> {0..})"
+theorem checker_r1_correctness:
+  "(checker_r1 s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta> \<longleftrightarrow> check_precond_r1 s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta> \<and> safe_distance_normal.no_collision_react a\<^sub>e v\<^sub>e s\<^sub>e a\<^sub>o v\<^sub>o s\<^sub>o \<delta> {0..})"
 proof 
-  assume asm: "checker_r12 s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta>"
-  have pre: "check_precond21 s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta>"
+  assume asm: "checker_r1 s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta>"
+  have pre: "check_precond_r1 s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta>"
   proof (rule ccontr)
-    assume "\<not> check_precond21 s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta>"  
-    with asm show "False" unfolding checker_r12_def Let_def by auto      
+    assume "\<not> check_precond_r1 s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta>"  
+    with asm show "False" unfolding checker_r1_def Let_def by auto      
   qed
   from pre have sdn': "safe_distance_normal a\<^sub>e v\<^sub>e s\<^sub>e a\<^sub>o v\<^sub>o s\<^sub>o \<delta>"
-    by (unfold_locales) (auto simp add: check_precond21_def)      
+    by (unfold_locales) (auto simp add: check_precond_r1_def)      
   interpret sdn: safe_distance_normal a\<^sub>e v\<^sub>e s\<^sub>e a\<^sub>o v\<^sub>o s\<^sub>o \<delta>
     rewrites "sdn.distance0 = safe_distance0 v\<^sub>e a\<^sub>o v\<^sub>o \<delta>" and
              "sdn.safe_distance_1r = safe_distance_1r a\<^sub>e v\<^sub>e \<delta>" and
@@ -2684,7 +2683,7 @@ proof
     show "safe_distance_normal.safe_distance_3r a\<^sub>e v\<^sub>e a\<^sub>o v\<^sub>o \<delta> = safe_distance_3r a\<^sub>e v\<^sub>e a\<^sub>o v\<^sub>o \<delta>"
       unfolding safe_distance_normal.safe_distance_3r_def[OF sdn'] safe_distance_3r_def by auto
   qed    
-  have "0 < \<delta>" and "\<delta> \<le> - v\<^sub>o / a\<^sub>o" using pre unfolding check_precond21_def by auto  
+  have "0 < \<delta>" and "\<delta> \<le> - v\<^sub>o / a\<^sub>o" using pre unfolding check_precond_r1_def by auto  
   define so_delta where "so_delta = s\<^sub>o + v\<^sub>o * \<delta> + a\<^sub>o * \<delta>\<^sup>2 / 2"
   define q_e_delta where "q_e_delta \<equiv> s\<^sub>e + v\<^sub>e * \<delta>" 
   define u_stop_e where "u_stop_e \<equiv> q_e_delta - v\<^sub>e\<^sup>2 / (2 * a\<^sub>e)"
@@ -2709,56 +2708,56 @@ proof
     case 2
     hence pre2: "distance > distance0" using sdn.distance0_at_most_sd3r unfolding abb by auto
     hence "sdn.u \<delta> < sdn.other.s \<delta>" using pre unfolding sdn.u_def sdn.ego.q_def
-      sdn.other.s_def sdn.other.t_stop_def sdn.other.p_def abb check_precond21_def sdn.distance0_def
+      sdn.other.s_def sdn.other.t_stop_def sdn.other.p_def abb check_precond_r1_def sdn.distance0_def
       by auto          
     from pre interpret sdr: safe_distance_no_collsion_delta a\<^sub>e v\<^sub>e s\<^sub>e a\<^sub>o v\<^sub>o s\<^sub>o \<delta>
-      by (unfold_locales) (auto simp add:check_precond21_def `sdn.u \<delta> < sdn.other.s \<delta>`)     
-    show ?thesis using sdr.sd_3r_correct 2 pre unfolding check_precond21_def abb sdn.other.t_stop_def
+      by (unfold_locales) (auto simp add:check_precond_r1_def `sdn.u \<delta> < sdn.other.s \<delta>`)     
+    show ?thesis using sdr.sd_3r_correct 2 pre unfolding check_precond_r1_def abb sdn.other.t_stop_def
       by auto                    
   next
     case 3
     hence "distance \<le> safe_dist3" by auto  
-    hence "sdn.other.s \<delta> \<le> sdn.u_max" using pre unfolding check_precond21_def sdn.other.s_def sdn.other.t_stop_def
+    hence "sdn.other.s \<delta> \<le> sdn.u_max" using pre unfolding check_precond_r1_def sdn.other.s_def sdn.other.t_stop_def
       sdn.other.p_def sdn.u_max_eq sdn.ego.q_def abb sdn.safe_distance_3r_def by auto        
     have " (a\<^sub>o > a\<^sub>e \<and> vo_star < v\<^sub>e \<and> t_stop_e < t_stop_o_star) \<or> \<not>  (a\<^sub>o > a\<^sub>e \<and> vo_star < v\<^sub>e \<and> t_stop_e < t_stop_o_star) "
       by auto
     moreover
     { assume cond: "(a\<^sub>o > a\<^sub>e \<and> vo_star < v\<^sub>e \<and> t_stop_e < t_stop_o_star)"
-      with 3 pre have "distance > safe_dist2" using asm unfolding checker_r12_def
+      with 3 pre have "distance > safe_dist2" using asm unfolding checker_r1_def
           Let_def abb by auto
       with sdn.distance0_at_most_sd4r have "distance > distance0" unfolding abb using cond by auto
       hence "sdn.u \<delta> < sdn.other.s \<delta>" using pre unfolding sdn.u_def sdn.ego.q_def
-          sdn.other.s_def sdn.other.t_stop_def sdn.other.p_def abb check_precond21_def sdn.distance0_def
+          sdn.other.s_def sdn.other.t_stop_def sdn.other.p_def abb check_precond_r1_def sdn.distance0_def
         by auto          
       from pre interpret sdr: safe_distance_no_collsion_delta a\<^sub>e v\<^sub>e s\<^sub>e a\<^sub>o v\<^sub>o s\<^sub>o \<delta>
-        by (unfold_locales) (auto simp add:check_precond21_def `sdn.u \<delta> < sdn.other.s \<delta>`)               
+        by (unfold_locales) (auto simp add:check_precond_r1_def `sdn.u \<delta> < sdn.other.s \<delta>`)               
       from sdr.sd_4r_correct[OF _ `sdn.other.s \<delta> \<le> sdn.u_max`] `distance > safe_dist2` 
-        have ?thesis using pre cond  unfolding check_precond21_def sdn.other.t_stop_def abb by auto }  
+        have ?thesis using pre cond  unfolding check_precond_r1_def sdn.other.t_stop_def abb by auto }  
     moreover
     { assume not_cond: "\<not>  (a\<^sub>o > a\<^sub>e \<and> vo_star < v\<^sub>e \<and> t_stop_e < t_stop_o_star)"
-      with 3 pre have "distance > safe_dist1" using asm unfolding checker_r12_def   
+      with 3 pre have "distance > safe_dist1" using asm unfolding checker_r1_def   
         Let_def abb by auto
-      with sdn.dist0_sd2r_1 have "distance > distance0" using pre not_cond unfolding check_precond21_def
+      with sdn.dist0_sd2r_1 have "distance > distance0" using pre not_cond unfolding check_precond_r1_def
         sdn.other.t_stop_def sdn.other.s'_def sdn.other.p'_def abb by (auto simp add:field_simps) 
       hence "sdn.u \<delta> < sdn.other.s \<delta>" using pre unfolding sdn.u_def sdn.ego.q_def
-          sdn.other.s_def sdn.other.t_stop_def sdn.other.p_def abb check_precond21_def sdn.distance0_def
+          sdn.other.s_def sdn.other.t_stop_def sdn.other.p_def abb check_precond_r1_def sdn.distance0_def
         by auto          
       from pre interpret sdr: safe_distance_no_collsion_delta a\<^sub>e v\<^sub>e s\<^sub>e a\<^sub>o v\<^sub>o s\<^sub>o \<delta>
-        by (unfold_locales) (auto simp add:check_precond21_def `sdn.u \<delta> < sdn.other.s \<delta>`)                         
+        by (unfold_locales) (auto simp add:check_precond_r1_def `sdn.u \<delta> < sdn.other.s \<delta>`)                         
       from sdr.sd_2r_correct_for_3r_2[OF _ `sdn.other.s \<delta> \<le> sdn.u_max`] not_cond `distance > safe_dist1` 
-        have ?thesis using pre unfolding abb sdn.other.s'_def check_precond21_def sdn.other.t_stop_def sdn.other.p'_def
+        have ?thesis using pre unfolding abb sdn.other.s'_def check_precond_r1_def sdn.other.t_stop_def sdn.other.p'_def
         by (auto simp add:field_simps) }
     ultimately show ?thesis by auto
   qed
-  with pre show " check_precond21 s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta> \<and> sdn.no_collision_react {0..}" by auto
+  with pre show " check_precond_r1 s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta> \<and> sdn.no_collision_react {0..}" by auto
 next  
-  assume "check_precond21 s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta> \<and> safe_distance_normal.no_collision_react a\<^sub>e v\<^sub>e s\<^sub>e a\<^sub>o v\<^sub>o s\<^sub>o \<delta> {0..}"
-  hence pre: "check_precond21 s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta>" and as2: "safe_distance_normal.no_collision_react a\<^sub>e v\<^sub>e s\<^sub>e a\<^sub>o v\<^sub>o s\<^sub>o \<delta> {0..}"
+  assume "check_precond_r1 s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta> \<and> safe_distance_normal.no_collision_react a\<^sub>e v\<^sub>e s\<^sub>e a\<^sub>o v\<^sub>o s\<^sub>o \<delta> {0..}"
+  hence pre: "check_precond_r1 s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta>" and as2: "safe_distance_normal.no_collision_react a\<^sub>e v\<^sub>e s\<^sub>e a\<^sub>o v\<^sub>o s\<^sub>o \<delta> {0..}"
   by auto
-  show "checker_r12 s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta> "
+  show "checker_r1 s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta> "
   proof (rule ccontr)    
-    assume as1: "\<not> checker_r12 s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta>"
-    from pre have "0 < \<delta>" and "\<delta> \<le> - v\<^sub>o / a\<^sub>o" unfolding check_precond21_def by auto  
+    assume as1: "\<not> checker_r1 s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta>"
+    from pre have "0 < \<delta>" and "\<delta> \<le> - v\<^sub>o / a\<^sub>o" unfolding check_precond_r1_def by auto  
     define so_delta where "so_delta = s\<^sub>o + v\<^sub>o * \<delta> + a\<^sub>o * \<delta>\<^sup>2 / 2"
     define q_e_delta where "q_e_delta \<equiv> s\<^sub>e + v\<^sub>e * \<delta>" 
     define u_stop_e where "u_stop_e \<equiv> q_e_delta - v\<^sub>e\<^sup>2 / (2 * a\<^sub>e)"
@@ -2774,7 +2773,7 @@ next
     note abb = so_delta_def q_e_delta_def u_stop_e_def vo_star_def t_stop_o_star_def t_stop_e_def
                distance_def safe_dist2_def safe_dist1_def safe_dist0_def safe_dist3_def distance0_def
     from pre have sdn': "safe_distance_normal a\<^sub>e v\<^sub>e s\<^sub>e a\<^sub>o v\<^sub>o s\<^sub>o \<delta>"
-      by (unfold_locales) (auto simp add: check_precond21_def)      
+      by (unfold_locales) (auto simp add: check_precond_r1_def)      
     interpret sdn: safe_distance_normal a\<^sub>e v\<^sub>e s\<^sub>e a\<^sub>o v\<^sub>o s\<^sub>o \<delta>
       rewrites "sdn.distance0 = safe_distance0 v\<^sub>e a\<^sub>o v\<^sub>o \<delta>" and
                "sdn.safe_distance_1r = safe_distance_1r a\<^sub>e v\<^sub>e \<delta>" and
@@ -2803,7 +2802,7 @@ next
     moreover
     { assume "\<not> distance > distance0"
       hence "distance \<le> distance0" by auto
-      with sdn.cond_3r_1' have "sdn.collision_react {0..\<delta>}" using pre unfolding check_precond21_def abb
+      with sdn.cond_3r_1' have "sdn.collision_react {0..\<delta>}" using pre unfolding check_precond_r1_def abb
         sdn.other.t_stop_def by auto    
       with sdn.collision_react_subset have "sdn.collision_react {0..}" by auto
       with as2 have "False" by auto }    
@@ -2813,18 +2812,18 @@ next
       proof (rule ccontr)  
         assume "\<not> \<not> (safe_dist0 < distance \<or> safe_dist3 < distance)"
         hence "(safe_dist0 < distance \<or> safe_dist3 < distance)" by auto
-        with as1 show "False" using pre if2 unfolding checker_r12_def Let_def abb
+        with as1 show "False" using pre if2 unfolding checker_r1_def Let_def abb
           by auto
       qed
       hence if31: "distance \<le> safe_dist0" and if32: "distance \<le> safe_dist3" by auto
       have "sdn.u \<delta> < sdn.other.s \<delta>" using if2 pre unfolding sdn.u_def sdn.ego.q_def
-          sdn.other.s_def sdn.other.t_stop_def sdn.other.p_def abb check_precond21_def sdn.distance0_def
+          sdn.other.s_def sdn.other.t_stop_def sdn.other.p_def abb check_precond_r1_def sdn.distance0_def
           by auto
       from pre interpret sdr: safe_distance_no_collsion_delta a\<^sub>e v\<^sub>e s\<^sub>e a\<^sub>o v\<^sub>o s\<^sub>o \<delta>
-        by (unfold_locales) (auto simp add:check_precond21_def `sdn.u \<delta> < sdn.other.s \<delta>`)   
+        by (unfold_locales) (auto simp add:check_precond_r1_def `sdn.u \<delta> < sdn.other.s \<delta>`)   
       have " s\<^sub>o \<le> sdn.u_max" using if31 unfolding sdn.u_max_eq sdn.ego.q_def abb 
         sdn.safe_distance_1r_def by auto      
-      have "sdn.other.s \<delta> \<le> sdn.u_max" using if32 pre unfolding sdn.other.s_def check_precond21_def
+      have "sdn.other.s \<delta> \<le> sdn.u_max" using if32 pre unfolding sdn.other.s_def check_precond_r1_def
         sdn.other.t_stop_def sdn.other.p_def sdn.u_max_eq sdn.ego.q_def abb sdn.safe_distance_3r_def
         by auto
       consider "(a\<^sub>o > a\<^sub>e \<and> vo_star < v\<^sub>e \<and> t_stop_e < t_stop_o_star)" | 
@@ -2833,12 +2832,12 @@ next
       proof (cases)
         case 1
         hence rest_conjunct:"(a\<^sub>e < a\<^sub>o \<and> sdn.other.s' \<delta> < v\<^sub>e \<and> v\<^sub>e - a\<^sub>e / a\<^sub>o * sdn.other.s' \<delta> < 0)"
-          using pre unfolding check_precond21_def unfolding sdn.other.s'_def sdn.other.t_stop_def
+          using pre unfolding check_precond_r1_def unfolding sdn.other.s'_def sdn.other.t_stop_def
           sdn.other.p'_def abb by (auto simp add:field_simps)
-        from 1 have "distance \<le> safe_dist2" using as1 pre if2 if31 if32 unfolding checker_r12_def
+        from 1 have "distance \<le> safe_dist2" using as1 pre if2 if31 if32 unfolding checker_r1_def
           Let_def abb by auto
         hence cond_f: "sdn.other.s \<delta> - sdn.ego.q \<delta> \<le> sdr.delayed_safe_distance.snd_safe_distance" 
-          using pre unfolding check_precond21_def sdn.other.s_def sdn.other.t_stop_def sdn.other.p_def
+          using pre unfolding check_precond_r1_def sdn.other.s_def sdn.other.t_stop_def sdn.other.p_def
           sdn.ego.q_def sdr.delayed_safe_distance.snd_safe_distance_def using sdn.other.s'_def[of "\<delta>"]
           unfolding sdn.other.t_stop_def sdn.other.p'_def abb sdn.safe_distance_4r_def
           by auto            
@@ -2859,7 +2858,7 @@ next
         ultimately show ?thesis by auto
       next
         case 2
-        hence "distance \<le> safe_dist1" using as1 pre if2 if31 if32 unfolding checker_r12_def
+        hence "distance \<le> safe_dist1" using as1 pre if2 if31 if32 unfolding checker_r1_def
           Let_def abb by auto
         hence "sdn.u_max \<ge> sdn.other.s_stop" unfolding sdn.u_max_eq sdn.ego.q_def sdn.other.s_t_stop
           sdn.other.p_max_eq abb sdn.safe_distance_2r_def by (auto simp add:field_simps)            
@@ -2870,12 +2869,12 @@ next
   qed  
 qed            
   
-definition "check_precond2 s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta> \<longleftrightarrow> s\<^sub>o > s\<^sub>e \<and> 0 \<le> v\<^sub>e \<and> 0 \<le> v\<^sub>o \<and> a\<^sub>e < 0 \<and> a\<^sub>o < 0 \<and> 0 < \<delta> \<and> \<delta> > - v\<^sub>o / a\<^sub>o"
+definition "check_precond_r2 s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta> \<longleftrightarrow> s\<^sub>o > s\<^sub>e \<and> 0 \<le> v\<^sub>e \<and> 0 \<le> v\<^sub>o \<and> a\<^sub>e < 0 \<and> a\<^sub>o < 0 \<and> 0 < \<delta> \<and> \<delta> > - v\<^sub>o / a\<^sub>o"
 definition safe_distance0_2 where "safe_distance0_2 v\<^sub>e a\<^sub>o v\<^sub>o \<delta> = v\<^sub>e * \<delta> + 1 / 2 * v\<^sub>o\<^sup>2 / a\<^sub>o"
 
 definition checker_r2 :: "real \<Rightarrow> real \<Rightarrow> real \<Rightarrow> real \<Rightarrow> real \<Rightarrow> real \<Rightarrow> real \<Rightarrow> bool" where
   "checker_r2 s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta> \<equiv> let distance = s\<^sub>o - s\<^sub>e;
-				precond = check_precond2 s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta>;
+				precond = check_precond_r2 s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta>;
         safe_dist0 = safe_distance_1r a\<^sub>e v\<^sub>e \<delta>;
         safe_dist1 = safe_distance_2r a\<^sub>e v\<^sub>e a\<^sub>o v\<^sub>o \<delta> in 
    if \<not> precond then 
@@ -2886,16 +2885,16 @@ definition checker_r2 :: "real \<Rightarrow> real \<Rightarrow> real \<Rightarro
       distance > safe_dist1"
 
 theorem checker_r2_correctness:
-  "(checker_r2 s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta> \<longleftrightarrow> check_precond2 s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta> \<and> safe_distance_normal.no_collision_react a\<^sub>e v\<^sub>e s\<^sub>e a\<^sub>o v\<^sub>o s\<^sub>o \<delta> {0..})"
+  "(checker_r2 s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta> \<longleftrightarrow> check_precond_r2 s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta> \<and> safe_distance_normal.no_collision_react a\<^sub>e v\<^sub>e s\<^sub>e a\<^sub>o v\<^sub>o s\<^sub>o \<delta> {0..})"
 proof
   assume asm: "checker_r2 s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta>"
-  have pre: "check_precond2 s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta>"
+  have pre: "check_precond_r2 s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta>"
   proof (rule ccontr)
-    assume "\<not> check_precond2 s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta>"
+    assume "\<not> check_precond_r2 s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta>"
       with asm show "False" unfolding checker_r2_def Let_def by auto      
     qed
       from pre have sdn': "safe_distance_normal a\<^sub>e v\<^sub>e s\<^sub>e a\<^sub>o v\<^sub>o s\<^sub>o \<delta>"
-    by (unfold_locales) (auto simp add: check_precond2_def)      
+    by (unfold_locales) (auto simp add: check_precond_r2_def)      
   interpret sdn: safe_distance_normal a\<^sub>e v\<^sub>e s\<^sub>e a\<^sub>o v\<^sub>o s\<^sub>o \<delta>
     rewrites "sdn.distance0_2 = safe_distance0_2 v\<^sub>e a\<^sub>o v\<^sub>o \<delta>" and
              "sdn.safe_distance_1r = safe_distance_1r a\<^sub>e v\<^sub>e \<delta>" and
@@ -2912,7 +2911,7 @@ proof
     show "safe_distance_normal.safe_distance_2r a\<^sub>e v\<^sub>e a\<^sub>o v\<^sub>o \<delta> = safe_distance_2r a\<^sub>e v\<^sub>e a\<^sub>o v\<^sub>o \<delta>"
       unfolding safe_distance_normal.safe_distance_2r_def[OF sdn'] safe_distance_2r_def by auto
   qed
-  have "0 < \<delta>" and "\<delta> > - v\<^sub>o / a\<^sub>o" using pre unfolding check_precond2_def by auto
+  have "0 < \<delta>" and "\<delta> > - v\<^sub>o / a\<^sub>o" using pre unfolding check_precond_r2_def by auto
   define distance where "distance \<equiv> s\<^sub>o - s\<^sub>e"
   define distance0_2 where "distance0_2 = safe_distance0_2 v\<^sub>e a\<^sub>o v\<^sub>o \<delta>"    
   define safe_dist0 where "safe_dist0 = safe_distance_1r a\<^sub>e v\<^sub>e \<delta>"    
@@ -2932,27 +2931,27 @@ proof
     hence "sdn.u \<delta> < sdn.other.s \<delta>" using abb sdn.distance0_2_eq \<open>\<delta> > - v\<^sub>o / a\<^sub>o\<close> sdn.other.t_stop_def by auto
     have "sdn.u_max < sdn.other.s \<delta>" using abb sdn.sd2r_eq  \<open>\<delta> > - v\<^sub>o / a\<^sub>o\<close> sdn.other.t_stop_def `distance > safe_dist1` by auto
     from pre interpret sdr: safe_distance_no_collsion_delta a\<^sub>e v\<^sub>e s\<^sub>e a\<^sub>o v\<^sub>o s\<^sub>o \<delta>
-        by (unfold_locales) (auto simp add:check_precond21_def `sdn.u \<delta> < sdn.other.s \<delta>`)      
+        by (unfold_locales) (auto simp add:check_precond_r2_def `sdn.u \<delta> < sdn.other.s \<delta>`)      
     from sdr.sd_2r_correct_for_3r_3[OF] `distance > safe_dist1` `sdn.u \<delta> < sdn.other.s \<delta>` `sdn.u_max < sdn.other.s \<delta>`
-       show ?thesis using pre unfolding abb sdn.other.s'_def check_precond2_def sdn.other.t_stop_def sdn.other.p'_def
+       show ?thesis using pre unfolding abb sdn.other.s'_def check_precond_r2_def sdn.other.t_stop_def sdn.other.p'_def
             by (auto simp add:field_simps)             
   qed
-  with pre show " check_precond2 s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta> \<and> sdn.no_collision_react {0..}" by auto
+  with pre show " check_precond_r2 s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta> \<and> sdn.no_collision_react {0..}" by auto
 next
-  assume "check_precond2 s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta> \<and> safe_distance_normal.no_collision_react a\<^sub>e v\<^sub>e s\<^sub>e a\<^sub>o v\<^sub>o s\<^sub>o \<delta> {0..}"
-  hence pre: "check_precond2 s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta>" and as2: "safe_distance_normal.no_collision_react a\<^sub>e v\<^sub>e s\<^sub>e a\<^sub>o v\<^sub>o s\<^sub>o \<delta> {0..}"
+  assume "check_precond_r2 s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta> \<and> safe_distance_normal.no_collision_react a\<^sub>e v\<^sub>e s\<^sub>e a\<^sub>o v\<^sub>o s\<^sub>o \<delta> {0..}"
+  hence pre: "check_precond_r2 s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta>" and as2: "safe_distance_normal.no_collision_react a\<^sub>e v\<^sub>e s\<^sub>e a\<^sub>o v\<^sub>o s\<^sub>o \<delta> {0..}"
     by auto
   show "checker_r2 s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta>"
   proof (rule ccontr)
     assume as1: "\<not> checker_r2 s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta>"
-    from pre have "0 < \<delta>" and "\<delta> > - v\<^sub>o / a\<^sub>o" unfolding check_precond2_def by auto
+    from pre have "0 < \<delta>" and "\<delta> > - v\<^sub>o / a\<^sub>o" unfolding check_precond_r2_def by auto
     define distance where "distance \<equiv> s\<^sub>o - s\<^sub>e"
     define distance0_2 where "distance0_2 = safe_distance0_2 v\<^sub>e a\<^sub>o v\<^sub>o \<delta>"    
     define safe_dist0 where "safe_dist0 = safe_distance_1r a\<^sub>e v\<^sub>e \<delta>"    
     define safe_dist1 where "safe_dist1 \<equiv> safe_distance_2r a\<^sub>e v\<^sub>e a\<^sub>o v\<^sub>o \<delta>"  
     note abb = distance_def safe_dist1_def safe_dist0_def distance0_2_def
     from pre have sdn': "safe_distance_normal a\<^sub>e v\<^sub>e s\<^sub>e a\<^sub>o v\<^sub>o s\<^sub>o \<delta>"
-      by (unfold_locales) (auto simp add: check_precond2_def) 
+      by (unfold_locales) (auto simp add: check_precond_r2_def) 
    interpret sdn: safe_distance_normal a\<^sub>e v\<^sub>e s\<^sub>e a\<^sub>o v\<^sub>o s\<^sub>o \<delta>
     rewrites "sdn.distance0_2 = safe_distance0_2 v\<^sub>e a\<^sub>o v\<^sub>o \<delta>" and
              "sdn.safe_distance_1r = safe_distance_1r a\<^sub>e v\<^sub>e \<delta>" and
@@ -2973,7 +2972,7 @@ next
     moreover
     { assume "\<not> distance > distance0_2"
       hence "distance \<le> distance0_2" by auto
-      with sdn.cond_3r_1'_2 have "sdn.collision_react {0..\<delta>}" using pre unfolding check_precond2_def abb sdn.other.t_stop_def by auto    
+      with sdn.cond_3r_1'_2 have "sdn.collision_react {0..\<delta>}" using pre unfolding check_precond_r2_def abb sdn.other.t_stop_def by auto    
       with sdn.collision_react_subset have "sdn.collision_react {0..}" by auto
       with as2 have "False" by auto } 
     moreover
@@ -2989,15 +2988,94 @@ next
    
       have "sdn.u \<delta> < sdn.other.s \<delta>" using abb if2 sdn.distance0_2_eq \<open>\<delta> > - v\<^sub>o / a\<^sub>o\<close> sdn.other.t_stop_def by auto
       from pre interpret sdr: safe_distance_no_collsion_delta a\<^sub>e v\<^sub>e s\<^sub>e a\<^sub>o v\<^sub>o s\<^sub>o \<delta>
-          by (unfold_locales) (auto simp add:check_precond21_def `sdn.u \<delta> < sdn.other.s \<delta>`)      
+          by (unfold_locales) (auto simp add:check_precond_r2_def `sdn.u \<delta> < sdn.other.s \<delta>`)      
       have "sdn.u_max \<ge> sdn.other.s \<delta>" using abb sdn.sd2r_eq  \<open>\<delta> > - v\<^sub>o / a\<^sub>o\<close> sdn.other.t_stop_def `distance \<le> safe_dist1` by auto
       with `\<delta> > - v\<^sub>o / a\<^sub>o` have "sdn.u_max \<ge> sdn.other.s_stop" by (smt movement.t_stop_def sdn.other.s_mono sdn.other.t_stop_nonneg)
       hence "sdn.collision_react {0..}" using sdn.cond_2r by auto
       with as2 have "False" by auto }
     ultimately show "False" by auto
   qed
-qed  
+qed
+ 
+(* combine the two checkers into one*)
+definition "check_precond_r s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta> \<longleftrightarrow> s\<^sub>o > s\<^sub>e \<and> 0 \<le> v\<^sub>e \<and> 0 \<le> v\<^sub>o \<and> a\<^sub>e < 0 \<and> a\<^sub>o < 0 \<and> 0 < \<delta>"
+definition checker_r :: "real \<Rightarrow> real \<Rightarrow> real \<Rightarrow> real \<Rightarrow> real \<Rightarrow> real \<Rightarrow> real \<Rightarrow> bool" where
+  "checker_r s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta> \<equiv> let distance = s\<^sub>o - s\<^sub>e;
+				precond = check_precond_r s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta>;
+        vo_star = v\<^sub>o + a\<^sub>o * \<delta>;
+        t_stop_o_star = - vo_star / a\<^sub>o; 
+        t_stop_e = - v\<^sub>e / a\<^sub>e;
+        t_stop_o = - v\<^sub>o / a\<^sub>o;
+        safe_dist0 = safe_distance_1r a\<^sub>e v\<^sub>e \<delta>;
+        safe_dist1 = safe_distance_2r a\<^sub>e v\<^sub>e a\<^sub>o v\<^sub>o \<delta>;
+        safe_dist2 = safe_distance_4r a\<^sub>e v\<^sub>e a\<^sub>o v\<^sub>o \<delta>;
+        safe_dist3 = safe_distance_3r a\<^sub>e v\<^sub>e a\<^sub>o v\<^sub>o \<delta> in 
+   if \<not> precond then 
+      False
+   else if distance > safe_dist0 then 
+      True
+   else if \<delta> \<le> t_stop_o \<and> distance > safe_dist3 then 
+      True
+   else if \<delta> \<le> t_stop_o \<and> (a\<^sub>o > a\<^sub>e \<and> vo_star < v\<^sub>e \<and> t_stop_e < t_stop_o_star) then
+      distance > safe_dist2
+   else               
+      distance > safe_dist1"
   
+theorem checker_eq_1:
+  "checker_r s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta> \<and> \<delta> \<le> - v\<^sub>o / a\<^sub>o  \<longleftrightarrow> checker_r1 s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta>"
+proof -
+  have "checker_r s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta> \<and> \<delta> \<le> - v\<^sub>o / a\<^sub>o \<longleftrightarrow> check_precond_r s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta> 
+    \<and> (s\<^sub>o - s\<^sub>e > safe_distance_1r a\<^sub>e v\<^sub>e \<delta> 
+        \<or> s\<^sub>o - s\<^sub>e > safe_distance_3r a\<^sub>e v\<^sub>e a\<^sub>o v\<^sub>o \<delta>
+        \<or> (((a\<^sub>o > a\<^sub>e \<and> v\<^sub>o + a\<^sub>o * \<delta> < v\<^sub>e \<and> - v\<^sub>e / a\<^sub>e < - (v\<^sub>o + a\<^sub>o * \<delta>) / a\<^sub>o) \<longrightarrow> s\<^sub>o - s\<^sub>e > safe_distance_4r a\<^sub>e v\<^sub>e a\<^sub>o v\<^sub>o \<delta>)
+            \<and> (\<not> (a\<^sub>o > a\<^sub>e \<and> v\<^sub>o + a\<^sub>o * \<delta> < v\<^sub>e \<and> - v\<^sub>e / a\<^sub>e < - (v\<^sub>o + a\<^sub>o * \<delta>) / a\<^sub>o) \<longrightarrow> s\<^sub>o - s\<^sub>e > safe_distance_2r a\<^sub>e v\<^sub>e a\<^sub>o v\<^sub>o \<delta>)))
+    \<and> \<delta> \<le> - v\<^sub>o / a\<^sub>o" using checker_r_def by metis
+  also have "... \<longleftrightarrow> check_precond_r1 s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta> 
+    \<and> (s\<^sub>o - s\<^sub>e > safe_distance_1r a\<^sub>e v\<^sub>e \<delta> 
+        \<or> s\<^sub>o - s\<^sub>e > safe_distance_3r a\<^sub>e v\<^sub>e a\<^sub>o v\<^sub>o \<delta>
+        \<or> (((a\<^sub>o > a\<^sub>e \<and> v\<^sub>o + a\<^sub>o * \<delta> < v\<^sub>e \<and> - v\<^sub>e / a\<^sub>e < - (v\<^sub>o + a\<^sub>o * \<delta>) / a\<^sub>o) \<longrightarrow> s\<^sub>o - s\<^sub>e > safe_distance_4r a\<^sub>e v\<^sub>e a\<^sub>o v\<^sub>o \<delta>)
+            \<and> (\<not> (a\<^sub>o > a\<^sub>e \<and> v\<^sub>o + a\<^sub>o * \<delta> < v\<^sub>e \<and> - v\<^sub>e / a\<^sub>e < - (v\<^sub>o + a\<^sub>o * \<delta>) / a\<^sub>o) \<longrightarrow> s\<^sub>o - s\<^sub>e > safe_distance_2r a\<^sub>e v\<^sub>e a\<^sub>o v\<^sub>o \<delta>)))"
+    by (auto simp add:check_precond_r_def check_precond_r1_def)
+  also have "... \<longleftrightarrow> checker_r1 s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta>" by (metis checker_r1_def)
+  finally show ?thesis by auto
+qed
+     
+theorem checker_eq_2:
+  "checker_r s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta> \<and> \<delta> > - v\<^sub>o / a\<^sub>o \<longleftrightarrow> checker_r2 s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta>"
+proof -
+  have "checker_r s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta> \<and> \<delta> > - v\<^sub>o / a\<^sub>o \<longleftrightarrow> check_precond_r s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta> \<and> (\<not> check_precond_r s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta> \<or>
+   s\<^sub>o - s\<^sub>e > safe_distance_1r a\<^sub>e v\<^sub>e \<delta> \<or> 
+   (\<delta> \<le> - v\<^sub>o / a\<^sub>o \<and> s\<^sub>o - s\<^sub>e > safe_distance_3r a\<^sub>e v\<^sub>e a\<^sub>o v\<^sub>o \<delta>) \<or>
+   (\<delta> \<le> - v\<^sub>o / a\<^sub>o \<and> a\<^sub>o > a\<^sub>e \<and> v\<^sub>o + a\<^sub>o * \<delta> < v\<^sub>e \<and> - v\<^sub>e / a\<^sub>e < - (v\<^sub>o + a\<^sub>o * \<delta>) / a\<^sub>o \<and> s\<^sub>o - s\<^sub>e > safe_distance_4r a\<^sub>e v\<^sub>e a\<^sub>o v\<^sub>o \<delta>) \<or> 
+   s\<^sub>o - s\<^sub>e > safe_distance_2r a\<^sub>e v\<^sub>e a\<^sub>o v\<^sub>o \<delta>) \<and> \<delta> > - v\<^sub>o / a\<^sub>o" unfolding checker_r_def Let_def if_splits by auto
+  also have 
+   "... \<longleftrightarrow> check_precond_r s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta> 
+   \<and> (s\<^sub>o - s\<^sub>e > safe_distance_1r a\<^sub>e v\<^sub>e \<delta> \<or> s\<^sub>o - s\<^sub>e > safe_distance_2r a\<^sub>e v\<^sub>e a\<^sub>o v\<^sub>o \<delta>)
+   \<and> \<delta> > - v\<^sub>o / a\<^sub>o"  by (auto simp add:HOL.disjE)
+  also have
+    "... \<longleftrightarrow> check_precond_r2 s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta>
+   \<and> (s\<^sub>o - s\<^sub>e > safe_distance_1r a\<^sub>e v\<^sub>e \<delta> \<or> s\<^sub>o - s\<^sub>e > safe_distance_2r a\<^sub>e v\<^sub>e a\<^sub>o v\<^sub>o \<delta>)"
+    by (auto simp add:check_precond_r_def check_precond_r2_def)
+  also have "... \<longleftrightarrow> checker_r2 s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta>" by (auto simp add:checker_r2_def Let_def if_splits)
+  thus ?thesis using calculation by auto
+qed
+     
+theorem checker_r_correctness:
+  "(checker_r s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta> \<longleftrightarrow> check_precond_r s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta> \<and> safe_distance_normal.no_collision_react a\<^sub>e v\<^sub>e s\<^sub>e a\<^sub>o v\<^sub>o s\<^sub>o \<delta> {0..})"
+proof -
+  have "checker_r s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta> \<longleftrightarrow> (checker_r s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta> \<and> \<delta> \<le> - v\<^sub>o / a\<^sub>o) \<or> (checker_r s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta> \<and> \<delta> > - v\<^sub>o / a\<^sub>o)" by auto
+  also have "... \<longleftrightarrow> checker_r1 s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta> \<or> checker_r2 s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta>" using checker_eq_1 checker_eq_2 by auto
+  also have "... \<longleftrightarrow> (check_precond_r1 s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta> \<and> safe_distance_normal.no_collision_react a\<^sub>e v\<^sub>e s\<^sub>e a\<^sub>o v\<^sub>o s\<^sub>o \<delta> {0..})
+      \<or> (check_precond_r2 s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta> \<and> safe_distance_normal.no_collision_react a\<^sub>e v\<^sub>e s\<^sub>e a\<^sub>o v\<^sub>o s\<^sub>o \<delta> {0..})" 
+    using checker_r1_correctness checker_r2_correctness by auto
+  also have "... \<longleftrightarrow> (\<delta> \<le> - v\<^sub>o / a\<^sub>o \<and> check_precond_r s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta> \<and> safe_distance_normal.no_collision_react a\<^sub>e v\<^sub>e s\<^sub>e a\<^sub>o v\<^sub>o s\<^sub>o \<delta> {0..})
+      \<or> (\<delta> > - v\<^sub>o / a\<^sub>o \<and> check_precond_r s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta> \<and> safe_distance_normal.no_collision_react a\<^sub>e v\<^sub>e s\<^sub>e a\<^sub>o v\<^sub>o s\<^sub>o \<delta> {0..})" 
+    by (auto simp add:check_precond_r_def check_precond_r1_def check_precond_r2_def)
+  also have "... \<longleftrightarrow> check_precond_r s\<^sub>e v\<^sub>e a\<^sub>e s\<^sub>o v\<^sub>o a\<^sub>o \<delta> \<and> safe_distance_normal.no_collision_react a\<^sub>e v\<^sub>e s\<^sub>e a\<^sub>o v\<^sub>o s\<^sub>o \<delta> {0..}"
+    by auto
+  finally show ?thesis by auto
+qed
+
 subsection \<open>serialize printing\<close>
 
 consts print::"String.literal \<Rightarrow> unit"
