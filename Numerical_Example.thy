@@ -66,7 +66,13 @@ global_interpretation l2': lane2' bound0 bound1 bound2
   sd_rear' = l2'.Lane.sd_rear' and
   sd_raw_state = l2'.Lane.sd_raw_state and
   vehicles_behind = l2'.Lane.vehicles_behind and 
-  trim_vehicles_same_lane = l2'.Lane.trim_vehicles_same_lane
+  trim_vehicles_same_lane = l2'.Lane.trim_vehicles_same_lane and 
+  safe_to_return_trace = l2'.Lane.safe_to_return_trace and 
+  safe_to_return_checker = l2'.Lane.safe_to_return_checker and 
+  closest_vehicles_infront_idx = l2'.Lane.closest_vehicles_infront_idx and 
+  vehicles_infront = l2'.Lane.vehicles_infront and 
+  sd_raw_state_list' = l2'.Lane.sd_raw_state_list' and 
+  sd_raw_state_list = l2'.Lane.sd_raw_state_list
   by (unfold_locales) (eval+)  
     
 lemma [code]: "start_dec_lane uu i num =
@@ -323,14 +329,56 @@ definition tfl where "tfl \<equiv> onfastlane_checker black_boxes"
 definition tm where "tm \<equiv> merging_checker black_boxes"
 definition tol where "tol \<equiv> original_lane_checker black_boxes"
 definition tsd where "tsd \<equiv> sd_rear_checker black_boxes reaction_time"  
+definition tsr where "tsr \<equiv> safe_to_return_checker black_boxes reaction_time"  
  
-value [code] "toc" 
+value [code] "toc"   
 value [code] "tfl"  
 value [code] "tm"  
 value [code] "tol"  
-value [code] "tsd"  
+value [code] "tsd" 
+    
+definition eight_list where "eight_list \<equiv> nth_list 8 (map snd (snd black_boxes))"  
+                                               
+ML \<open>
+val test = @{code sd_rear_checker'} @{code black_boxes} @{code reaction_time};
+val other_runs_t = @{code List.transpose} (map snd (snd @{code black_boxes}));
+val ego_run = snd (fst @{code black_boxes});
+val test = @{code sd_rears} other_runs_t ego_run @{code reaction_time};
+val eight_list = @{code eight_list};
+val eight_ego = List.nth (ego_run, 8);
+val test2 = @{code sd_rear} eight_list eight_ego @{code reaction_time};
+val veh_behind = @{code vehicles_behind} eight_list eight_ego;
+val sd_rear_prime = @{code sd_rear'} veh_behind eight_ego @{code reaction_time};
+val sd_raw_state = @{code sd_raw_state} (hd veh_behind) eight_ego @{code reaction_time};
+
+\<close>
   
+
+(*   
   
+value [code] "tsr"  
+  
+definition temp where "temp or so \<equiv>  [f or. f \<leftarrow> (map nth_list so)]"
+definition temp2 where "temp2 bb so \<equiv> [f (snd (fst bb)) . f \<leftarrow> (map (\<lambda>n xs. xs ! n) so)]"  
+definition temp3 where "temp3 or ovp \<equiv> [f or. f \<leftarrow> (map (\<lambda>n xss. xss !n) ovp)]"    
+ML \<open>
+val ego_rects = @{code bb_to_rects} @{code black_boxes};
+val ov_nums = @{code overtaking} ego_rects;
+val start_ovs = map fst ov_nums;
+val other_runs = map snd (snd @{code black_boxes});
+val choppeds = @{code temp} other_runs start_ovs; 
+val ego_chopped = @{code temp2} @{code black_boxes} start_ovs;
+val overtaken_vehs = map ((fn f => fn p => f (fst p) (snd p)) @{code closest_vehicles_infront_idx})
+                                                              (@{code zip} (@{code List.transpose} choppeds) ego_chopped);
+val overtaken_vehs' = @{code take_some} overtaken_vehs;
+val relevant_trace = @{code temp3} other_runs overtaken_vehs';
+val result = @{code sd_raw_state_list} relevant_trace (snd (fst @{code black_boxes})) @{code reaction_time}
+val result2 = @{code List.enumerate} @{code "0 :: nat"} (@{code nth} result @{code "0 :: nat"});
+List.nth(snd (fst @{code black_boxes}), 28);
+List.nth(List.nth (relevant_trace, 0), 28);
+\<close>  
+    
+    
 fun combine_to_trace :: "tr_atom set list list \<Rightarrow> tr_atom set list \<Rightarrow> tr_atom set list" where
   "combine_to_trace [] res = res" | 
   "combine_to_trace (x # xs) res = combine_to_trace xs (map (\<lambda>x. union (fst x) (snd x)) (zip x res))"
@@ -354,7 +402,7 @@ val test_phi3' = monitor2 comp_trace phi3;
 val phi4 = @{code \<Phi>4};
 val test_phi4 = monitor2 comp_trace phi4;
 \<close>  
-  
+ *)  
   
     
  

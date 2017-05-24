@@ -510,12 +510,19 @@ definition (in lane) closest_vehicles_infront :: "raw_state list \<Rightarrow> r
                                             min_idx = min_list_idx xpos 
                                         in case min_idx of None \<Rightarrow> None | Some n \<Rightarrow> Some (fronts ! n))"  
   
+definition (in lane) closest_vehicles_infront_idx :: "raw_state list \<Rightarrow> raw_state \<Rightarrow> nat option" where
+  "closest_vehicles_infront_idx states r = (let fronts = vehicles_infront states r; 
+                                            xpos =  map Xcoord fronts
+                                        in
+                                            min_list_idx xpos)"    
+  
+(* why the length of the ego vehicle is subtracted from the coordinate? Shouldn't it be added? *)
 definition (in lane) sd_raw_state :: "raw_state \<Rightarrow> raw_state \<Rightarrow> real \<Rightarrow> bool" where
   "sd_raw_state ego other \<delta> \<equiv> (let se = Xcoord ego - Length ego / 2; 
                                ve = fst (velocity ego); ae = fst (acceleration ego);
                                so = Xcoord other + Length other / 2; 
                                vo = fst (velocity other); ao = fst (acceleration other)
-                            in checker_r12 se ve ae so vo ao \<delta>)" 
+                            in checker_r2 se ve ae so vo ao \<delta>)" 
   
 fun (in lane) sd_rear' :: "raw_state list \<Rightarrow> raw_state \<Rightarrow> real \<Rightarrow> bool" where
   "sd_rear' [] _ _ = True" | 
@@ -541,18 +548,42 @@ definition (in lane) sd_rear_checker :: "black_boxes  \<Rightarrow> real \<Right
   "sd_rear_checker bb \<delta> \<equiv> (let result = sd_rear_checker' bb \<delta> 
                                in  map (\<lambda>x. if x then {sd_rear_atom} else {}) result)"
 
-definition (in lane) safe_to_return_checker' :: "black_boxes \<Rightarrow> bool list" where
-  "safe_to_return_checker' bb \<equiv> (let ego_rects = bb_to_rects bb; 
-                                    ov_nums = overtaking ego_rects; 
-                                    start_ovs = map fst ov_nums
-                                 in undefined)" 
+text \<open>Dropping @{term "k"} elements for each list in a list of list.\<close>
+definition drop_list :: "nat \<Rightarrow> 'a list list \<Rightarrow> 'a list list" where
+  "drop_list k xss = map (drop k) xss"
   
-definition (in lane) safe_to_return_checker :: "black_boxes \<Rightarrow> tr_atom set list" where
-  "safe_to_return_checker bb \<equiv> (let ego_rects = bb_to_rects bb; 
-                                    ov_nums = overtaking ego_rects; 
-                                    start_ovs = map fst ov_nums
-                                 in undefined)"  
-
+definition nth_list :: "nat \<Rightarrow> 'a list list \<Rightarrow> 'a list" where
+  "nth_list k xss = map (\<lambda>xs. nth xs k) xss"  
+  
+abbreviation uncurry :: "('a \<Rightarrow> 'b \<Rightarrow> 'c) \<Rightarrow> ('a \<times> 'b) \<Rightarrow> 'c" where
+  "uncurry f p \<equiv> f (fst p) (snd p)"  
+  
+fun take_some :: "'a option list \<Rightarrow> 'a list" where
+  "take_some [] = []" | 
+  "take_some (x # xs) = (if x = None then take_some xs else the x # take_some xs)"  
+  
+fun (in lane) sd_raw_state_list :: "raw_state list list \<Rightarrow> raw_state list \<Rightarrow> real \<Rightarrow> bool list list" where
+  "sd_raw_state_list [] _ _ = []" | 
+  "sd_raw_state_list (ts # tss) es \<delta> = map (uncurry (\<lambda>ego other. sd_raw_state ego other \<delta>)) (zip ts es) # sd_raw_state_list tss es \<delta>"  
+  
+definition (in lane) sd_raw_state_list' :: "raw_state list list \<Rightarrow> raw_state list \<Rightarrow> real \<Rightarrow> bool list" where
+  "sd_raw_state_list' tss es \<delta> \<equiv> map (foldl (op \<and>) True) (List.transpose (sd_raw_state_list tss es \<delta>))"  
+    
+definition (in lane) safe_to_return_trace :: "black_boxes \<Rightarrow> real \<Rightarrow> bool list" where
+  "safe_to_return_trace bb \<delta> \<equiv> (let ego_rects = bb_to_rects bb;
+                                     other_runs = map snd (snd bb);
+                                     ov_nums = overtaking ego_rects; 
+                                     start_ovs = map fst ov_nums;
+                                     choppeds = [f other_runs . f \<leftarrow> (map nth_list start_ovs)];
+                                     ego_chopped = [f (snd (fst bb)). f \<leftarrow> (map (\<lambda>n xs. xs ! n) start_ovs)]; 
+                                     overtaken_vehs  = map (uncurry closest_vehicles_infront_idx) (zip (List.transpose choppeds) ego_chopped);
+                                     overtaken_vehs' = take_some overtaken_vehs;
+                                     relevant_trace = [f other_runs. f \<leftarrow> (map (\<lambda>n xss. xss ! n) overtaken_vehs')]                                          
+                                   in sd_raw_state_list' relevant_trace (snd (fst bb))) \<delta>"
+             
+definition (in lane) safe_to_return_checker :: "black_boxes \<Rightarrow> real \<Rightarrow> tr_atom set list" where
+  "safe_to_return_checker bb \<delta> \<equiv> (let result = safe_to_return_trace bb \<delta> in 
+                                      map (\<lambda>x. if x then {safe_to_return_atom} else {}) result)"  
   
 function monitor_tr :: "[tr_atom set list, tr_atom ltlf] \<Rightarrow> bool"  and 
          monitor_tr_F :: "tr_atom set list \<Rightarrow> tr_atom ltlf \<Rightarrow> bool" and 

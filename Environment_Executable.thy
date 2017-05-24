@@ -8314,7 +8314,7 @@ function overtaking :: "rectangle list \<Rightarrow> (nat \<times> nat \<times> 
   termination by (relation "Wellfounded.measure length")          
     (auto simp add:increase_lane_some_not_nil increase_lane_decrease_length 
                    increase_lane_decrease_lane_length)
-    
+                     
 fun time_points_to_ov_bools :: "(nat \<times> nat \<times> nat \<times> nat) list \<Rightarrow> bool list" where
   "time_points_to_ov_bools []  = []" | 
   "time_points_to_ov_bools (tp # tps) = (case tp of (t1, t2, t3, t4) \<Rightarrow> 
