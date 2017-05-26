@@ -291,7 +291,7 @@ definition velos_one :: "real2 list" where
   "velos_one = zip veloxs_one veloys_one"  
   
 definition reaction_time :: "real" where
-  "reaction_time = 1"  
+  "reaction_time = 0.5"  
   
 definition raw_states_other where "raw_states_other = mk_raw_state xpos_one ypos_one oris_one lengths widths velos_one max_decels" 
 definition other_one_run where "other_one_run = (Motorised, raw_states_other)"
@@ -336,25 +336,23 @@ value [code] "tfl"
 value [code] "tm"  
 value [code] "tol"  
 value [code] "tsd" 
+value [code] "List.enumerate 0 (zip tol tsd)"  
     
-definition eight_list where "eight_list \<equiv> nth_list 8 (map snd (snd black_boxes))"  
-                                               
+definition eight_list where "eight_list \<equiv> nth_list 73 (map snd (snd black_boxes))"  
+  
 ML \<open>
 val test = @{code sd_rear_checker'} @{code black_boxes} @{code reaction_time};
 val other_runs_t = @{code List.transpose} (map snd (snd @{code black_boxes}));
 val ego_run = snd (fst @{code black_boxes});
 val test = @{code sd_rears} other_runs_t ego_run @{code reaction_time};
 val eight_list = @{code eight_list};
-val eight_ego = List.nth (ego_run, 8);
+val eight_ego = List.nth (ego_run, 73);
 val test2 = @{code sd_rear} eight_list eight_ego @{code reaction_time};
 val veh_behind = @{code vehicles_behind} eight_list eight_ego;
 val sd_rear_prime = @{code sd_rear'} veh_behind eight_ego @{code reaction_time};
-val sd_raw_state = @{code sd_raw_state} (hd veh_behind) eight_ego @{code reaction_time};
-
+(* val sd_raw_state = @{code sd_raw_state} (hd veh_behind) eight_ego @{code reaction_time};
+ *)
 \<close>
-  
-
-(*   
   
 value [code] "tsr"  
   
@@ -374,17 +372,16 @@ val overtaken_vehs' = @{code take_some} overtaken_vehs;
 val relevant_trace = @{code temp3} other_runs overtaken_vehs';
 val result = @{code sd_raw_state_list} relevant_trace (snd (fst @{code black_boxes})) @{code reaction_time}
 val result2 = @{code List.enumerate} @{code "0 :: nat"} (@{code nth} result @{code "0 :: nat"});
-List.nth(snd (fst @{code black_boxes}), 28);
-List.nth(List.nth (relevant_trace, 0), 28);
+List.nth(snd (fst @{code black_boxes}), 36);
+List.nth(List.nth (relevant_trace, 0), 36);
 \<close>  
-    
-    
+        
 fun combine_to_trace :: "tr_atom set list list \<Rightarrow> tr_atom set list \<Rightarrow> tr_atom set list" where
   "combine_to_trace [] res = res" | 
   "combine_to_trace (x # xs) res = combine_to_trace xs (map (\<lambda>x. union (fst x) (snd x)) (zip x res))"
 
 definition empty_trace :: "tr_atom set list" where "empty_trace \<equiv> replicate 101 {}"
-definition complete_trace where "complete_trace \<equiv> combine_to_trace [toc, tfl, tm, tol, tsd] empty_trace"
+definition complete_trace where "complete_trace \<equiv> combine_to_trace [toc, tfl, tm, tol, tsd, tsr] empty_trace"
   
 definition semantics_ltlf_tr :: "tr_atom set list \<Rightarrow> tr_atom ltlf \<Rightarrow> bool" where
   "semantics_ltlf_tr \<equiv> semantics_ltlf"
@@ -396,13 +393,15 @@ val comp_trace = @{code complete_trace};
 val phi1 = @{code \<Phi>1}
 val test_phi1 = monitor comp_trace phi1;
 val test_phi1' = monitor2 comp_trace phi1;
+val phi3_weaker = @{code \<Phi>3_weaker};
+val test_phi3_weaker = monitor comp_trace phi3_weaker;
+val test_phi3'_weaker = monitor2 comp_trace phi3_weaker;
 val phi3 = @{code \<Phi>3};
 val test_phi3 = monitor comp_trace phi3;
-val test_phi3' = monitor2 comp_trace phi3;
 val phi4 = @{code \<Phi>4};
 val test_phi4 = monitor2 comp_trace phi4;
 \<close>  
- *)  
+
   
     
  
