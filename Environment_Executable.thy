@@ -8400,17 +8400,21 @@ proof -
               else None)" by simp
   hence "... = (if (lanelet.rectangle_inside points0 points1 rect) then Some 0 
               else if (lanelet.rectangle_inside points1 points2 rect) then Some 1
-              else None)" (is "... = (if ?a then ?b else if ?c then ?d else ?e)") by simp
+              else None)" by simp
   hence "... = (if lane0.rectangle_inside rect then Some 0 
               else if lane1.rectangle_inside rect then Some 1
-              else None)" (is "... = (if ?a' then ?b' else if ?c' then ?d' else ?e')")
-  by blast
+              else None)" by blast
   thus ?thesis using in_lane2_def by auto
-    
-
-theorem [code]:  "Lane.lane_boundaries_touched = lane_boundaries_touched2" sorry  
+qed
+  
+theorem [code]:  "Lane.lane_boundaries_touched rect = lane_boundaries_touched2 rect"
+proof - 
+  have "Lane.lane_boundaries_touched rect = boundaries_touched [points0, points1, points2] rect 0" by auto
+  hence "... = (map fst (filter (\<lambda>x. snd x) (List.enumerate 0 [bound0.rectangle_intersect rect, 
+                                                               bound1.rectangle_intersect rect, 
+                                                               bound2.rectangle_intersect rect])))" by simp
+  thus ?thesis using lane_boundaries_touched2_def by auto
+qed
 end
   
-  
-
 end
