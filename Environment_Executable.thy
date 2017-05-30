@@ -929,8 +929,6 @@ proof -
   with assms(4) show ?thesis using 2 by auto            
 qed
   
-thm curve.setX_def  
-  
 lemma test2:
   assumes "points \<noteq> []"
   assumes "monotone_polychain points"  
@@ -5007,8 +5005,6 @@ definition direction_right :: "bool" where
   
 abbreviation direction_left :: bool where
   "direction_left \<equiv> \<not> direction_right"
-
-find_theorems "ri.first_point"  
   
 theorem direction_left_alt_def:
   "direction_left \<Longrightarrow> snd ri.first_point > snd le.first_point"
@@ -5043,12 +5039,6 @@ lemma le_first_point_curve_eq0:
   "le.first_point = le.curve_eq 0"
   unfolding points_path2_def using le.nonempty_points pathstart_linepath unfolding pathstart_def
   by (smt pathstart_def points_path2_def le.pathstart_first_point)
-                    
-thm "simple_boundary.f_of_x_def"  
-term "simple_boundary.f_of_x ri.curve_eq {0..1} x"
-term "simple_boundary.inv_curve_x ri.curve_eq {0..1}"
-term "curve.curve_eq_x ri.curve_eq"
-thm "curve.curve_eq_x_def"  
     
 lemma ri_first_point_f_of_x:
   "snd ri.first_point = sr.ri.f_of_x sr.lb_x"
@@ -5316,8 +5306,6 @@ proof -
 qed
   
 subsection "Lane : composition of lanelets"
-
-term "lanelet.rectangle_inside"  
   
 fun it_in_lane :: "(real2 \<times> real2) list list \<Rightarrow> rectangle \<Rightarrow> nat \<Rightarrow> nat option" where
   "it_in_lane [] _ _ = None" | 
@@ -8376,8 +8364,18 @@ subsection "Lane with two lanelets"
 locale lane2' = bound0: lanelet_simple_boundary points0 + 
                 bound1: lanelet_simple_boundary points1 + 
                 bound2: lanelet_simple_boundary points2 +
+                (*old definition:
                 lane0: lanelet points1 points0 + 
                 lane1: lanelet points2 points1 +
+                changed to fit the following scenario:
+                points0      points1       points2
+                 |              |             |
+                 |     lane0    |    lane1    |
+                 |              |             |
+                (monika)*)
+                lane0: lanelet points0 points1 + 
+                lane1: lanelet points1 points2 +
+                
                 Lane: lane "[points0, points1, points2]"  for points0 and points1 and points2 +
    assumes not_intersect02: "\<not> lanes_intersect points0 points2"              
 begin
@@ -8393,8 +8391,23 @@ definition lane_boundaries_touched2 :: "rectangle \<Rightarrow> nat list" where
                                         res = List.enumerate 0 [touch0, touch1, touch2];
                                         fil = filter (\<lambda>x. snd x) res in 
                                         map fst fil)"   
+      
+theorem [code]:  "Lane.in_lane rect = in_lane2 rect"
+proof -
+  have "Lane.in_lane rect = it_in_lane [points0, points1, points2] rect 0" using lane2'_def by simp
+  hence "... = (if lanelet.rectangle_inside points0 (hd [points1, points2]) rect then Some 0 
+              else if lanelet.rectangle_inside points1 (hd [points2]) rect then Some 1
+              else None)" by simp
+  hence "... = (if (lanelet.rectangle_inside points0 points1 rect) then Some 0 
+              else if (lanelet.rectangle_inside points1 points2 rect) then Some 1
+              else None)" (is "... = (if ?a then ?b else if ?c then ?d else ?e)") by simp
+  hence "... = (if lane0.rectangle_inside rect then Some 0 
+              else if lane1.rectangle_inside rect then Some 1
+              else None)" (is "... = (if ?a' then ?b' else if ?c' then ?d' else ?e')")
+  by blast
+  thus ?thesis using in_lane2_def by auto
     
-theorem [code]:  "Lane.in_lane = in_lane2" sorry
+
 theorem [code]:  "Lane.lane_boundaries_touched = lane_boundaries_touched2" sorry  
 end
   
