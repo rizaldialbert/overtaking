@@ -1456,17 +1456,168 @@ next
    unfolding sym[OF curve.setX_alt_def[OF 0]] bij_betw_def by auto 
 qed
   
+(* lemma
+  assumes "simple_boundary (curve_eq3 (points_path2 (a # points))) {0..1}"
+  assumes "x \<in> curve.setX (curve_eq3 (points_path2 (a # points))) {0..1}"    
+  shows "\<exists>! c \<in> set (a # points). fst (fst c) \<le> x \<and> x \<le> fst (snd c)"
+  sorry
+ *)    
+lemma simple_boundary_closed_segment_single:    
+  assumes "simple_boundary (curve_eq3 (points_path2 (a # points))) {0..1}"
+  assumes "simple_boundary.f_of_x (curve_eq3 (points_path2 (a # points))) {0..1} x = y"
+  assumes "x \<in> curve.setX (curve_eq3 (points_path2 (a # points))) {0..1}"
+  assumes "monotone_polychain (a # points)"
+  assumes "points = []"    
+  shows "\<exists>c \<in> set (a # points). (x,y) \<in> closed_segment (fst c) (snd c)"    
+proof -
+  from `monotone_polychain (a # points)` have "fst (fst a) \<noteq> fst (snd a)" 
+    unfolding assms(5) monotone_polychain_def by auto    
+  from assms(3) have "x \<in> curve.setX (linepath (fst a) (snd a)) {0..1}"
+    unfolding assms(5) points_path2_def  by auto
+  from assms(2) have "simple_boundary.f_of_x (linepath (fst a) (snd a)) {0..1} x = y"  
+    unfolding assms(5) points_path2_def by auto         
+  with simple_boundary.f_of_x_curve_eq[OF simple_boundary_linepath[OF `fst (fst a) \<noteq> fst (snd a)`]
+                                          `x \<in> curve.setX (linepath (fst a) (snd a)) {0..1}` this]
+  obtain t where "t \<in> {0..1}" and "linepath (fst a) (snd a) t = (x,y)" by auto
+  hence "(x,y) \<in> closed_segment (fst a) (snd a)"  using linepath_in_path[OF `t \<in> {0..1}`] by metis    
+  then show ?thesis by auto     
+qed
+      
+lemma simple_boundary_closed_segment_nonempty_tail:
+  assumes "simple_boundary (curve_eq3 (points_path2 (a # points))) {0..1}"
+  assumes "simple_boundary.f_of_x (curve_eq3 (points_path2 (a # points))) {0..1} x = y"
+  assumes "x \<in> curve.setX (curve_eq3 (points_path2 (a # points))) {0..1}"
+  assumes "monotone_polychain (a # points)"    
+  shows "\<exists>c \<in> set (a # points). (x,y) \<in> closed_segment (fst c) (snd c)"  
+  using assms
+proof (induction points arbitrary:a)
+  case Nil
+  then show ?case using simple_boundary_closed_segment_single by auto
+next
+  case (Cons b points)
+  note case_cons = this
+  from case_cons(2) have cce3: " curve (curve_eq3 (points_path2 (a # b # points))) {0..1} "  
+    unfolding simple_boundary_def by auto
+  from case_cons(5) have "polychain (a # b # points)" unfolding monotone_polychain_def by auto
+  from pathfinish_pathstart[OF `polychain (a # b # points)`] 
+    have pp: "pathfinish (linepath (fst a) (snd a)) = pathstart (curve_eq3 (points_path2 (b # points)))" 
+    by auto
+  from case_cons(3-4) obtain t where "t \<in> {0..1}" and cxy: "curve_eq3 (points_path2 (a # b # points)) t = (x,y)"
+    using simple_boundary.f_of_x_curve_eq[OF case_cons(2) case_cons(4), of "y"] by auto
+  have lc: "lanelet_curve (a # b # points)"
+    using `monotone_polychain (a # b# points)` unfolding monotone_polychain_def
+    by (unfold_locales) auto  
+  from lanelet_curve.curve_eq_imp_closed_segment[OF this `t \<in> {0..1}`] obtain i where
+    "i < length (a # b # points)" and "curve_eq3 (points_path2 (a # b# points)) t \<in> 
+                                      closed_segment (fst ((a # b # points) ! i)) (snd ((a # b# points) ! i))"
+    by auto
+  with cxy have xycs: "(x,y) \<in>  closed_segment (fst ((a # b # points) ! i)) (snd ((a # b# points) ! i))"
+    by auto
+  have "((a # b # points) ! i) \<in> set (a # b # points)"  using \<open>i < length (a # b # points)\<close> nth_mem by blast
+  thus ?case using xycs by auto       
+qed
+     
+lemma simple_boundary_closed_segment2: 
+  assumes "polychain (a # points)"
+  assumes "simple_boundary (curve_eq3 (points_path2 (a # points))) {0..1}"
+  assumes "\<exists>c \<in> set (a # points). (x,y) \<in> closed_segment (fst c) (snd c)"  
+  shows "simple_boundary.f_of_x (curve_eq3 (points_path2 (a # points))) {0..1} x = y"
+proof -
+  have "lanelet_curve (a # points)" using assms by (unfold_locales) (auto)
+  from assms(3) obtain i where "i < length (a # points)" and 
+    "(x,y) \<in> closed_segment (fst ((a # points) ! i)) (snd ((a # points) ! i))"
+    by (metis in_set_conv_nth)
+  then obtain t where "t \<in> {0..1}" and line_eq: "linepath (fst ((a # points) ! i)) (snd ((a # points) ! i)) t = (x,y)" 
+    unfolding closed_segment_def linepath_def by auto 
+  from lanelet_curve.linepath_imp_curve_eq'[OF `lanelet_curve (a # points)` assms(1) _ `i < length (a # points)` `t \<in> {0..1}`]
+  obtain t' where "t' \<in> {0..1}" and "curve_eq3 (points_path2 (a # points)) t' = linepath (fst ((a # points) ! i)) (snd ((a # points) ! i)) t"
+    by auto
+  hence "curve_eq3 (points_path2 (a # points)) t' = (x,y)" unfolding line_eq by auto
+  from simple_boundary.curve_eq_f_of_x[OF assms(2) `t' \<in> {0..1}` this] show ?thesis by auto      
+qed
+      
 lemma sb_f_of_x_tail:
-  assumes "points \<noteq> []"
-  assumes "fst (snd a) < x"
+  assumes "points \<noteq> []"  
+  assumes "fst (snd a) \<le> x"
   assumes "simple_boundary (curve_eq3 (points_path2 (a # points))) {0..1}"  
+  assumes "monotone_polychain (a # points)"  
+  assumes "x \<in> curve.setX (curve_eq3 (points_path2 (a # points))) {0..1}"    
   shows "simple_boundary.f_of_x (curve_eq3 (points_path2 (a # points))) {0..1} x =
          simple_boundary.f_of_x (curve_eq3 (points_path2 points)) {0..1} x"  
 proof -
-  from curve_eq_cons(1)[OF assms(1)] 
-    have "curve_eq3 (points_path2 (a # points)) = linepath (fst a) (snd a) +++ curve_eq3 (points_path2 points) "   
+  obtain y where y_def: "y = simple_boundary.f_of_x (curve_eq3 (points_path2 (a # points))) {0..1} x"
     by auto
-  show ?thesis sorry  
+  from simple_boundary_closed_segment_nonempty_tail[OF assms(3) _ assms(5) assms(4), of "y"]
+  have "\<exists>c \<in> set (a # points). (x,y) \<in> closed_segment (fst c) (snd c)" using y_def  by auto 
+  then obtain c where "c \<in> set (a # points)" and "(x,y) \<in> closed_segment (fst c) (snd c)"
+    by blast
+  have "c = a \<or> c \<noteq> a" by auto
+  moreover    
+  { assume "c \<noteq> a"
+    with `c \<in> set (a # points)` have "c \<in> set points" by auto  
+    hence "points \<noteq> []" by auto
+    then obtain a' points' where "points = a' # points'"  by (meson \<open>c \<in> set points\<close> list.set_cases)    
+    from assms(3) have "simple_boundary (curve_eq3 (points_path2 points)) {0..1}"
+      using simple_boundary_tail[OF `points \<noteq> []`, of "a"] assms(4) unfolding monotone_polychain_def 
+      by auto
+    with `(x,y) \<in> closed_segment (fst c) (snd c)` 
+      have "simple_boundary.f_of_x (curve_eq3 (points_path2 (points))) {0..1} x = y"    
+        using simple_boundary_closed_segment2[OF _ assms(3)] `c \<in> set points` assms(4) unfolding monotone_polychain_def
+        `points = a' # points'` 
+      by (smt \<open>points = a' # points'\<close> assms(1) polychain_Cons simple_boundary_closed_segment2)
+    with y_def have ?thesis by auto }
+  moreover
+  { assume "c = a"
+    from `(x,y) \<in> closed_segment (fst c) (snd c)` have "x \<in> closed_segment (fst (fst a)) (fst (snd a))"
+      unfolding closed_segment_def `c = a`
+    proof 
+      assume "\<exists>u. (x, y) = (1 - u) *\<^sub>R fst a + u *\<^sub>R snd a \<and> 0 \<le> u \<and> u \<le> 1"      
+      then obtain u where "0 \<le> u" and "u \<le> 1" and "(x,y) = (1 - u) *\<^sub>R fst a + u *\<^sub>R snd a"
+        by auto
+      hence "x = fst ((1 - u) *\<^sub>R fst a + u *\<^sub>R snd a)"  by (metis fst_conv)
+      also have "... = (1 - u) *\<^sub>R (fst (fst a)) + u *\<^sub>R fst (snd a)" by auto
+      finally have "x = (1 - u) *\<^sub>R (fst (fst a)) + u *\<^sub>R fst (snd a)" by auto
+      with `0 \<le> u` and `u \<le> 1` show "x \<in> {(1 - u) *\<^sub>R fst (fst a) + u *\<^sub>R fst (snd a) |u. 0 \<le> u \<and> u \<le> 1}"
+        by auto
+    qed
+    from `monotone_polychain (a # points)` have "fst (fst a) \<le> fst (snd a)" unfolding monotone_polychain_def
+      by auto
+    with `x \<in> closed_segment (fst (fst a)) (fst (snd a))` have "fst (fst a) \<le> x \<and> x \<le> fst (snd a)"
+      using closed_segment_real by auto
+    with assms(2) have "x = fst (snd a)" by auto
+   
+    have "curve_eq3 (points_path2 (a # points)) 0.5 = (x, snd (snd a))"
+    proof -
+      have "curve_eq3 (points_path2 (a # points)) 0.5 = (linepath (fst a) (snd a) +++ curve_eq3 (points_path2 points)) 0.5"
+        using curve_eq_cons(1)[OF `points \<noteq> []`]  by auto        
+      also have "... = (linepath (fst a) (snd a)) 1" unfolding joinpaths_def by auto
+      also have "... = snd a" unfolding linepath_def by (auto)
+      finally have "curve_eq3 (points_path2 (a # points)) 0.5 = snd a" by auto
+      with `x = fst (snd a)` show ?thesis by auto     
+    qed 
+    from simple_boundary.curve_eq_f_of_x[OF assms(3) _ this] 
+    have temp: "simple_boundary.f_of_x (curve_eq3 (points_path2 (a # points))) {0..1} x = snd (snd a)"
+      by auto
+   
+    from assms(1) obtain a' points' where "points = a' # points'"  using list.exhaust_sel by blast        
+    have "curve_eq3 (points_path2 (points)) 0 = (x, snd (snd a))"
+    proof -
+      from assms(4) have "snd a = fst a'" unfolding `points = a' # points'` unfolding monotone_polychain_def
+          polychain_def by auto          
+      have "pathstart (curve_eq3 (points_path2 (a' # points'))) = pathstart (linepath (fst a') (snd a'))"
+        unfolding points_path2_def using pathstart_curve_eq by auto
+      also have "... = fst a'" by auto
+      also have "... = snd a" using `snd a = fst a'` by auto
+      finally show ?thesis unfolding pathstart_def using `points = a' # points'` `x = fst (snd a)`
+        by auto                
+    qed
+    from assms(3) have "simple_boundary (curve_eq3 (points_path2 points)) {0..1}"
+      using simple_boundary_tail[OF `points \<noteq> []`, of "a"] assms(4) unfolding monotone_polychain_def 
+      by auto  
+    from simple_boundary.curve_eq_f_of_x[OF this _ `curve_eq3 (points_path2 (points)) 0 = (x, snd (snd a))`]
+    have "simple_boundary.f_of_x (curve_eq3 (points_path2 points)) {0..1} x = snd (snd a)" by auto
+    with temp have ?thesis by auto }    
+  ultimately show ?thesis by auto    
 qed
   
 lemma simple_boundary_strict_mono:
@@ -1503,6 +1654,86 @@ proof -
   finally show ?thesis by auto        
 qed
   
+lemma x_in_curve_setX:
+  assumes "c \<in> set points"
+  assumes "fst (fst c) \<le> x"
+  assumes "x \<le> fst (snd c)"
+  assumes "monotone_polychain points"    
+  shows "x \<in> curve.setX (curve_eq3 (points_path2 points)) {0..1}"
+  using assms
+proof (induction points)
+  case Nil
+  then show ?case by auto
+next
+  case (Cons a points')
+  note case_cons = this
+  from case_cons(5) have "polychain (a # points')" unfolding monotone_polychain_def by auto   
+  from case_cons(2) have "a # points' \<noteq> []" by auto      
+  have cce3: "curve (curve_eq3 (points_path2 (a # points'))) {0..1}"
+    using curve_eq_cont[OF `a # points' \<noteq> []` `polychain (a # points')`, of "points_path2 (a # points')"]
+    by (unfold_locales)(auto)          
+  from curve.setX_alt_def[OF this] have curve_set_x_def: "curve.setX (curve_eq3 (points_path2 (a # points'))) {0..1} = 
+                                 curve.curve_eq_x (curve_eq3 (points_path2 (a # points'))) ` {0..1} "
+    by auto      
+  with curve_set_x_def have 0: "curve.setX (curve_eq3 (points_path2 (a # points'))) {0..1} = 
+                                 curve.curve_eq_x (curve_eq3 (points_path2 (a # points'))) ` {0..1}"   
+    by auto    
+  from case_cons(5) have "fst (fst a) \<le> fst (snd a)" unfolding monotone_polychain_def
+    by auto        
+  have "points' = [] \<or> points' \<noteq> []" by auto
+  moreover
+  { assume "points' = []"
+    from 0 have "curve.setX (curve_eq3 (points_path2 (a # points'))) {0..1} = 
+                 curve.curve_eq_x (linepath (fst a) (snd a)) ` {0..1}"
+      using curve_eq_cons(2)[OF `points' = []`] by auto 
+    also have "... = {fst (fst a) .. fst (snd a)}" unfolding curve.curve_eq_x_def[OF curve_linepath]
+      using linepath_image_01[of "fst a" "snd a"] closed_segment_real[of "fst (fst a)" "fst (snd a)"]
+      using `fst (fst a) \<le> fst (snd a)` 
+      using \<open>\<And>b a. curve.curve_eq_x (linepath a b) \<equiv> \<lambda>s. fst (linepath a b s)\<close> 
+      \<open>curve (curve_eq3 (points_path2 (a # points'))) {0..1}\<close>  
+      \<open>points' = []\<close> calculation curve.setX_def curve_eq_cons(2) by auto
+    finally have fi: "curve.setX (curve_eq3 (points_path2 (a # points'))) {0..1} = {fst (fst a) .. fst (snd a)}"
+      by auto    
+    from `c \<in> set (a # points')` have "c = a" using `points' = []` by auto
+    with case_cons(3-4) fi have ?case by auto }
+  moreover
+  { assume "points' \<noteq> []"
+    from `polychain (a # points')` have "polychain points'" 
+      using polychain_Cons[of "a" "points'"] `points' \<noteq> []` by auto
+    have cce3': "curve (curve_eq3 (points_path2 points')) {0..1}"
+      using curve_eq_cont[OF `points' \<noteq> []` `polychain points'`, of "points_path2 points'"]
+      by (unfold_locales) (auto)
+    from pathfinish_pathstart[OF `polychain (a # points')` `points' \<noteq> []`] have pp: "pathfinish (linepath (fst a) (snd a)) = pathstart (curve_eq3 (points_path2 points'))"
+      by auto
+    hence pp': "pathfinish (curve.curve_eq_x (linepath (fst a) (snd a))) = pathstart (curve.curve_eq_x (curve_eq3 (points_path2 points')))"
+      unfolding curve.curve_eq_x_def[OF curve_linepath, of "fst a" "snd a"] curve.curve_eq_x_def[OF cce3']
+      pathstart_def pathfinish_def by auto  
+    from 0 have "curve.setX (curve_eq3 (points_path2 (a # points'))) {0..1} = 
+                curve.curve_eq_x (linepath (fst a) (snd a) +++ curve_eq3 (points_path2 points')) ` {0..1}"
+      unfolding curve_eq_cons(1)[OF `points' \<noteq> []`, of "a"]  by auto
+    also have "... = (curve.curve_eq_x (linepath (fst a) (snd a)) ` {0..1} \<union> 
+                      curve.curve_eq_x (curve_eq3 (points_path2 points')) ` {0..1})"
+      using curve_eq_x_joinpaths[OF curve_linepath cce3' pp]  joinpaths_image_01[OF pp'] by auto
+    also have "... = {fst (fst a) .. fst (snd a)} \<union> curve.curve_eq_x (curve_eq3 (points_path2 points')) ` {0..1}"
+      using linepath_image_01[of "fst a" "snd a"] closed_segment_real[of "fst (fst a)" "fst (snd a)"]
+      `fst (fst a) \<le> fst (snd a)`
+      by (metis curve.setX_alt_def curve.setX_def curve_linepath fst_closed_segment)       
+    finally have fi: "curve.setX (curve_eq3 (points_path2 (a # points'))) {0..1} = 
+                  {fst (fst a) .. fst (snd a)} \<union>
+                  curve.curve_eq_x (curve_eq3 (points_path2 points')) ` {0..1}" by auto
+    from `c \<in> set (a # points')` have "c = a \<or> c \<in> set points'" by auto
+    moreover
+    { assume "c = a"
+      from assms(2-3) fi have ?case unfolding `c = a` by auto }
+    moreover
+    { assume "c \<in> set points'"
+      from case_cons(1)[OF this case_cons(3-4)] have "x \<in> curve.setX (curve_eq3 (points_path2 points')) {0..1}"
+        using  monotone_polychain_ConsD[OF `monotone_polychain (a # points')`] by auto
+      with fi have ?case unfolding curve.setX_alt_def[OF cce3'] by auto }
+    ultimately have ?case by auto }    
+  ultimately show ?case by auto
+qed    
+      
 lemma test1':
   assumes "points \<noteq> []"
   assumes "monotone_polychain points"  
@@ -1757,14 +1988,30 @@ next
       then show ?thesis unfolding 3 `c = a` by auto
     next
       case 2
-      have "fst (snd a) < x" sorry  
-      from case_cons(4) have "simple_boundary (curve_eq3 (points_path2 points)) {0..1}"  
+      have "fst (snd a) \<le> x"
+      proof -
+        from 2 obtain i where "i < length points" and "points ! i = c" unfolding in_set_conv_nth
+          by auto
+        hence "(a # points) ! (i + 1) = c" unfolding nth_Cons_Suc by auto
+        with monotone_polychain_snd_fst[OF `monotone_polychain (a # points)`, of "0" "i + 1"]
+          show ?thesis using nem `i < length points` case_cons(6-7) by auto
+      qed 
+      hence "fst (fst a) < x"
+      proof -
+        from `monotone_polychain (a # points)` have "fst (fst a) < fst (snd a)"
+          unfolding monotone_polychain_def by auto
+        with `fst (snd a) \<le> x` show "fst (fst a) < x" by auto    
+      qed         
+      from case_cons(4) have temp: "simple_boundary (curve_eq3 (points_path2 points)) {0..1}"  
         using simple_boundary_tail[OF nem `polychain (a # points)`] by auto                
-      from case_cons(1)[OF nem `monotone_polychain points` this 2 case_cons(6-7)]
+      have xinsetx: "x \<in> curve.setX (curve_eq3 (points_path2 (a # points))) {0..1} "    
+        using x_in_curve_setX[OF `c \<in> set (a # points)` case_cons(6-7) `monotone_polychain (a # points)`]
+        by auto  
+      from case_cons(1)[OF nem `monotone_polychain points` temp 2 case_cons(6-7)]          
       have "line_equation (fst c) (snd c) x = simple_boundary.f_of_x (curve_eq3 (points_path2 points)) {0..1} x"
         by auto          
       also have "... = simple_boundary.f_of_x (curve_eq3 (points_path2 (a # points))) {0..1} x"
-        using sb_f_of_x_tail[OF nem `fst (snd a) < x` `simple_boundary (curve_eq3 (points_path2 (a # points))) {0..1}`]
+        using sb_f_of_x_tail[OF nem `fst (snd a) \<le> x` `simple_boundary (curve_eq3 (points_path2 (a # points))) {0..1}` `monotone_polychain (a # points)` xinsetx]
         by auto          
       finally show ?thesis by auto 
     qed 
@@ -5813,7 +6060,8 @@ lemma vertices_inside_pida:
   shows "point_in_drivable_area (get_vertices_rotated_translated rect ! i)"
 proof -
   define vertices where "vertices \<equiv> get_vertices_rotated_translated rect" 
-  from nbr_of_vertex_rotated have l: "length (get_vertices_rotated_translated rect) = 4" sorry
+  from nbr_of_vertex_rotated have l: "length (get_vertices_rotated_translated rect) = 4"
+    unfolding get_vertices_rotated_translated_def by auto
   from assms(1) have "map point_in_drivable_area (get_vertices_rotated_translated rect) ! 0" and
                      "map point_in_drivable_area (get_vertices_rotated_translated rect) ! 1" and
                      "map point_in_drivable_area (get_vertices_rotated_translated rect) ! 2" and 

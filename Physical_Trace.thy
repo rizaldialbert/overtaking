@@ -586,6 +586,52 @@ proof -
   with \<open>t \<in> domain \<and> (fst \<circ> curve_eq) t = x\<close> show ?thesis by(auto intro:bexI[where x="t"])                
 qed  
   
+theorem curve_eq_f_of_x:
+  assumes "t \<in> domain"
+  assumes "curve_eq t = (x,y)"
+  shows "f_of_x x = y"
+  using assms
+  unfolding f_of_x_def comp_def inv_curve_x_def curve_eq_x_def curve_eq_y_def 
+  the_inv_into_def 
+proof -
+  have f1: "inj_on (\<lambda>r. fst (curve_eq r)) domain"
+    using bij_betw bij_betw_imp_inj_on curve.curve_eq_x_def curve_axioms by auto
+  obtain rr :: "real set \<Rightarrow> (real \<Rightarrow> real) \<Rightarrow> real \<Rightarrow> real" where
+        "\<forall>x0 x1 x2. (\<exists>v3. x2 = x1 v3 \<and> v3 \<in> x0) = (x2 = x1 (rr x0 x1 x2) \<and> rr x0 x1 x2 \<in> x0)"
+    by moura
+  then have f2: "\<forall>r f R. r \<notin> f ` R \<or> r = f (rr R f r) \<and> rr R f r \<in> R"
+    by (meson imageE)
+  have f3: "curve_eq_x = (\<lambda>r. fst (curve_eq r))"
+    by (meson curve.curve_eq_x_def curve_axioms)
+  then have f4: "the_inv_into domain (\<lambda>r. fst (curve_eq r)) ` curve_eq_x ` domain = domain"
+    using f1 by simp
+  then have f5: "t = the_inv_into domain (\<lambda>r. fst (curve_eq r)) (rr (curve_eq_x ` domain) (the_inv_into domain (\<lambda>r. fst (curve_eq r))) t) \<and> rr (curve_eq_x ` domain) (the_inv_into domain (\<lambda>r. fst (curve_eq r))) t \<in> curve_eq_x ` domain"
+    using f2 assms(1) by presburger
+  have f6: "\<forall>p r. (\<not> p (r::real) \<or> (\<exists>ra. p ra \<and> ra \<noteq> r)) \<or> The p = r"
+    by (metis the_equality)
+  obtain rra :: "real \<Rightarrow> (real \<Rightarrow> bool) \<Rightarrow> real" where
+    "\<forall>x0 x1. (\<exists>v2. v2 \<in> Collect x1 \<and> v2 \<noteq> x0) = (rra x0 x1 \<in> Collect x1 \<and> rra x0 x1 \<noteq> x0)"
+    by moura
+  then have f7: "\<forall>p r. r \<notin> Collect p \<or> rra r p \<in> Collect p \<and> rra r p \<noteq> r \<or> The p = r"
+    using f6 by simp
+  have f8: "\<forall>r. (r \<in> {r \<in> domain. fst (curve_eq r) = x}) = (r \<in> domain \<and> fst (curve_eq r) = x)"
+    by blast
+  have f9: "\<forall>x0. (x0 \<in> domain \<and> fst (curve_eq x0) = x) = (x0 \<in> domain \<and> fst (curve_eq x0) = x)"
+    by auto
+  have f10: "t \<in> {r \<in> domain. fst (curve_eq r) = x}"
+    by (simp add: assms(1) assms(2))
+  have f11: "rra t (\<lambda>r. r \<in> domain \<and> fst (curve_eq r) = x) \<notin> the_inv_into domain (\<lambda>r. fst (curve_eq r)) ` curve_eq_x ` domain \<or> rra t (\<lambda>r. r \<in> domain \<and> fst (curve_eq r) = x) = the_inv_into domain (\<lambda>r. fst (curve_eq r)) (rr (curve_eq_x ` domain) (the_inv_into domain (\<lambda>r. fst (curve_eq r))) (rra t (\<lambda>r. r \<in> domain \<and> fst (curve_eq r) = x))) \<and> rr (curve_eq_x ` domain) (the_inv_into domain (\<lambda>r. fst (curve_eq r))) (rra t (\<lambda>r. r \<in> domain \<and> fst (curve_eq r) = x)) \<in> curve_eq_x ` domain"
+  using f2 by meson
+  have "(rra t (\<lambda>r. r \<in> domain \<and> fst (curve_eq r) = x) \<noteq> the_inv_into domain (\<lambda>r. fst (curve_eq r)) (rr (curve_eq_x ` domain) (the_inv_into domain (\<lambda>r. fst (curve_eq r))) (rra t (\<lambda>r. r \<in> domain \<and> fst (curve_eq r) = x))) \<or> rr (curve_eq_x ` domain) (the_inv_into domain (\<lambda>r. fst (curve_eq r))) (rra t (\<lambda>r. r \<in> domain \<and> fst (curve_eq r) = x)) \<notin> curve_eq_x ` domain) \<or> rra t (\<lambda>r. r \<in> domain \<and> fst (curve_eq r) = x) \<notin> {r \<in> domain. fst (curve_eq r) = x} \<or> rra t (\<lambda>r. r \<in> domain \<and> fst (curve_eq r) = x) = t"
+    using f9 f8 f5 f3 f1 assms(2) the_inv_into_f_eq by force
+  then have "rra t (\<lambda>r. r \<in> domain \<and> fst (curve_eq r) = x) \<notin> {r \<in> domain. fst (curve_eq r) = x} \<or> rra t (\<lambda>r. r \<in> domain \<and> fst (curve_eq r) = x) = t"
+    using f11 f4 by blast
+  then have "(THE r. r \<in> domain \<and> fst (curve_eq r) = x) = t"
+    using f10 f7 by meson
+  then show "snd (curve_eq (THE r. r \<in> domain \<and> fst (curve_eq r) = x)) = y"
+    by (simp add: assms(2))
+qed    
+    
 theorem cont_f_of_x: "continuous_on setX f_of_x"
   unfolding f_of_x_def
 proof (rule continuous_on_compose)
