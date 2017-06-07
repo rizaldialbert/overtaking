@@ -5089,8 +5089,8 @@ definition point_in_drivable_area :: "real2 \<Rightarrow> bool" where
           above_and_inside_polychains points_ri p \<and> below_and_inside_polychains points_le p
       else 
         above_and_inside_polychains points_le p \<and> below_and_inside_polychains points_ri p
-    )"
-  
+    )"  
+ 
 abbreviation outside where
   "outside p cs \<equiv> fst p \<le> fst (fst (hd cs)) \<or> fst p \<ge> fst (snd (last (cs))) "  
       
@@ -8364,18 +8364,8 @@ subsection "Lane with two lanelets"
 locale lane2' = bound0: lanelet_simple_boundary points0 + 
                 bound1: lanelet_simple_boundary points1 + 
                 bound2: lanelet_simple_boundary points2 +
-                (*old definition:
                 lane0: lanelet points1 points0 + 
                 lane1: lanelet points2 points1 +
-                changed to fit the following scenario:
-                points0      points1       points2
-                 |              |             |
-                 |     lane0    |    lane1    |
-                 |              |             |
-                (monika)*)
-                lane0: lanelet points0 points1 + 
-                lane1: lanelet points1 points2 +
-                
                 Lane: lane "[points0, points1, points2]"  for points0 and points1 and points2 +
    assumes not_intersect02: "\<not> lanes_intersect points0 points2"              
 begin
@@ -8391,8 +8381,79 @@ definition lane_boundaries_touched2 :: "rectangle \<Rightarrow> nat list" where
                                         res = List.enumerate 0 [touch0, touch1, touch2];
                                         fil = filter (\<lambda>x. snd x) res in 
                                         map fst fil)"   
-      
-theorem [code]:  "Lane.in_lane rect = in_lane2 rect"
+
+(* several lemmas showing symmetry of different properties to proof theorem in_lane2_alt_def*)
+lemma lanelet_commute_0: "lanelet points0 points1 = lanelet points1 points0"
+  using generalized_lanelet.lanes_intersect_comm generalized_lanelet_def lanelet_axioms_def lanelet_def by auto
+    
+lemma pida_commute_0: "lanelet.point_in_drivable_area points1 points0 p = lanelet.point_in_drivable_area points0 points1 p"
+  by (simp add: lane0.direction_left_alt_def lane0.lanelet_axioms lanelet.direction_right_def lanelet.point_in_drivable_area_def lanelet_commute_0)
+ 
+lemma vertices_inside_commute_0: "lanelet.vertices_inside points1 points0 rect = lanelet.vertices_inside points0 points1 rect"
+  by (simp add: nbr_of_vertex_rotated_translated pida_commute_0 lane0.lanelet_axioms lanelet.vertices_inside_def lanelet_commute_0)
+  
+lemma intersect_boundaries_commute_0: "lanelet.intersect_boundaries points1 points0 rect = lanelet.intersect_boundaries points0 points1 rect"
+  using lane0.lanelet_axioms lanelet.intersect_boundaries_def lanelet.intersect_left_boundary_def lanelet_commute_0 lanelet.intersect_right_boundary_def by auto
+    
+lemma lines_inside_commute_0: "lanelet.lines_inside points1 points0 rect = lanelet.lines_inside points0 points1 rect"
+proof -
+  have "lanelet.lines_inside points1 points0 rect = 
+              (\<not> (map (lanelet.intersect_boundaries points1 points0) (get_lines rect)) ! 0
+             \<and> \<not> (map (lanelet.intersect_boundaries points1 points0) (get_lines rect)) ! 1
+              \<and> \<not> (map (lanelet.intersect_boundaries points1 points0) (get_lines rect)) ! 2 
+              \<and> \<not> (map (lanelet.intersect_boundaries points1 points0) (get_lines rect)) ! 3)" by (meson lane0.lines_inside_def)
+  hence "... =  (\<not> (map (lanelet.intersect_boundaries points0 points1) (get_lines rect)) ! 0
+             \<and> \<not> (map (lanelet.intersect_boundaries points0 points1) (get_lines rect)) ! 1
+              \<and> \<not> (map (lanelet.intersect_boundaries points0 points1) (get_lines rect)) ! 2 
+              \<and> \<not> (map (lanelet.intersect_boundaries points0 points1) (get_lines rect)) ! 3)" using intersect_boundaries_commute_0 by presburger
+  thus ?thesis by (metis lane0.lanelet_axioms lanelet.lines_inside_def lanelet_commute_0)
+qed
+  
+lemma lanelet_rectangle_commute_0: "lanelet.rectangle_inside points1 points0 rect = lanelet.rectangle_inside points0 points1 rect"
+proof -
+  have "lanelet.rectangle_inside points1 points0 rect = (lanelet.vertices_inside points1 points0 rect \<and> lanelet.lines_inside points1 points0 rect)"
+    by (simp add: lane0.rectangle_inside_def)
+  hence "... = (lanelet.vertices_inside points0 points1 rect \<and> lanelet.lines_inside points0 points1 rect)" by (simp add:vertices_inside_commute_0 lines_inside_commute_0)
+  hence "... = lanelet.rectangle_inside points0 points1 rect" by (simp add: lane0.lanelet_axioms lanelet.rectangle_inside_def lanelet_commute_0)
+  thus ?thesis by (simp add: lane0.rectangle_inside_def lines_inside_commute_0 vertices_inside_commute_0)
+qed
+
+lemma lanelet_commute_1: "lanelet points1 points2 = lanelet points2 points1"
+  using generalized_lanelet.lanes_intersect_comm generalized_lanelet_def lanelet_axioms_def lanelet_def by auto
+    
+lemma pida_commute_1: "lanelet.point_in_drivable_area points2 points1 p = lanelet.point_in_drivable_area points1 points2 p"
+  by (simp add: lane1.direction_left_alt_def lane1.lanelet_axioms lanelet.direction_right_def lanelet.point_in_drivable_area_def lanelet_commute_1)
+ 
+lemma vertices_inside_commute_1: "lanelet.vertices_inside points2 points1 rect = lanelet.vertices_inside points1 points2 rect"
+  by (simp add: nbr_of_vertex_rotated_translated pida_commute_1 lane1.lanelet_axioms lanelet.vertices_inside_def lanelet_commute_1)
+  
+lemma intersect_boundaries_commute_1: "lanelet.intersect_boundaries points2 points1 rect = lanelet.intersect_boundaries points1 points2 rect"
+  using lane1.lanelet_axioms lanelet.intersect_boundaries_def lanelet.intersect_left_boundary_def lanelet_commute_1 lanelet.intersect_right_boundary_def by auto
+  
+lemma lines_inside_commute_1: "lanelet.lines_inside points2 points1 rect = lanelet.lines_inside points1 points2 rect"
+proof -
+  have "lanelet.lines_inside points2 points1 rect = 
+              (\<not> (map (lanelet.intersect_boundaries points2 points1) (get_lines rect)) ! 0
+             \<and> \<not> (map (lanelet.intersect_boundaries points2 points1) (get_lines rect)) ! 1
+              \<and> \<not> (map (lanelet.intersect_boundaries points2 points1) (get_lines rect)) ! 2 
+              \<and> \<not> (map (lanelet.intersect_boundaries points2 points1) (get_lines rect)) ! 3)" by (meson lane1.lines_inside_def)
+  hence "... =  (\<not> (map (lanelet.intersect_boundaries points1 points2) (get_lines rect)) ! 0
+             \<and> \<not> (map (lanelet.intersect_boundaries points1 points2) (get_lines rect)) ! 1
+              \<and> \<not> (map (lanelet.intersect_boundaries points1 points2) (get_lines rect)) ! 2 
+              \<and> \<not> (map (lanelet.intersect_boundaries points1 points2) (get_lines rect)) ! 3)" using intersect_boundaries_commute_1 by presburger
+  thus ?thesis by (metis lane1.lanelet_axioms lanelet.lines_inside_def lanelet_commute_1)
+qed
+  
+lemma lanelet_rectangle_commute_1: "lanelet.rectangle_inside points2 points1 rect = lanelet.rectangle_inside points1 points2 rect"
+proof -
+  have "lanelet.rectangle_inside points2 points1 rect = (lanelet.vertices_inside points2 points1 rect \<and> lanelet.lines_inside points2 points1 rect)"
+    by (simp add: lane1.rectangle_inside_def)
+  hence "... = (lanelet.vertices_inside points1 points2 rect \<and> lanelet.lines_inside points1 points2 rect)" by (simp add:vertices_inside_commute_1 lines_inside_commute_1)
+  hence "... = lanelet.rectangle_inside points1 points2 rect" by (simp add: lane1.lanelet_axioms lanelet.rectangle_inside_def lanelet_commute_1)
+  thus ?thesis by (simp add: lane1.rectangle_inside_def lines_inside_commute_1 vertices_inside_commute_1)
+qed
+
+theorem in_lane2_alt_def:  "Lane.in_lane rect = in_lane2 rect"
 proof -
   have "Lane.in_lane rect = it_in_lane [points0, points1, points2] rect 0" using lane2'_def by simp
   hence "... = (if lanelet.rectangle_inside points0 (hd [points1, points2]) rect then Some 0 
@@ -8403,11 +8464,12 @@ proof -
               else None)" by simp
   hence "... = (if lane0.rectangle_inside rect then Some 0 
               else if lane1.rectangle_inside rect then Some 1
-              else None)" by blast
-  thus ?thesis using in_lane2_def by auto
+              else None)" using lanelet_rectangle_commute_0 lanelet_rectangle_commute_1 by simp
+  hence "... = in_lane2 rect" by (simp add: in_lane2_def)
+  thus ?thesis using lanelet_rectangle_commute_0 lanelet_rectangle_commute_1 by auto
 qed
   
-theorem [code]:  "Lane.lane_boundaries_touched rect = lane_boundaries_touched2 rect"
+theorem lane_boundaries_touched2_alt_def:  "Lane.lane_boundaries_touched rect = lane_boundaries_touched2 rect"
 proof - 
   have "Lane.lane_boundaries_touched rect = boundaries_touched [points0, points1, points2] rect 0" by auto
   hence "... = (map fst (filter (\<lambda>x. snd x) (List.enumerate 0 [bound0.rectangle_intersect rect, 
