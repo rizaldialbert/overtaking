@@ -353,7 +353,7 @@ subsection "Simple boundary"
 \<comment> \<open>A simple boundary in traffic scenario is a simple curve. That is the parametric function for the
 curve is injective (or one-to-one). This ensures that the curve will have no common point. This is 
 adequate to model highway without forks and joins.\<close>
-  
+
 locale simple_boundary = curve +
   assumes simple: "inj_on curve_eq domain"
   assumes bij_betw: "bij_betw curve_eq_x domain setX"

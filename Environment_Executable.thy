@@ -4724,12 +4724,22 @@ proof -
   from gl.lanes_intersect_completeness gl.lanes_intersect_correctness show ?thesis
     unfolding * by auto  
 qed      
-      
+
+  
 locale lanelet = le: lanelet_simple_boundary points_le + ri: lanelet_simple_boundary points_ri
   for points_le and points_ri +
   assumes non_intersecting': "\<not> lanes_intersect points_le points_ri"
   assumes same_init_x': "fst (pathstart_boundary points_le) = fst (pathstart_boundary points_ri)"  
   assumes same_final_x': "fst (pathfinish_boundary points_le) = fst (pathfinish_boundary points_ri)" 
+    (* Monika: documentation using graphics
+          ------------------------------    points_le                  ------------------------------    points_re      
+          
+          lanelet with direction_right \<longrightarrow>                 OR          \<longleftarrow> lanelet with direction_left 
+    y         
+    |     ------------------------------    points_re                  ------------------------------    points_le
+    |
+    -----> x (global coordinate)
+    *)
 begin  
     
 theorem non_intersecting:
@@ -5906,6 +5916,16 @@ locale lane =
   assumes sim_bound: "simple_boundaries boundaries"    
   assumes lanelet: "lanelets boundaries"
   assumes ni: "boundaries_non_intersect_ex boundaries"  
+    
+  (* Monika: documentation using graphics
+          ------------------------------    boundaries[n]
+                      ...
+    y     ------------------------------    boundaries[2]
+    |     ------------------------------    boundaries[1]
+    |     ------------------------------    boundaries[0]
+    |
+    -----> x (global coordinate)
+    *)
 begin
       
 lemma all_lanelet_curves:
@@ -8368,6 +8388,15 @@ locale lane2' = bound0: lanelet_simple_boundary points0 +
                 lane1: lanelet points2 points1 +
                 Lane: lane "[points0, points1, points2]"  for points0 and points1 and points2 +
    assumes not_intersect02: "\<not> lanes_intersect points0 points2"              
+   (* Monika: documentation using graphics
+          ------------------------------    bound2, points2
+                  \<longleftarrow> lane1
+         ------------------------------    bound1, points1
+    y                 lane0 \<longrightarrow>
+    |     ------------------------------    bound0, points0
+    |
+    -----> x (global coordinate)
+    *)
 begin
  
 definition in_lane2 :: "rectangle \<Rightarrow> nat option" where
