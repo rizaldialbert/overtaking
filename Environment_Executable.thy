@@ -6040,13 +6040,31 @@ subsubsection "Intersection of line segment with boundaries"
   
 definition intersect_left_boundary where
   "intersect_left_boundary line \<equiv> segments_intersect_polychain line points_le"
-
+  
+lemma intersect_left_boundary_correctness:
+  assumes "intersect_left_boundary line"
+  shows "\<exists>c \<in> set points_le. segment_intersection c line"
+  using assms unfolding intersect_left_boundary_def using segment_intersect_poly_correct
+  segment_intersection_correctness segment_intersection_completeness by blast   
+    
 definition intersect_right_boundary where
   "intersect_right_boundary line \<equiv> segments_intersect_polychain line points_ri"
     
+lemma intersect_right_boundary_correctness:
+  assumes "intersect_right_boundary line"
+  shows "\<exists>c \<in> set points_ri. segment_intersection c line"
+  using assms unfolding intersect_right_boundary_def using segment_intersect_poly_correct
+  segment_intersection_correctness segment_intersection_completeness by blast
+  
 definition intersect_boundaries where
   "intersect_boundaries line \<equiv> intersect_left_boundary line \<or> intersect_right_boundary line" 
   
+lemma intersect_boundaries_correctness:
+  assumes "intersect_boundaries line"
+  shows "\<exists>c \<in> (set points_ri \<union> set points_le). segment_intersection c line"
+  using intersect_left_boundary_correctness intersect_right_boundary_correctness assms
+  unfolding intersect_boundaries_def by blast
+    
 subsubsection "Rectangle containment"
         
 definition vertices_inside :: "rectangle \<Rightarrow> bool" where
