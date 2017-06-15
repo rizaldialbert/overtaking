@@ -934,8 +934,6 @@ proof -
   with assms(4) show ?thesis using 2 by auto            
 qed
   
-thm curve.setX_def  
-  
 lemma test2:
   assumes "points \<noteq> []"
   assumes "monotone_polychain points"  
@@ -5921,12 +5919,22 @@ proof -
   from gl.lanes_intersect_completeness gl.lanes_intersect_correctness show ?thesis
     unfolding * by auto  
 qed      
-      
+
+  
 locale lanelet = le: lanelet_simple_boundary points_le + ri: lanelet_simple_boundary points_ri
   for points_le and points_ri +
   assumes non_intersecting': "\<not> lanes_intersect points_le points_ri"
   assumes same_init_x': "fst (pathstart_boundary points_le) = fst (pathstart_boundary points_ri)"  
   assumes same_final_x': "fst (pathfinish_boundary points_le) = fst (pathfinish_boundary points_ri)" 
+    (* Monika: documentation using graphics
+          ------------------------------    points_le                  ------------------------------    points_re      
+          
+          lanelet with direction_right \<longrightarrow>                 OR          \<longleftarrow> lanelet with direction_left 
+    y         
+    |     ------------------------------    points_re                  ------------------------------    points_le
+    |
+    -----> x (global coordinate)
+    *)
 begin  
     
 theorem non_intersecting:
@@ -6202,8 +6210,6 @@ definition direction_right :: "bool" where
   
 abbreviation direction_left :: bool where
   "direction_left \<equiv> \<not> direction_right"
-
-find_theorems "ri.first_point"  
   
 theorem direction_left_alt_def:
   "direction_left \<Longrightarrow> snd ri.first_point > snd le.first_point"
@@ -6238,12 +6244,6 @@ lemma le_first_point_curve_eq0:
   "le.first_point = le.curve_eq 0"
   unfolding points_path2_def using le.nonempty_points pathstart_linepath unfolding pathstart_def
   by (smt pathstart_def points_path2_def le.pathstart_first_point)
-                    
-thm "simple_boundary.f_of_x_def"  
-term "simple_boundary.f_of_x ri.curve_eq {0..1} x"
-term "simple_boundary.inv_curve_x ri.curve_eq {0..1}"
-term "curve.curve_eq_x ri.curve_eq"
-thm "curve.curve_eq_x_def"  
     
 lemma ri_first_point_f_of_x:
   "snd ri.first_point = sr.ri.f_of_x sr.lb_x"
@@ -6294,8 +6294,8 @@ definition point_in_drivable_area :: "real2 \<Rightarrow> bool" where
           above_and_inside_polychains points_ri p \<and> below_and_inside_polychains points_le p
       else 
         above_and_inside_polychains points_le p \<and> below_and_inside_polychains points_ri p
-    )"
-  
+    )"  
+ 
 abbreviation outside where
   "outside p cs \<equiv> fst p \<le> fst (fst (hd cs)) \<or> fst p \<ge> fst (snd (last (cs))) "  
       
@@ -6530,8 +6530,6 @@ proof -
 qed
   
 subsection "Lane : composition of lanelets"
-
-term "lanelet.rectangle_inside"  
   
 fun it_in_lane :: "(real2 \<times> real2) list list \<Rightarrow> rectangle \<Rightarrow> nat \<Rightarrow> nat option" where
   "it_in_lane [] _ _ = None" | 
@@ -7132,6 +7130,16 @@ locale lane =
   assumes sim_bound: "simple_boundaries boundaries"    
   assumes lanelet: "lanelets boundaries"
   assumes ni: "boundaries_non_intersect_ex boundaries"  
+    
+  (* Monika: documentation using graphics
+          ------------------------------    boundaries[n]
+                      ...
+    y     ------------------------------    boundaries[2]
+    |     ------------------------------    boundaries[1]
+    |     ------------------------------    boundaries[0]
+    |
+    -----> x (global coordinate)
+    *)
 begin
       
 lemma all_lanelet_curves:
@@ -9594,6 +9602,15 @@ locale lane2' = bound0: lanelet_simple_boundary points0 +
                 lane1: lanelet points2 points1 +
                 Lane: lane "[points0, points1, points2]"  for points0 and points1 and points2 +
    assumes not_intersect02: "\<not> lanes_intersect points0 points2"              
+   (* Monika: documentation using graphics
+          ------------------------------    bound2, points2
+                  \<longleftarrow> lane1
+         ------------------------------    bound1, points1
+    y                 lane0 \<longrightarrow>
+    |     ------------------------------    bound0, points0
+    |
+    -----> x (global coordinate)
+    *)
 begin
  
 definition in_lane2 :: "rectangle \<Rightarrow> nat option" where
@@ -9607,11 +9624,47 @@ definition lane_boundaries_touched2 :: "rectangle \<Rightarrow> nat list" where
                                         res = List.enumerate 0 [touch0, touch1, touch2];
                                         fil = filter (\<lambda>x. snd x) res in 
                                         map fst fil)"   
+
+(* several lemmas showing symmetry of different properties to proof theorem in_lane2_alt*)
+lemma lanelet_commute: "lanelet a b = lanelet b a"
+  using generalized_lanelet.lanes_intersect_comm generalized_lanelet_def lanelet_axioms_def lanelet_def by auto
     
-theorem [code]:  "Lane.in_lane = in_lane2" sorry
-theorem [code]:  "Lane.lane_boundaries_touched = lane_boundaries_touched2" sorry  
+lemma pida_commute:
+  assumes "lanelet a b" 
+  shows "lanelet.point_in_drivable_area a b p = lanelet.point_in_drivable_area b a p"
+  using assms lanelet.direction_left_alt_def lanelet.direction_right_def lanelet.point_in_drivable_area_def lanelet_commute by simp
+
+lemma vertices_inside_commute:
+  assumes "lanelet a b"
+  shows "lanelet.vertices_inside a b rect = lanelet.vertices_inside b a rect"
+  using assms nbr_of_vertex_rotated_translated pida_commute lane0.lanelet_axioms lanelet.vertices_inside_def lanelet_commute by simp
+  
+lemma intersect_boundaries_commute: 
+  assumes "lanelet a b"
+  shows "lanelet.intersect_boundaries a b rect = lanelet.intersect_boundaries b a rect"
+  using assms lanelet.intersect_boundaries_def lanelet.intersect_left_boundary_def lanelet_commute lanelet.intersect_right_boundary_def by meson
+    
+lemma lines_inside_commute:  
+  assumes "lanelet a b"
+  shows "lanelet.lines_inside a b rect = lanelet.lines_inside b a rect"
+  using lanelet.lines_inside_def intersect_boundaries_commute assms lanelet_commute  by (simp add: nbr_of_lines numeral_3_eq_3)
+
+lemma lanelet_rectangle_commute: 
+  assumes "lanelet a b"
+  shows "lanelet.rectangle_inside a b rect = lanelet.rectangle_inside b a rect"
+  using assms lanelet.rectangle_inside_def vertices_inside_commute lines_inside_commute lanelet_commute by simp
+  
+theorem in_lane2_alt[code]:  "Lane.in_lane rect = in_lane2 rect"
+  by (simp add: lane2'_def in_lane2_def lane0.lanelet_axioms lane1.lanelet_axioms lanelet_rectangle_commute)
+    
+theorem lane_boundaries_touched2_alt_def[code]:  "Lane.lane_boundaries_touched rect = lane_boundaries_touched2 rect"
+proof - 
+  have "Lane.lane_boundaries_touched rect = boundaries_touched [points0, points1, points2] rect 0" by auto
+  hence "... = (map fst (filter (\<lambda>x. snd x) (List.enumerate 0 [bound0.rectangle_intersect rect, 
+                                                               bound1.rectangle_intersect rect, 
+                                                               bound2.rectangle_intersect rect])))" by simp
+  thus ?thesis using lane_boundaries_touched2_def by auto
+qed
 end
   
-  
-
 end

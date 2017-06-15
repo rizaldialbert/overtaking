@@ -353,7 +353,7 @@ subsection "Simple boundary"
 \<comment> \<open>A simple boundary in traffic scenario is a simple curve. That is the parametric function for the
 curve is injective (or one-to-one). This ensures that the curve will have no common point. This is 
 adequate to model highway without forks and joins.\<close>
-  
+
 locale simple_boundary = curve +
   assumes simple: "inj_on curve_eq domain"
   assumes bij_betw: "bij_betw curve_eq_x domain setX"
@@ -1489,7 +1489,7 @@ locale simple_road2 =  le: simple_boundary curve_left domain +  ri: simple_bound
   assumes mono_x_le: "strict_mono_in le.curve_eq_x domain" 
       and mono_x_ri: "strict_mono_in ri.curve_eq_x domain"
   assumes non_intersecting: "\<forall>t\<in>domain. curve_left t \<noteq> curve_right t"      
-  assumes diff:"curve_right differentiable (at_right (Inf domain))"
+  assumes diff_ri:"curve_right differentiable (at_right (Inf domain))"
   assumes diff_le: "curve_left differentiable (at_right (Inf domain))"    
 begin
       
@@ -1643,7 +1643,7 @@ definition le_tangent_at_inf where
   
 theorem ri_v_deriv_at_inf:
   "(curve_right has_vector_derivative ri_tangent_at_inf) (at_right (Inf domain))"
-  using diff by (auto simp add: vector_derivative_works ri_tangent_at_inf_def)
+  using diff_ri by (auto simp add: vector_derivative_works ri_tangent_at_inf_def)
     
 theorem le_v_deriv_at_inf:   
   "(curve_left has_vector_derivative le_tangent_at_inf) (at_right (Inf domain))"
