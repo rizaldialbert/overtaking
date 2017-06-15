@@ -28,6 +28,11 @@ qed
 theorem pathstart_curve_eq:
   "pathstart (curve_eq3 (x # xs)) = pathstart x"  
   by (metis (no_types, lifting) curve_eq3.elims list.discI list.sel(1) pathstart_join)
+    
+theorem pathstart_curve_eq_x:
+  assumes "curve (curve_eq3 (x # xs)) {0..1}"
+  shows "pathstart (curve.curve_eq_x (curve_eq3 (x # xs))) = fst (pathstart x)"
+  using curve.curve_eq_x_def[OF assms] pathstart_curve_eq  by (simp add: pathstart_def)
 
 theorem pathfinish_curve_eq:
   assumes "xs \<noteq> []"
@@ -1054,6 +1059,253 @@ next
   qed    
 qed
   
+lemma inj_on_jointpaths:
+  assumes "f 1 = g 0"
+  shows "inj_on (f +++ g) {0..1} \<Longrightarrow> inj_on g {0..1}"
+proof (unfold inj_on_def, rule ballI, rule ballI, rule impI)
+  fix x y :: real
+  assume "x \<in> {0..1}" "y \<in> {0..1}"
+  assume "g x = g y"
+  assume univ: "\<forall>x\<in>{0..1}. \<forall>y\<in>{0..1}. (f +++ g) x = (f +++ g) y \<longrightarrow> x = y"
+  consider "x \<le> 0.5 \<and> y \<le> 0.5" | "x > 0.5 \<and> y > 0.5" | "x \<le> 0.5 \<and> y > 0.5" | "x > 0.5 \<and> y \<le> 0.5"
+    by linarith
+  thus "x = y"
+  proof (cases)
+    case 1
+    show ?thesis
+    proof (rule ccontr)
+      assume "x \<noteq> y"      
+      hence neq: "(x + 1) / 2 \<noteq> (y + 1) / 2" by auto
+      from 1 have "(x + 1) / 2 \<in> {0..1}" and "(y + 1) / 2 \<in> {0..1}" using `x \<in> {0..1}` `y \<in> {0..1}`
+        by auto
+      with univ and neq have neq2: "(f +++ g) ((x + 1) / 2) \<noteq> (f +++ g) ((y + 1) / 2)" 
+        by blast    
+      from 1 have "(x + 1 / 2) = 0.5 \<or> (x + 1) / 2 > 0.5" using `x \<in> {0..1}` by auto    
+      from 1 consider "(x + 1 / 2) = 0.5 \<and> (y + 1 / 2) = 0.5" | "(x + 1 / 2) = 0.5 \<and> (y + 1 / 2) > 0.5" | 
+                      "(x + 1 / 2) > 0.5 \<and> (y + 1 / 2) = 0.5" | "(x + 1 / 2) > 0.5 \<and> (y + 1 / 2) > 0.5"
+        using `x \<in> {0..1}` and `y \<in> {0..1}` by fastforce                      
+      thus "False"
+      proof (cases)
+        case 1
+        with neq2 have neq3: "f (x + 1) \<noteq> g y" unfolding joinpaths_def by (auto simp add:field_simps)
+        from 1 have "f (x + 1) = f 1" by auto
+        also have "... = g 0" using assms by auto
+        finally have "f (x + 1) = g 0" by auto
+        with 1 have "f (x + 1) = g x" by auto
+        with neq3 have "g x \<noteq> g y" by auto                        
+        then show ?thesis using `g x = g y` by auto
+      next
+        case 2
+        with neq2 have neq3: "f (x + 1) \<noteq> g y" unfolding joinpaths_def by (auto simp add:field_simps)
+        from 2 have "f (x + 1) = f 1" by auto
+        also have "... = g 0" using assms by auto
+        finally have "f (x + 1) = g 0" by auto
+        with 2 have "f (x + 1) = g x" by auto
+        with neq3 have "g x \<noteq> g y" by auto                        
+        then show ?thesis using `g x = g y` by auto
+      next
+        case 3
+        with neq2 have neq3: "g x \<noteq> f (y + 1)" unfolding joinpaths_def by (auto simp add:field_simps)
+        from 3 have "f (y + 1) = g 0" using assms by auto
+        with neq3 have "g x \<noteq> g y" using 3 by auto
+        with `g x = g y` show "False" by auto            
+      next
+        case 4
+        with neq2 have neq3: "g x \<noteq> g y" unfolding joinpaths_def by (auto simp add:field_simps)
+        with `g x = g y` show "False" by auto   
+      qed  
+    qed
+  next
+    case 2
+    show ?thesis 
+    proof (rule ccontr)
+      assume "x \<noteq> y"    
+      hence neq: "(x + 1) / 2 \<noteq> (y + 1) / 2" by auto
+      from 2 have "(x + 1) / 2 \<in> {0..1}" and "(y + 1) / 2 \<in> {0..1}" using `x \<in> {0..1}` `y \<in> {0..1}`
+        by auto
+      with univ and neq have neq2: "(f +++ g) ((x + 1) / 2) \<noteq> (f +++ g) ((y + 1) / 2)" 
+        by blast
+      from 2 have "0.5 < (x + 1) / 2" and "0.5 < (y + 1) / 2" by auto
+      with neq2 have "g x \<noteq> g y" unfolding joinpaths_def by (auto simp add: field_simps)
+      with `g x = g y` show False by auto          
+    qed  
+  next
+    case 3
+    show ?thesis
+    proof (rule ccontr)
+      assume "x \<noteq> y"
+      hence neq: "(x + 1) / 2 \<noteq> (y + 1) / 2" by auto
+      from 3 have "(x + 1) / 2 \<in> {0..1}" and "(y + 1) / 2 \<in> {0..1}" using `x \<in> {0..1}` `y \<in> {0..1}`
+        by auto
+      with univ and neq have neq2: "(f +++ g) ((x + 1) / 2) \<noteq> (f +++ g) ((y + 1) / 2)" 
+        by blast  
+      from 3 have "0.5 < (y + 1) / 2" by auto
+      from 3 have "(x + 1) / 2 = 0.5 \<or> (x + 1) / 2 > 0.5" using `x \<in> {0..1}` by auto
+      moreover
+      { assume "(x + 1) / 2 = 0.5"
+        with neq2 have "f (x + 1) \<noteq> g y" and "x = 0" using `0.5 < (y + 1) / 2` unfolding joinpaths_def
+          by (auto simp add:field_simps)            
+        hence "f 1 \<noteq> g y" by auto
+        with assms have "g x \<noteq> g y" using `x = 0` by auto
+        with `g x = g y` have "False" by auto }
+      moreover
+      { assume "(x + 1) / 2 > 0.5"
+        with neq2 have "g x \<noteq> g y" using `0.5 < (y + 1) / 2` unfolding joinpaths_def
+          by (auto simp add:field_simps)
+        with `g x = g y` have "False" by auto }
+      ultimately show "False" by auto  
+    qed      
+  next
+    case 4      
+    show ?thesis
+    proof (rule ccontr)
+      assume "x \<noteq> y"
+      hence neq: "(x + 1) / 2 \<noteq> (y + 1) / 2" by auto
+      from 4 have "(x + 1) / 2 \<in> {0..1}" and "(y + 1) / 2 \<in> {0..1}" using `x \<in> {0..1}` `y \<in> {0..1}`
+        by auto
+      with univ and neq have neq2: "(f +++ g) ((x + 1) / 2) \<noteq> (f +++ g) ((y + 1) / 2)" 
+        by blast 
+      from 4 have "0.5 < (x + 1) / 2" by auto
+      from 4 have "(y + 1) / 2 = 0.5 \<or> (y + 1) / 2 > 0.5" using `y \<in> {0..1}` by auto
+      moreover
+      { assume "(y + 1) / 2 = 0.5"
+        with neq2 have "g x \<noteq> f (y + 1)" and "y = 0" using `0.5 < (x + 1) / 2` unfolding joinpaths_def
+          by (auto simp add:field_simps)
+        hence "g x \<noteq> f 1" by auto
+        hence "g x \<noteq> g y" using `y = 0` assms by auto                   
+        with `g x = g y` have "False" by auto }
+      moreover
+      { assume "(y + 1) / 2 > 0.5"
+        with neq2 have "g x \<noteq> g y" using `0.5 < (x + 1) / 2` unfolding joinpaths_def by (auto simp add:field_simps)
+        with `g x = g y` have "False" by auto }
+      ultimately show "False" by auto                
+    qed      
+  qed        
+qed
+    
+lemma curve_eq_x_joinpaths:
+  assumes "curve f {0..1}"
+  assumes "curve g {0..1}"    
+  assumes "pathfinish f = pathstart g"    
+  shows "curve.curve_eq_x (f +++ g) = (curve.curve_eq_x f) +++ (curve.curve_eq_x g)"  
+proof 
+  fix x :: real
+  have "curve (f +++ g) {0..1}"
+  proof (unfold_locales)    
+    show "convex {0::real..1}" by auto   
+  next
+    show "compact {0::real .. 1}" by auto
+  next
+    show "continuous_on {0..1} (f +++ g)"
+      using assms by (auto intro: continuous_on_joinpaths simp add:assms curve_def)        
+  qed
+  have curve_f2: "curve (\<lambda>x. f (2 * x)) {0..0.5}"
+  proof (unfold_locales)
+    show "convex {0::real..0.5}" by auto   
+  next
+    show "compact {0::real .. 0.5}" by auto
+  next
+    have "continuous_on {0..0.5} (f \<circ> (\<lambda>x. 2 * x))"
+      apply (rule continuous_on_compose)
+      using assms unfolding curve_def by (auto simp add:continuous_intros)
+    thus "continuous_on {0..0.5} (\<lambda>x. f (2 * x))" unfolding comp_def by auto      
+  qed
+  have curve_g2: "curve (\<lambda>x. g (2 * x - 1)) {0.5..1}"
+  proof (unfold_locales)
+    show "convex {0.5::real .. 1}" by auto
+  next
+    show "compact {0.5::real .. 1}" by auto
+  next        
+    have "continuous_on {0.5::real .. 1} (g \<circ> (\<lambda>x. 2 * x - 1))"
+      apply (rule continuous_on_subset [of "{0.5::real..1}"])
+      apply (rule continuous_intros | simp add: image_affinity_atLeastAtMost_diff assms)+
+      using assms unfolding curve_def by auto
+    thus "continuous_on {0.5::real .. 1} (\<lambda>x. g (2 * x - 1))"
+      unfolding comp_def by auto
+  qed    
+  consider "x \<le> 0.5" | "0.5 < x" by linarith        
+  thus "curve.curve_eq_x (f +++ g) x = (curve.curve_eq_x f +++ curve.curve_eq_x g) x"
+  proof (cases)
+    case 1
+    have "curve.curve_eq_x (f +++ g) x = fst ((f +++ g) x)" using curve.curve_eq_x_def[OF `curve (f +++ g) {0..1}`]
+      by auto
+    also have "... = fst (f (2 * x))" using 1 unfolding joinpaths_def by auto
+    also have "... = curve.curve_eq_x (\<lambda>x. f (2 * x)) x" using curve.curve_eq_x_def[OF curve_f2]
+      by auto    
+    also have "... = (curve.curve_eq_x f +++ curve.curve_eq_x g) x" unfolding joinpaths_def
+      using 1 curve.curve_eq_x_def[OF curve_f2] curve.curve_eq_x_def[OF assms(1)] by auto                 
+    finally show ?thesis by auto
+  next
+    case 2
+    have "curve.curve_eq_x (f +++ g) x = fst ((f +++ g) x)" using curve.curve_eq_x_def[OF `curve (f +++ g) {0..1}`]
+      by auto
+    also have "... = fst (g (2 * x - 1))" using 2 unfolding joinpaths_def by auto
+    also have "... = curve.curve_eq_x (\<lambda>x. g (2 * x - 1)) x" using curve.curve_eq_x_def[OF curve_g2]
+      by auto
+    also have "... = (curve.curve_eq_x f +++ curve.curve_eq_x g) x" unfolding joinpaths_def
+      using 2 curve.curve_eq_x_def[OF curve_g2] curve.curve_eq_x_def[OF assms(2)] by auto        
+    finally show ?thesis by auto
+  qed
+qed  
+  
+lemma curve_eq_y_joinpaths:
+  assumes "curve f {0..1}"
+  assumes "curve g {0..1}"    
+  assumes "pathfinish f = pathstart g"   
+  shows "curve.curve_eq_y (f +++ g) = (curve.curve_eq_y f) +++ (curve.curve_eq_y g)"
+proof 
+  fix x :: real
+  have "curve (f +++ g) {0..1}" using assms
+    by (unfold_locales) (auto intro:continuous_on_joinpaths simp add: curve_def)
+  have curve_f2: "curve (\<lambda>x. f (2 * x)) {0..0.5}" 
+  proof (unfold_locales)
+    show "convex {0::real .. 0.5}" by auto
+  next
+    show "compact {0::real .. 0.5}" by auto
+  next
+    have "continuous_on {0..0.5} (f \<circ> (\<lambda>x. 2 * x))" 
+      apply (rule continuous_on_compose)
+      using assms unfolding curve_def by (auto simp add:continuous_intros)
+    thus "continuous_on {0..0.5} (\<lambda>x. f (2 * x))" unfolding comp_def by auto         
+  qed
+  have curve_g2: "curve (\<lambda>x. g (2 * x - 1)) {0.5..1}"    
+  proof (unfold_locales)
+    show "convex {0.5::real .. 1}" by auto
+  next
+    show "compact {0.5::real .. 1}" by auto
+  next        
+    have "continuous_on {0.5::real .. 1} (g \<circ> (\<lambda>x. 2 * x - 1))"
+      apply (rule continuous_on_subset [of "{0.5::real..1}"])
+      apply (rule continuous_intros | simp add: image_affinity_atLeastAtMost_diff assms)+
+      using assms unfolding curve_def by auto
+    thus "continuous_on {0.5::real .. 1} (\<lambda>x. g (2 * x - 1))"
+      unfolding comp_def by auto
+  qed      
+  consider "x \<le> 0.5" | "0.5 < x" by linarith        
+  thus "curve.curve_eq_y (f +++ g) x = (curve.curve_eq_y f +++ curve.curve_eq_y g) x"
+  proof (cases)
+    case 1
+    have "curve.curve_eq_y (f +++ g) x = snd ((f +++ g) x)" using curve.curve_eq_y_def[OF `curve (f +++ g) {0..1}`]
+      by auto
+    also have "... = snd (f (2 * x))" using 1 unfolding joinpaths_def by auto
+    also have "... = curve.curve_eq_y (\<lambda>x. f (2 * x)) x" using curve.curve_eq_y_def[OF curve_f2]
+      by auto    
+    also have "... = (curve.curve_eq_y f +++ curve.curve_eq_y g) x" unfolding joinpaths_def
+      using 1 curve.curve_eq_y_def[OF curve_f2] curve.curve_eq_y_def[OF assms(1)] by auto                 
+    finally show ?thesis by auto
+  next
+    case 2
+    have "curve.curve_eq_y (f +++ g) x = snd ((f +++ g) x)" using curve.curve_eq_y_def[OF `curve (f +++ g) {0..1}`]
+      by auto
+    also have "... = snd (g (2 * x - 1))" using 2 unfolding joinpaths_def by auto
+    also have "... = curve.curve_eq_y (\<lambda>x. g (2 * x - 1)) x" using curve.curve_eq_y_def[OF curve_g2]
+      by auto
+    also have "... = (curve.curve_eq_y f +++ curve.curve_eq_y g) x" unfolding joinpaths_def
+      using 2 curve.curve_eq_y_def[OF curve_g2] curve.curve_eq_y_def[OF assms(2)] by auto        
+    finally show ?thesis by auto
+  qed    
+qed
+        
 lemma simple_boundary_tail:
   assumes "points \<noteq> []"
   assumes "polychain (a # points)"  
@@ -1077,26 +1329,409 @@ next
     unfolding simple_boundary_def simple_boundary_axioms_def by auto
   from curve_eq_cons(1)[OF assms(1)] have eq: "curve_eq3 (points_path2 (a # points)) = 
     linepath (fst a) (snd a) +++ curve_eq3 (points_path2 points)" by auto
+  have endsame: "linepath (fst a) (snd a) 1 = curve_eq3 (points_path2 points) 0"
+  proof - 
+    have 0: "linepath (fst a) (snd a) 1 = snd a" using pathfinish_linepath unfolding pathfinish_def
+      by auto
+    from `polychain (a # points)` have "polychain points" using polychain_Cons[of "a" "points"]
+        `points \<noteq> []` by auto
+    have "lanelet_curve points" by (unfold_locales) (auto simp add: `points \<noteq> []` `polychain points`)
+    from lanelet_curve.curve_eq0[OF this] have 1: " curve_eq3 (points_path2 points) 0 = fst (hd points)"
+      by auto
+    from `polychain (a # points)` have "snd a = fst (hd points)" unfolding polychain_def
+      using assms(1) hd_conv_nth by fastforce
+    with 0 1 show ?thesis by auto                
+  qed    
   from bs show "inj_on (curve_eq3 (points_path2 points)) {0..1}" unfolding eq
-    sorry
+    using inj_on_jointpaths endsame by auto        
 next
-  show " bij_betw (curve.curve_eq_x (curve_eq3 (points_path2 points))) {0..1} (curve.setX (curve_eq3 (points_path2 points)) {0..1}) "
-    sorry
+  have 0: "curve (curve_eq3 (points_path2 points)) {0..1}"
+  proof (unfold_locales)
+    show "convex {0::real..1}" by auto
+  next
+    show "compact {0::real .. 1}" by auto
+  next
+    from curve_eq_cons(1)[OF assms(1)] have eq: "curve_eq3 (points_path2 (a # points)) = 
+      linepath (fst a) (snd a) +++ curve_eq3 (points_path2 points)" by auto   
+    from assms(3) have "curve (curve_eq3 (points_path2 (a # points))) {0..1}"
+      unfolding simple_boundary_def by auto
+    hence *: "curve (linepath (fst a) (snd a) +++ curve_eq3 (points_path2 points)) {0..1}" 
+      unfolding eq by auto  
+    have "curve (curve_eq3 (points_path2 points) \<circ> (\<lambda>x. 2 * x - 1)) {0.5..1}"
+    proof 
+      show "convex {0.5::real..1}" by auto       
+    next
+      show "compact {0.5::real .. 1}" by auto
+    next
+      from * have 3: "continuous_on {0..1} (linepath (fst a) (snd a) +++ curve_eq3 (points_path2 points))"
+        unfolding curve_def by auto
+      have **: "linepath (fst a) (snd a) 1 = curve_eq3 (points_path2 points) 0"
+      proof - 
+        have 00: "linepath (fst a) (snd a) 1 = snd a" using pathfinish_linepath unfolding pathfinish_def
+          by auto
+        from `polychain (a # points)` have "polychain points" using polychain_Cons[of "a" "points"]
+            `points \<noteq> []` by auto
+        have "lanelet_curve points" by (unfold_locales) (auto simp add: `points \<noteq> []` `polychain points`)
+        from lanelet_curve.curve_eq0[OF this] have 1: " curve_eq3 (points_path2 points) 0 = fst (hd points)"
+          by auto
+        from `polychain (a # points)` have "snd a = fst (hd points)" unfolding polychain_def
+          using assms(1) hd_conv_nth by fastforce
+        with 00 1 show ?thesis by auto                
+      qed
+      hence "pathfinish (linepath (fst a) (snd a)) = pathstart (curve_eq3 (points_path2 points))"
+        unfolding pathstart_def pathfinish_def by auto        
+      with 3 have 4: "continuous_on {0..1} (curve_eq3 (points_path2 points))"   
+        by (rule continuous_on_joinpaths_D2)
+      show "continuous_on {5 / 10..1} (curve_eq3 (points_path2 points) \<circ> (\<lambda>x. 2 * x - 1))"   
+        apply (rule continuous_on_subset [of "{0.5::real..1}"])
+        apply (rule continuous_intros | simp add: image_affinity_atLeastAtMost_diff assms)+
+        using 4 by auto           
+    qed
+    hence 5: "continuous_on {0.5::real..1} (curve_eq3 (points_path2 points) \<circ> (\<lambda>x. 2 * x - 1))"
+      unfolding curve_def by auto
+    have 6: "(\<lambda>x::real. (x + 1) / 2) ` {0..1} = {0.5::real..1}" unfolding image_def
+    proof (rule equalityI, rule_tac[!] subsetI)
+      fix x :: real
+      assume "x \<in> {y. \<exists>x\<in>{0..1}. y = (x+1) /2}"
+      then obtain x' where "x' \<in> {0..1}" and "x = (x' + 1) /2" by auto
+      hence "0.5 \<le> x" and "x \<le> 1" by auto
+      thus "x \<in> {0.5::real..1}" by auto                
+    next
+      fix x :: real
+      assume "x \<in> {0.5::real..1}"
+      then obtain x' where "x' = 2 * x - 1" and "x' \<in> {0::real..1}" by auto
+      hence "x = (x' + 1) / 2" by auto
+      with `x' \<in> {0..1}` show "x \<in> {y. \<exists>x\<in>{0..1}. y = (x + 1) / 2}" by auto         
+    qed      
+    have 7:"continuous_on {0::real .. 1} (curve_eq3 (points_path2 points) \<circ> (\<lambda>x. 2 * x - 1) \<circ> (\<lambda>x. (x + 1) / 2))"
+      apply (rule continuous_on_subset [of "{0..1}"])
+      apply (rule continuous_intros | simp add: image_affinity_atLeastAtMost_diff assms)      
+      apply (simp add:continuous_intros)  
+      using 5 unfolding 6 by auto
+    have 8: "(\<lambda>x::real. 2 * x - 1) \<circ> (\<lambda>x::real. (x + 1) / 2) = id" unfolding comp_def 
+      by (auto simp add:field_simps)
+    from 7 show "continuous_on {0..1} (curve_eq3 (points_path2 points))"
+      unfolding comp_assoc 8 by auto
+  qed        
+  have *: "linepath (fst a) (snd a) 1 = curve_eq3 (points_path2 points) 0"
+  proof - 
+    have 01: "linepath (fst a) (snd a) 1 = snd a" using pathfinish_linepath unfolding pathfinish_def
+      by auto
+    from `polychain (a # points)` have "polychain points" using polychain_Cons[of "a" "points"]
+        `points \<noteq> []` by auto
+    have "lanelet_curve points" by (unfold_locales) (auto simp add: `points \<noteq> []` `polychain points`)
+    from lanelet_curve.curve_eq0[OF this] have 1: " curve_eq3 (points_path2 points) 0 = fst (hd points)"
+      by auto
+    from `polychain (a # points)` have "snd a = fst (hd points)" unfolding polychain_def
+      using assms(1) hd_conv_nth by fastforce
+    with 01 1 show ?thesis by auto                
+  qed 
+  hence endsame: "pathfinish (linepath (fst a) (snd a)) = pathstart (curve_eq3 (points_path2 points))"
+    unfolding pathfinish_def pathstart_def by auto    
+  have 1: "inj_on (curve.curve_eq_x (curve_eq3 (points_path2 points))) {0..1}"
+  proof -
+    from curve_eq_cons(1)[OF assms(1)] have eq: "curve_eq3 (points_path2 (a # points)) = 
+      linepath (fst a) (snd a) +++ curve_eq3 (points_path2 points)" by auto    
+    have curve_linepath: "curve (linepath (fst a) (snd a)) {0..1}"
+      by (unfold_locales) (auto simp add:continuous_on_linepath)
+    have endsame': "curve.curve_eq_x (linepath (fst a) (snd a)) 1 = curve.curve_eq_x (curve_eq3 (points_path2 points)) 0"
+      using curve.curve_eq_x_def[OF curve_linepath] curve.curve_eq_x_def[OF 0] * by auto
+    from assms(3) have "bij_betw (curve.curve_eq_x (curve_eq3 (points_path2 (a # points)))) {0..1} 
+                                 (curve.setX (curve_eq3 (points_path2 (a # points))) {0..1})"
+      unfolding simple_boundary_def simple_boundary_axioms_def by auto
+    hence "inj_on (curve.curve_eq_x (curve_eq3 (points_path2 (a # points)))) {0..1}" unfolding 
+      bij_betw_def by auto
+    hence "inj_on (curve.curve_eq_x (linepath (fst a) (snd a) +++ curve_eq3 (points_path2 points))) {0..1}"
+      unfolding eq by auto
+    hence *: "inj_on (curve.curve_eq_x (linepath (fst a) (snd a)) +++ curve.curve_eq_x (curve_eq3 (points_path2 points))) {0..1}"    
+      unfolding curve_eq_x_joinpaths[OF curve_linepath 0 endsame] by auto
+    have "inj_on (curve.curve_eq_x (curve_eq3 (points_path2 points))) {0..1}"
+      using endsame' *
+      by (rule inj_on_jointpaths[where f="curve.curve_eq_x (linepath (fst a) (snd a))"])
+    thus ?thesis by auto    
+  qed    
+  thus " bij_betw (curve.curve_eq_x (curve_eq3 (points_path2 points))) {0..1} (curve.setX (curve_eq3 (points_path2 points)) {0..1})"
+   unfolding sym[OF curve.setX_alt_def[OF 0]] bij_betw_def by auto 
 qed
   
-lemma
-  assumes "points \<noteq> []"
-  assumes "fst (fst a) \<le> x" and "x \<le> fst (snd a)"
-  assumes "simple_boundary (curve_eq3 (points_path2 (a # points))) {0..1}"  
-  shows "simple_boundary.f_of_x (curve_eq3 (points_path2 (a # points))) {0..1} x =
-         simple_boundary.f_of_x (linepath (fst a) (snd a)) {0..1} x"  
+(* lemma
+  assumes "simple_boundary (curve_eq3 (points_path2 (a # points))) {0..1}"
+  assumes "x \<in> curve.setX (curve_eq3 (points_path2 (a # points))) {0..1}"    
+  shows "\<exists>! c \<in> set (a # points). fst (fst c) \<le> x \<and> x \<le> fst (snd c)"
+  sorry
+ *)    
+lemma simple_boundary_closed_segment_single:    
+  assumes "simple_boundary (curve_eq3 (points_path2 (a # points))) {0..1}"
+  assumes "simple_boundary.f_of_x (curve_eq3 (points_path2 (a # points))) {0..1} x = y"
+  assumes "x \<in> curve.setX (curve_eq3 (points_path2 (a # points))) {0..1}"
+  assumes "monotone_polychain (a # points)"
+  assumes "points = []"    
+  shows "\<exists>c \<in> set (a # points). (x,y) \<in> closed_segment (fst c) (snd c)"    
 proof -
-  from curve_eq_cons(1)[OF assms(1)] 
-    have "curve_eq3 (points_path2 (a # points)) = linepath (fst a) (snd a) +++ curve_eq3 (points_path2 points) "   
-    by auto
-  show ?thesis sorry  
+  from `monotone_polychain (a # points)` have "fst (fst a) \<noteq> fst (snd a)" 
+    unfolding assms(5) monotone_polychain_def by auto    
+  from assms(3) have "x \<in> curve.setX (linepath (fst a) (snd a)) {0..1}"
+    unfolding assms(5) points_path2_def  by auto
+  from assms(2) have "simple_boundary.f_of_x (linepath (fst a) (snd a)) {0..1} x = y"  
+    unfolding assms(5) points_path2_def by auto         
+  with simple_boundary.f_of_x_curve_eq[OF simple_boundary_linepath[OF `fst (fst a) \<noteq> fst (snd a)`]
+                                          `x \<in> curve.setX (linepath (fst a) (snd a)) {0..1}` this]
+  obtain t where "t \<in> {0..1}" and "linepath (fst a) (snd a) t = (x,y)" by auto
+  hence "(x,y) \<in> closed_segment (fst a) (snd a)"  using linepath_in_path[OF `t \<in> {0..1}`] by metis    
+  then show ?thesis by auto     
 qed
-    
+      
+lemma simple_boundary_closed_segment_nonempty_tail:
+  assumes "simple_boundary (curve_eq3 (points_path2 (a # points))) {0..1}"
+  assumes "simple_boundary.f_of_x (curve_eq3 (points_path2 (a # points))) {0..1} x = y"
+  assumes "x \<in> curve.setX (curve_eq3 (points_path2 (a # points))) {0..1}"
+  assumes "monotone_polychain (a # points)"    
+  shows "\<exists>c \<in> set (a # points). (x,y) \<in> closed_segment (fst c) (snd c)"  
+  using assms
+proof (induction points arbitrary:a)
+  case Nil
+  then show ?case using simple_boundary_closed_segment_single by auto
+next
+  case (Cons b points)
+  note case_cons = this
+  from case_cons(2) have cce3: " curve (curve_eq3 (points_path2 (a # b # points))) {0..1} "  
+    unfolding simple_boundary_def by auto
+  from case_cons(5) have "polychain (a # b # points)" unfolding monotone_polychain_def by auto
+  from pathfinish_pathstart[OF `polychain (a # b # points)`] 
+    have pp: "pathfinish (linepath (fst a) (snd a)) = pathstart (curve_eq3 (points_path2 (b # points)))" 
+    by auto
+  from case_cons(3-4) obtain t where "t \<in> {0..1}" and cxy: "curve_eq3 (points_path2 (a # b # points)) t = (x,y)"
+    using simple_boundary.f_of_x_curve_eq[OF case_cons(2) case_cons(4), of "y"] by auto
+  have lc: "lanelet_curve (a # b # points)"
+    using `monotone_polychain (a # b# points)` unfolding monotone_polychain_def
+    by (unfold_locales) auto  
+  from lanelet_curve.curve_eq_imp_closed_segment[OF this `t \<in> {0..1}`] obtain i where
+    "i < length (a # b # points)" and "curve_eq3 (points_path2 (a # b# points)) t \<in> 
+                                      closed_segment (fst ((a # b # points) ! i)) (snd ((a # b# points) ! i))"
+    by auto
+  with cxy have xycs: "(x,y) \<in>  closed_segment (fst ((a # b # points) ! i)) (snd ((a # b# points) ! i))"
+    by auto
+  have "((a # b # points) ! i) \<in> set (a # b # points)"  using \<open>i < length (a # b # points)\<close> nth_mem by blast
+  thus ?case using xycs by auto       
+qed
+     
+lemma simple_boundary_closed_segment2: 
+  assumes "polychain (a # points)"
+  assumes "simple_boundary (curve_eq3 (points_path2 (a # points))) {0..1}"
+  assumes "\<exists>c \<in> set (a # points). (x,y) \<in> closed_segment (fst c) (snd c)"  
+  shows "simple_boundary.f_of_x (curve_eq3 (points_path2 (a # points))) {0..1} x = y"
+proof -
+  have "lanelet_curve (a # points)" using assms by (unfold_locales) (auto)
+  from assms(3) obtain i where "i < length (a # points)" and 
+    "(x,y) \<in> closed_segment (fst ((a # points) ! i)) (snd ((a # points) ! i))"
+    by (metis in_set_conv_nth)
+  then obtain t where "t \<in> {0..1}" and line_eq: "linepath (fst ((a # points) ! i)) (snd ((a # points) ! i)) t = (x,y)" 
+    unfolding closed_segment_def linepath_def by auto 
+  from lanelet_curve.linepath_imp_curve_eq'[OF `lanelet_curve (a # points)` assms(1) _ `i < length (a # points)` `t \<in> {0..1}`]
+  obtain t' where "t' \<in> {0..1}" and "curve_eq3 (points_path2 (a # points)) t' = linepath (fst ((a # points) ! i)) (snd ((a # points) ! i)) t"
+    by auto
+  hence "curve_eq3 (points_path2 (a # points)) t' = (x,y)" unfolding line_eq by auto
+  from simple_boundary.curve_eq_f_of_x[OF assms(2) `t' \<in> {0..1}` this] show ?thesis by auto      
+qed
+      
+lemma sb_f_of_x_tail:
+  assumes "points \<noteq> []"  
+  assumes "fst (snd a) \<le> x"
+  assumes "simple_boundary (curve_eq3 (points_path2 (a # points))) {0..1}"  
+  assumes "monotone_polychain (a # points)"  
+  assumes "x \<in> curve.setX (curve_eq3 (points_path2 (a # points))) {0..1}"    
+  shows "simple_boundary.f_of_x (curve_eq3 (points_path2 (a # points))) {0..1} x =
+         simple_boundary.f_of_x (curve_eq3 (points_path2 points)) {0..1} x"  
+proof -
+  obtain y where y_def: "y = simple_boundary.f_of_x (curve_eq3 (points_path2 (a # points))) {0..1} x"
+    by auto
+  from simple_boundary_closed_segment_nonempty_tail[OF assms(3) _ assms(5) assms(4), of "y"]
+  have "\<exists>c \<in> set (a # points). (x,y) \<in> closed_segment (fst c) (snd c)" using y_def  by auto 
+  then obtain c where "c \<in> set (a # points)" and "(x,y) \<in> closed_segment (fst c) (snd c)"
+    by blast
+  have "c = a \<or> c \<noteq> a" by auto
+  moreover    
+  { assume "c \<noteq> a"
+    with `c \<in> set (a # points)` have "c \<in> set points" by auto  
+    hence "points \<noteq> []" by auto
+    then obtain a' points' where "points = a' # points'"  by (meson \<open>c \<in> set points\<close> list.set_cases)    
+    from assms(3) have "simple_boundary (curve_eq3 (points_path2 points)) {0..1}"
+      using simple_boundary_tail[OF `points \<noteq> []`, of "a"] assms(4) unfolding monotone_polychain_def 
+      by auto
+    with `(x,y) \<in> closed_segment (fst c) (snd c)` 
+      have "simple_boundary.f_of_x (curve_eq3 (points_path2 (points))) {0..1} x = y"    
+        using simple_boundary_closed_segment2[OF _ assms(3)] `c \<in> set points` assms(4) unfolding monotone_polychain_def
+        `points = a' # points'` 
+      by (smt \<open>points = a' # points'\<close> assms(1) polychain_Cons simple_boundary_closed_segment2)
+    with y_def have ?thesis by auto }
+  moreover
+  { assume "c = a"
+    from `(x,y) \<in> closed_segment (fst c) (snd c)` have "x \<in> closed_segment (fst (fst a)) (fst (snd a))"
+      unfolding closed_segment_def `c = a`
+    proof 
+      assume "\<exists>u. (x, y) = (1 - u) *\<^sub>R fst a + u *\<^sub>R snd a \<and> 0 \<le> u \<and> u \<le> 1"      
+      then obtain u where "0 \<le> u" and "u \<le> 1" and "(x,y) = (1 - u) *\<^sub>R fst a + u *\<^sub>R snd a"
+        by auto
+      hence "x = fst ((1 - u) *\<^sub>R fst a + u *\<^sub>R snd a)"  by (metis fst_conv)
+      also have "... = (1 - u) *\<^sub>R (fst (fst a)) + u *\<^sub>R fst (snd a)" by auto
+      finally have "x = (1 - u) *\<^sub>R (fst (fst a)) + u *\<^sub>R fst (snd a)" by auto
+      with `0 \<le> u` and `u \<le> 1` show "x \<in> {(1 - u) *\<^sub>R fst (fst a) + u *\<^sub>R fst (snd a) |u. 0 \<le> u \<and> u \<le> 1}"
+        by auto
+    qed
+    from `monotone_polychain (a # points)` have "fst (fst a) \<le> fst (snd a)" unfolding monotone_polychain_def
+      by auto
+    with `x \<in> closed_segment (fst (fst a)) (fst (snd a))` have "fst (fst a) \<le> x \<and> x \<le> fst (snd a)"
+      using closed_segment_real by auto
+    with assms(2) have "x = fst (snd a)" by auto
+   
+    have "curve_eq3 (points_path2 (a # points)) 0.5 = (x, snd (snd a))"
+    proof -
+      have "curve_eq3 (points_path2 (a # points)) 0.5 = (linepath (fst a) (snd a) +++ curve_eq3 (points_path2 points)) 0.5"
+        using curve_eq_cons(1)[OF `points \<noteq> []`]  by auto        
+      also have "... = (linepath (fst a) (snd a)) 1" unfolding joinpaths_def by auto
+      also have "... = snd a" unfolding linepath_def by (auto)
+      finally have "curve_eq3 (points_path2 (a # points)) 0.5 = snd a" by auto
+      with `x = fst (snd a)` show ?thesis by auto     
+    qed 
+    from simple_boundary.curve_eq_f_of_x[OF assms(3) _ this] 
+    have temp: "simple_boundary.f_of_x (curve_eq3 (points_path2 (a # points))) {0..1} x = snd (snd a)"
+      by auto
+   
+    from assms(1) obtain a' points' where "points = a' # points'"  using list.exhaust_sel by blast        
+    have "curve_eq3 (points_path2 (points)) 0 = (x, snd (snd a))"
+    proof -
+      from assms(4) have "snd a = fst a'" unfolding `points = a' # points'` unfolding monotone_polychain_def
+          polychain_def by auto          
+      have "pathstart (curve_eq3 (points_path2 (a' # points'))) = pathstart (linepath (fst a') (snd a'))"
+        unfolding points_path2_def using pathstart_curve_eq by auto
+      also have "... = fst a'" by auto
+      also have "... = snd a" using `snd a = fst a'` by auto
+      finally show ?thesis unfolding pathstart_def using `points = a' # points'` `x = fst (snd a)`
+        by auto                
+    qed
+    from assms(3) have "simple_boundary (curve_eq3 (points_path2 points)) {0..1}"
+      using simple_boundary_tail[OF `points \<noteq> []`, of "a"] assms(4) unfolding monotone_polychain_def 
+      by auto  
+    from simple_boundary.curve_eq_f_of_x[OF this _ `curve_eq3 (points_path2 (points)) 0 = (x, snd (snd a))`]
+    have "simple_boundary.f_of_x (curve_eq3 (points_path2 points)) {0..1} x = snd (snd a)" by auto
+    with temp have ?thesis by auto }    
+  ultimately show ?thesis by auto    
+qed
+  
+lemma simple_boundary_strict_mono:
+  assumes "points \<noteq> []"
+  assumes "monotone_polychain points"
+  assumes "simple_boundary (curve_eq3 (points_path2 points)) {0..1}"
+  shows "curve.curve_eq_x (curve_eq3 (points_path2 points)) (Inf {0..1}) < 
+         curve.curve_eq_x (curve_eq3 (points_path2 points)) (Sup {0..1})"
+proof -
+  have lt: "Inf {0::real..1} < Sup {0::real..1}" by auto
+  have cce3: "curve (curve_eq3 (points_path2 points)) {0..1}" using assms(3) unfolding simple_boundary_def
+    by auto      
+  from strict_mono_in_curve_eq3[OF assms(2) _ assms(1), of "points_path2 points"]
+  have "strict_mono_in (curve.curve_eq_x (curve_eq3 (points_path2 points))) {0..1}"
+    unfolding comp_def curve.curve_eq_x_def[OF cce3] by auto
+  with strict_mono_inD[OF this _ _ lt] show ?thesis by auto           
+qed
+      
+lemma curve_setX_joinpaths:
+  assumes "curve f {0..1}"
+  assumes "curve g {0..1}"
+  assumes "pathfinish f = pathstart g"       
+  shows "curve.setX (f +++ g) {0..1} = curve.setX f {0..1} \<union> curve.setX g {0..1}"
+proof -
+  have curve_join: "curve (f +++ g) {0..1}" using assms
+    by (unfold_locales) (auto intro:continuous_on_joinpaths simp add: curve_def)  
+  have 0: "(f +++ g) ` {0..1} = f ` {0..1} \<union> g ` {0..1}" using joinpaths_image_01[OF assms(3)] by auto      
+  have "curve.setX (f +++ g) {0..1} = fst ` (f +++ g) ` {0..1}"  unfolding curve.setX_def[OF curve_join]
+    by auto    
+  also have "... = fst ` (f ` {0..1} \<union> g ` {0..1})" unfolding 0 by auto
+  also have "... = fst ` f ` {0..1} \<union> fst ` g ` {0..1}" by auto
+  also have "... = curve.setX f {0..1} \<union> curve.setX g {0..1}" unfolding curve.setX_def[OF assms(1)]
+    curve.setX_def[OF assms(2)] by auto
+  finally show ?thesis by auto        
+qed
+  
+lemma x_in_curve_setX:
+  assumes "c \<in> set points"
+  assumes "fst (fst c) \<le> x"
+  assumes "x \<le> fst (snd c)"
+  assumes "monotone_polychain points"    
+  shows "x \<in> curve.setX (curve_eq3 (points_path2 points)) {0..1}"
+  using assms
+proof (induction points)
+  case Nil
+  then show ?case by auto
+next
+  case (Cons a points')
+  note case_cons = this
+  from case_cons(5) have "polychain (a # points')" unfolding monotone_polychain_def by auto   
+  from case_cons(2) have "a # points' \<noteq> []" by auto      
+  have cce3: "curve (curve_eq3 (points_path2 (a # points'))) {0..1}"
+    using curve_eq_cont[OF `a # points' \<noteq> []` `polychain (a # points')`, of "points_path2 (a # points')"]
+    by (unfold_locales)(auto)          
+  from curve.setX_alt_def[OF this] have curve_set_x_def: "curve.setX (curve_eq3 (points_path2 (a # points'))) {0..1} = 
+                                 curve.curve_eq_x (curve_eq3 (points_path2 (a # points'))) ` {0..1} "
+    by auto      
+  with curve_set_x_def have 0: "curve.setX (curve_eq3 (points_path2 (a # points'))) {0..1} = 
+                                 curve.curve_eq_x (curve_eq3 (points_path2 (a # points'))) ` {0..1}"   
+    by auto    
+  from case_cons(5) have "fst (fst a) \<le> fst (snd a)" unfolding monotone_polychain_def
+    by auto        
+  have "points' = [] \<or> points' \<noteq> []" by auto
+  moreover
+  { assume "points' = []"
+    from 0 have "curve.setX (curve_eq3 (points_path2 (a # points'))) {0..1} = 
+                 curve.curve_eq_x (linepath (fst a) (snd a)) ` {0..1}"
+      using curve_eq_cons(2)[OF `points' = []`] by auto 
+    also have "... = {fst (fst a) .. fst (snd a)}" unfolding curve.curve_eq_x_def[OF curve_linepath]
+      using linepath_image_01[of "fst a" "snd a"] closed_segment_real[of "fst (fst a)" "fst (snd a)"]
+      using `fst (fst a) \<le> fst (snd a)` 
+      using \<open>\<And>b a. curve.curve_eq_x (linepath a b) \<equiv> \<lambda>s. fst (linepath a b s)\<close> 
+      \<open>curve (curve_eq3 (points_path2 (a # points'))) {0..1}\<close>  
+      \<open>points' = []\<close> calculation curve.setX_def curve_eq_cons(2) by auto
+    finally have fi: "curve.setX (curve_eq3 (points_path2 (a # points'))) {0..1} = {fst (fst a) .. fst (snd a)}"
+      by auto    
+    from `c \<in> set (a # points')` have "c = a" using `points' = []` by auto
+    with case_cons(3-4) fi have ?case by auto }
+  moreover
+  { assume "points' \<noteq> []"
+    from `polychain (a # points')` have "polychain points'" 
+      using polychain_Cons[of "a" "points'"] `points' \<noteq> []` by auto
+    have cce3': "curve (curve_eq3 (points_path2 points')) {0..1}"
+      using curve_eq_cont[OF `points' \<noteq> []` `polychain points'`, of "points_path2 points'"]
+      by (unfold_locales) (auto)
+    from pathfinish_pathstart[OF `polychain (a # points')` `points' \<noteq> []`] have pp: "pathfinish (linepath (fst a) (snd a)) = pathstart (curve_eq3 (points_path2 points'))"
+      by auto
+    hence pp': "pathfinish (curve.curve_eq_x (linepath (fst a) (snd a))) = pathstart (curve.curve_eq_x (curve_eq3 (points_path2 points')))"
+      unfolding curve.curve_eq_x_def[OF curve_linepath, of "fst a" "snd a"] curve.curve_eq_x_def[OF cce3']
+      pathstart_def pathfinish_def by auto  
+    from 0 have "curve.setX (curve_eq3 (points_path2 (a # points'))) {0..1} = 
+                curve.curve_eq_x (linepath (fst a) (snd a) +++ curve_eq3 (points_path2 points')) ` {0..1}"
+      unfolding curve_eq_cons(1)[OF `points' \<noteq> []`, of "a"]  by auto
+    also have "... = (curve.curve_eq_x (linepath (fst a) (snd a)) ` {0..1} \<union> 
+                      curve.curve_eq_x (curve_eq3 (points_path2 points')) ` {0..1})"
+      using curve_eq_x_joinpaths[OF curve_linepath cce3' pp]  joinpaths_image_01[OF pp'] by auto
+    also have "... = {fst (fst a) .. fst (snd a)} \<union> curve.curve_eq_x (curve_eq3 (points_path2 points')) ` {0..1}"
+      using linepath_image_01[of "fst a" "snd a"] closed_segment_real[of "fst (fst a)" "fst (snd a)"]
+      `fst (fst a) \<le> fst (snd a)`
+      by (metis curve.setX_alt_def curve.setX_def curve_linepath fst_closed_segment)       
+    finally have fi: "curve.setX (curve_eq3 (points_path2 (a # points'))) {0..1} = 
+                  {fst (fst a) .. fst (snd a)} \<union>
+                  curve.curve_eq_x (curve_eq3 (points_path2 points')) ` {0..1}" by auto
+    from `c \<in> set (a # points')` have "c = a \<or> c \<in> set points'" by auto
+    moreover
+    { assume "c = a"
+      from assms(2-3) fi have ?case unfolding `c = a` by auto }
+    moreover
+    { assume "c \<in> set points'"
+      from case_cons(1)[OF this case_cons(3-4)] have "x \<in> curve.setX (curve_eq3 (points_path2 points')) {0..1}"
+        using  monotone_polychain_ConsD[OF `monotone_polychain (a # points')`] by auto
+      with fi have ?case unfolding curve.setX_alt_def[OF cce3'] by auto }
+    ultimately have ?case by auto }    
+  ultimately show ?case by auto
+qed    
+      
 lemma test1':
   assumes "points \<noteq> []"
   assumes "monotone_polychain points"  
@@ -1149,20 +1784,234 @@ next
     hence ?case using eq by auto }  
   moreover
   { assume "points = a' # points'"
-    hence nem: "points \<noteq> []" by auto  
+    hence nem: "points \<noteq> []" by auto
+    have curve_linepath: "curve (linepath (fst a) (snd a)) {0..1}"
+      by (unfold_locales) (auto)
+    from case_cons(4) have "simple_boundary (curve_eq3 (points_path2 points)) {0..1}"
+      using simple_boundary_tail[OF nem `polychain (a # points)`] by auto        
+    hence curve_curve_eq3: "curve (curve_eq3 (points_path2 points)) {0..1}"
+      unfolding simple_boundary_def by auto
+    have pathfinish_pathstart: 
+    "pathfinish (linepath (fst a) (snd a)) = pathstart (curve_eq3 (points_path2 points))"
+    proof -
+      have lhs: "pathfinish (linepath (fst a) (snd a)) = snd a" by auto
+      have "points_path2 points = linepath (fst a') (snd a') # points_path2 points'"
+        unfolding `points = a' # points'` points_path2_def by auto
+      hence "pathstart (curve_eq3 (points_path2 points)) = pathstart (linepath (fst a') (snd a'))"
+        using pathstart_curve_eq by auto
+      also have "... = fst a'" by auto
+      finally have rhs: "pathstart (curve_eq3 (points_path2 points)) = fst a'" by auto
+      from `polychain (a # points)` have "snd a = fst a'" unfolding `points = a' # points'`
+        polychain_def by auto
+      with lhs and rhs show ?thesis by auto                
+    qed      
     from case_cons(5) consider "c = a" | "c \<in> set points" by auto  
     hence ?case
     proof (cases)
       case 1  
-      then show ?thesis sorry
+      define icx where "icx \<equiv> simple_boundary.inv_curve_x (curve_eq3 (points_path2 (a # points))) {0..1}" 
+      have icx_alt_def: "icx \<equiv> the_inv_into {0..1} (curve.curve_eq_x (curve_eq3 (points_path2 (a # points))))"
+        using simple_boundary.inv_curve_x_def[OF case_cons(4)] unfolding icx_def by auto  
+      have "icx x \<le> 0.5"
+      proof (rule ccontr)
+        assume "\<not> icx x \<le> 0.5"
+        hence "icx x > 0.5" by auto
+        have "icx = (\<lambda>x. THE y. y \<in> {0..1} \<and> (curve.curve_eq_x (curve_eq3 (points_path2 (a # points)))) y = x)"
+          unfolding icx_alt_def the_inv_into_def by auto
+        hence "icx x = (THE y. y \<in> {0..1} \<and> (curve.curve_eq_x (curve_eq3 (points_path2 (a # points)))) y = x)"
+          by auto
+        then obtain y where "icx x = y" and "y \<in> {0..1}" and "curve.curve_eq_x (curve_eq3 (points_path2 (a # points))) y  = x"
+          by (smt bij_betwE bij_betw_def bij_betw_the_inv_into case_cons(2-7) icx_alt_def simple_boundary_axioms_def simple_boundary_def test2 the_inv_into_f_f)
+        with `icx x > 0.5` have "y > 0.5" by auto
+        from curve_eq_cons(1)[OF nem] have eq: "curve_eq3 (points_path2 (a # points)) = 
+          linepath (fst a) (snd a) +++ curve_eq3 (points_path2 points)" by auto
+        hence c0: "curve.curve_eq_x (curve_eq3 (points_path2 (a # points))) = 
+               curve.curve_eq_x (linepath (fst a) (snd a) +++ curve_eq3 (points_path2 points))"
+          by auto
+        have curve_f: "curve (linepath (fst a) (snd a)) {0..1}"
+          by (unfold_locales) (auto)
+        from case_cons(4) have "simple_boundary (curve_eq3 (points_path2 points)) {0..1}"
+          using simple_boundary_tail[OF nem `polychain (a # points)`] by auto
+        hence curve_g: "curve (curve_eq3 (points_path2 points)) {0..1}"
+          unfolding simple_boundary_def by auto
+        have **: "linepath (fst a) (snd a) 1 = curve_eq3 (points_path2 points) 0"
+        proof - 
+          have 00: "linepath (fst a) (snd a) 1 = snd a" using pathfinish_linepath unfolding pathfinish_def
+            by auto
+          from `polychain (a # points)` have "polychain points" using polychain_Cons[of "a" "points"]
+              `points \<noteq> []` by auto
+          have "lanelet_curve points" by (unfold_locales) (auto simp add: `points \<noteq> []` `polychain points`)
+          from lanelet_curve.curve_eq0[OF this] have 1: " curve_eq3 (points_path2 points) 0 = fst (hd points)"
+            by auto
+          from `polychain (a # points)` have "snd a = fst (hd points)" unfolding polychain_def
+            using assms(1) hd_conv_nth  using nem by force 
+          with 00 1 show ?thesis by auto                
+        qed
+        hence "pathfinish (linepath (fst a) (snd a)) = pathstart (curve_eq3 (points_path2 points))"
+          unfolding pathfinish_def pathstart_def by auto
+        from curve_eq_x_joinpaths[OF curve_f curve_g this] c0 have 
+          "curve.curve_eq_x (curve_eq3 (points_path2 (a # points))) = 
+           curve.curve_eq_x (linepath (fst a) (snd a)) +++  curve.curve_eq_x (curve_eq3 (points_path2 points))"
+          by auto
+        with `y > 0.5` have "curve.curve_eq_x (curve_eq3 (points_path2 (a # points))) y = 
+                             curve.curve_eq_x (curve_eq3 (points_path2 points)) (2 * y - 1)" 
+          unfolding joinpaths_def by auto
+        with `curve.curve_eq_x (curve_eq3 (points_path2 (a # points))) y = x` have 
+          "curve.curve_eq_x (curve_eq3 (points_path2 points)) (2 * y - 1) = x" by auto
+        from `y > 0.5` and `y \<in> {0..1}` have "2 * y - 1 > 0" and "2 * y - 1 \<le> 1" by auto
+        have "curve.curve_eq_x (curve_eq3 (points_path2 points)) (Inf {0..1}) < curve.curve_eq_x (curve_eq3 (points_path2 points)) (Sup {0..1})"
+          using simple_boundary_strict_mono[OF nem `monotone_polychain points` `simple_boundary (curve_eq3 (points_path2 points)) {0..1}`]
+          by auto
+        from simple_boundary.checking_strict_mono[OF `simple_boundary (curve_eq3 (points_path2 points)) {0..1}` _ this]
+          have "strict_mono_in (curve.curve_eq_x (curve_eq3 (points_path2 points))) {0..1}" by auto
+        with `0 < 2 * y - 1` and `2 * y - 1 \<le> 1` have "curve.curve_eq_x (curve_eq3 (points_path2 points)) 0 < 
+                                   curve.curve_eq_x (curve_eq3 (points_path2 points)) (2 * y - 1)"
+          using strict_mono_inD by fastforce
+        with `curve.curve_eq_x (curve_eq3 (points_path2 points)) (2 * y - 1) = x`
+          have "curve.curve_eq_x (curve_eq3 (points_path2 points)) 0 < x" by auto
+        have "curve.curve_eq_x (curve_eq3 (points_path2 points)) 0 = fst (fst (hd points))" 
+        proof -
+          from nem obtain a' points' where "points = a' # points'" 
+            using \<open>\<And>thesis. (\<And>a' points'. points = [] \<or> points = a' # points' \<Longrightarrow> thesis) \<Longrightarrow> thesis\<close> 
+            by blast
+          have "curve.curve_eq_x (curve_eq3 (points_path2 points)) 0 = 
+                pathstart (curve.curve_eq_x (curve_eq3 (points_path2 points)))" unfolding 
+            pathstart_def by auto
+          also have "... = pathstart (curve.curve_eq_x (curve_eq3 (points_path2 (a' # points'))))"
+            using `points = a' # points'` by auto
+          also have "... = pathstart (curve.curve_eq_x (curve_eq3 (linepath (fst a') (snd a') # points_path2 points')))"
+            unfolding points_path2_def by auto
+          finally have mid: "curve.curve_eq_x (curve_eq3 (points_path2 points)) 0 = 
+             pathstart (curve.curve_eq_x (curve_eq3 (linepath (fst a') (snd a') # points_path2 points')))"
+            by auto
+          have *: "curve (curve_eq3 (points_path2 points)) {0..1}" using case_cons(3) 
+            `simple_boundary (curve_eq3 (points_path2 points)) {0..1}` unfolding simple_boundary_def
+            by auto
+          with `points = a' # points'` have "points_path2 points = linepath (fst a') (snd a') # points_path2 points'"
+            unfolding points_path2_def by auto
+          with * have "curve (curve_eq3 (linepath (fst a') (snd a') # points_path2 points')) {0..1}"
+            by auto  
+          with pathstart_curve_eq_x[OF this] 
+          have "pathstart (curve.curve_eq_x (curve_eq3 (linepath (fst a') (snd a') # points_path2 points'))) = 
+                                        fst (pathstart (linepath (fst a') (snd a')))" by auto
+          also have "... = fst (fst a')" by auto
+          also have "... = fst (fst (hd points))" using `points = a' # points'`by auto
+          finally have "pathstart (curve.curve_eq_x (curve_eq3 (linepath (fst a') (snd a') # points_path2 points'))) = 
+              fst (fst (hd points))" by auto                        
+          with mid show ?thesis by auto              
+        qed
+        from `polychain (a # points)` have "fst (snd a) = fst (fst (hd points))"
+          unfolding polychain_def using nem  using \<open>points = a' # points'\<close> by auto
+        with `curve.curve_eq_x (curve_eq3 (points_path2 points)) 0 = fst (fst (hd points))`
+        have "curve.curve_eq_x (curve_eq3 (points_path2 points)) 0 = fst (snd a)" by auto
+        with `curve.curve_eq_x (curve_eq3 (points_path2 points)) 0 < x` have "fst (snd a) < x" by auto
+        with case_cons(7) show "False" unfolding `c = a` by auto    
+      qed
+      have "simple_boundary.f_of_x (curve_eq3 (points_path2 (a # points))) {0..1} x = 
+            (curve.curve_eq_y (curve_eq3 (points_path2 (a # points))) \<circ> icx) x" 
+        unfolding simple_boundary.f_of_x_def[OF case_cons(4)] icx_def by auto
+      also have "... = (curve.curve_eq_y (curve_eq3 (points_path2 (a # points))) (icx x))"
+        unfolding comp_def by auto
+      also have "... = (curve.curve_eq_y (linepath (fst a) (snd a) +++ curve_eq3 (points_path2 points)) (icx x))"
+        using curve_eq_cons(1)[OF nem] by auto                
+      also have "... = (curve.curve_eq_y (linepath (fst a) (snd a)) +++ curve.curve_eq_y (curve_eq3 (points_path2 points))) (icx x)"          
+        using curve_eq_y_joinpaths[OF curve_linepath curve_curve_eq3 pathfinish_pathstart] by auto
+      also have "... = curve.curve_eq_y (linepath (fst a) (snd a)) (2 * icx x)"
+        unfolding joinpaths_def using `icx x \<le> 0.5` by auto
+      finally have 2: "simple_boundary.f_of_x (curve_eq3 (points_path2 (a # points))) {0..1} x = 
+                       curve.curve_eq_y (linepath (fst a) (snd a)) (2 * icx x)" by auto
+      define y where "y \<equiv> curve.curve_eq_y (linepath (fst a) (snd a)) (2 * icx x)"
+      with 2 have 3: "simple_boundary.f_of_x (curve_eq3 (points_path2 (a # points))) {0..1} x = y"
+        unfolding y_def by auto
+      have "(x,y) \<in> closed_segment (fst a) (snd a)" unfolding closed_segment_def
+      proof (rule CollectI, rule exI[where x="2 * icx x"], rule conjI, rule_tac[2] conjI)
+        show "(x, y) = (1 - 2 * icx x) *\<^sub>R fst a + (2 * icx x) *\<^sub>R snd a"
+        proof
+          have "fst ((1 - 2 * icx x) *\<^sub>R fst a + (2 * icx x) *\<^sub>R snd a) = fst (linepath (fst a) (snd a) (2 * icx x))" 
+            unfolding linepath_def by auto
+          have icx_x_def: "icx x = the_inv_into {0..1} (curve.curve_eq_x (curve_eq3 (points_path2 (a # points)))) x"
+            using icx_def simple_boundary.inv_curve_x_def[OF `simple_boundary (curve_eq3 (points_path2 (a # points))) {0..1}`]
+            by auto 
+          have "curve_eq3 (points_path2 (a # points)) = linepath (fst a) (snd a) +++ curve_eq3 (points_path2 points)"
+            using curve_eq_cons(1)[OF nem] by auto  
+          with `icx x \<le> 0.5` have curve_icx: "curve_eq3 (points_path2 (a # points)) (icx x) = linepath (fst a) (snd a) (2 * icx x)"
+            unfolding joinpaths_def by auto
+          have curve_curve_eq3_cons: "curve (curve_eq3 (points_path2 (a # points))) {0..1}" using 
+            `simple_boundary (curve_eq3 (points_path2 (a # points))) {0..1}` unfolding 
+             simple_boundary_def by auto
+          have long:"curve.curve_eq_x (curve_eq3 (points_path2 (a # points))) (the_inv_into {0..1} (curve.curve_eq_x (curve_eq3 (points_path2 (a # points)))) x) = 
+                fst (linepath (fst a) (snd a) (2 * icx x))"
+            unfolding  sym[OF icx_x_def] using curve.curve_eq_x_def[OF curve_curve_eq3_cons] curve_icx
+            by auto
+          from `simple_boundary (curve_eq3 (points_path2 (a # points))) {0..1}`
+          have inj_on: "inj_on (curve.curve_eq_x (curve_eq3 (points_path2 (a # points)))) {0..1}"
+            unfolding simple_boundary_def simple_boundary_axioms_def bij_betw_def by auto
+          have cce3: "curve (curve_eq3 (points_path2 (a # points))) {0..1}" using 
+            `simple_boundary (curve_eq3 (points_path2 (a # points))) {0..1}` unfolding 
+            simple_boundary_def by auto            
+          have x_curve: "x \<in> curve.setX (curve_eq3 (points_path2 (a # points))) {0..1}"
+            using test2[of "a # points", OF _ `monotone_polychain (a # points)` cce3 _ case_cons(6-7)]
+            unfolding `c = a` by auto              
+          from f_the_inv_into_f[where f="curve.curve_eq_x (curve_eq3 (points_path2 (a # points)))" and A="{0..1}" and y="x", OF inj_on]
+            x_curve show "fst (x, y) = fst ((1 - 2 * icx x) *\<^sub>R fst a + (2 * icx x) *\<^sub>R snd a)"
+            using long curve.setX_alt_def[OF curve_curve_eq3_cons] linepath_def  
+            using \<open>fst ((1 - 2 * icx x) *\<^sub>R fst a + (2 * icx x) *\<^sub>R snd a) = fst (linepath (fst a) (snd a) (2 * icx x))\<close> by auto            
+        next    
+          show "snd (x, y) = snd ((1 - 2 * icx x) *\<^sub>R fst a + (2 * icx x) *\<^sub>R snd a)"
+            unfolding y_def curve.curve_eq_y_def[OF curve_linepath]
+            by (simp add: linepath_def)
+        qed          
+      next
+        from `simple_boundary (curve_eq3 (points_path2 (a # points))) {0..1}`
+        have inj_on: "inj_on (curve.curve_eq_x (curve_eq3 (points_path2 (a # points)))) {0..1}"
+          unfolding simple_boundary_def simple_boundary_axioms_def bij_betw_def by auto
+        have cce3: "curve (curve_eq3 (points_path2 (a # points))) {0..1}" using 
+          `simple_boundary (curve_eq3 (points_path2 (a # points))) {0..1}` unfolding 
+          simple_boundary_def by auto            
+        have x_curve: "x \<in> curve.setX (curve_eq3 (points_path2 (a # points))) {0..1}"
+          using test2[of "a # points", OF _ `monotone_polychain (a # points)` cce3 _ case_cons(6-7)]
+          unfolding `c = a` by auto
+        have "the_inv_into {0..1} (curve.curve_eq_x (curve_eq3 (points_path2 (a # points)))) x \<in> {0..1}"
+          using the_inv_into_into[where A="{0..1}" and  B="{0..1}" and x="x" and f="curve.curve_eq_x (curve_eq3 (points_path2 (a # points)))", OF inj_on]
+          x_curve curve.setX_alt_def[OF `curve (curve_eq3 (points_path2 (a # points))) {0..1}`] 
+          by auto
+        hence "icx x \<in> {0..1}" unfolding icx_def simple_boundary.inv_curve_x_def[OF `simple_boundary (curve_eq3 (points_path2 (a # points))) {0..1}`]
+          by auto            
+        thus "0 \<le> 2 * icx x" by auto
+      next
+        from `icx x \<le> 0.5` show "2 * icx x \<le> 1" by auto
+      qed        
+        from line_equation_closed_segment[OF this *] have "line_equation (fst a) (snd a) x = y"
+        by auto          
+      then show ?thesis unfolding 3 `c = a` by auto
     next
       case 2
-      from case_cons(4) have "simple_boundary (curve_eq3 (points_path2 points)) {0..1}"  
-        using simple_boundary_tail[OF nem `polychain (a # points)`] by auto
-      from case_cons(1)[OF nem `monotone_polychain points` this 2 case_cons(6-7)]
+      have "fst (snd a) \<le> x"
+      proof -
+        from 2 obtain i where "i < length points" and "points ! i = c" unfolding in_set_conv_nth
+          by auto
+        hence "(a # points) ! (i + 1) = c" unfolding nth_Cons_Suc by auto
+        with monotone_polychain_snd_fst[OF `monotone_polychain (a # points)`, of "0" "i + 1"]
+          show ?thesis using nem `i < length points` case_cons(6-7) by auto
+      qed 
+      hence "fst (fst a) < x"
+      proof -
+        from `monotone_polychain (a # points)` have "fst (fst a) < fst (snd a)"
+          unfolding monotone_polychain_def by auto
+        with `fst (snd a) \<le> x` show "fst (fst a) < x" by auto    
+      qed         
+      from case_cons(4) have temp: "simple_boundary (curve_eq3 (points_path2 points)) {0..1}"  
+        using simple_boundary_tail[OF nem `polychain (a # points)`] by auto                
+      have xinsetx: "x \<in> curve.setX (curve_eq3 (points_path2 (a # points))) {0..1} "    
+        using x_in_curve_setX[OF `c \<in> set (a # points)` case_cons(6-7) `monotone_polychain (a # points)`]
+        by auto  
+      from case_cons(1)[OF nem `monotone_polychain points` temp 2 case_cons(6-7)]          
       have "line_equation (fst c) (snd c) x = simple_boundary.f_of_x (curve_eq3 (points_path2 points)) {0..1} x"
-        by auto
-      thus ?thesis sorry 
+        by auto          
+      also have "... = simple_boundary.f_of_x (curve_eq3 (points_path2 (a # points))) {0..1} x"
+        using sb_f_of_x_tail[OF nem `fst (snd a) \<le> x` `simple_boundary (curve_eq3 (points_path2 (a # points))) {0..1}` `monotone_polychain (a # points)` xinsetx]
+        by auto          
+      finally show ?thesis by auto 
     qed 
   }
   ultimately show ?case by auto
@@ -1256,8 +2105,7 @@ lemma test1:
   assumes "c \<in> set points"
   assumes "fst (fst c) \<le> x" and "x \<le> fst (snd c)"
   shows "line_equation (fst c) (snd c) x = lsc.f_of_x x"
-  using assms test2 nonempty_points lsc_f_of_x_curve_eq   
-  sorry
+  using test1'[OF nonempty_points monotone simple_boundary_curve_eq_01 assms] by auto 
     
 lemma lsc_f_of_x_curve_eq2: 
   assumes "t \<in> {0..1}"
@@ -3844,7 +4692,354 @@ qed
   
 lemma segment_intersection_comm: "segment_intersection l1 l2 \<longleftrightarrow> segment_intersection l2 l1"
   using segment_intersection_completeness segment_intersection_correctness by blast
+    
+text "Implementation of segment intersection with Fourier--Motzkin technique as suggested
+  by the reviewer in IFM 2017."  
+    
+definition segment_intersection_la_single_solution :: "real \<Rightarrow> real2 \<Rightarrow> real2 \<Rightarrow> real2 \<Rightarrow> bool" where
+  "segment_intersection_la_single_solution d d1 d2 dp = (let row1 = (snd d2, -fst d2); row2 = (-snd d1, fst d1);
+                                                             u1 = (row1 \<bullet> dp) / d; u2 = (row2 \<bullet> dp) / d 
+                                                         in 0 \<le> u1 \<and> u1 \<le> 1 \<and> 0 \<le> u2 \<and> u2 \<le> 1)"
+  
+lemma single_solution_correctness:
+  assumes "segment_intersection_la_single_solution d d1 d2 dp"
+  assumes "d = det2 (fst d1, fst d2) (snd d1, snd d2)"
+  assumes "d \<noteq> 0"    
+  shows "\<exists>u1 u2. 0 \<le> u1 \<and> u1 \<le> 1 \<and> 0 \<le> u2 \<and> u2 \<le> 1 \<and> u1 *\<^sub>R d1 + u2 *\<^sub>R d2 = dp"
+proof -
+  define row1 where "row1 \<equiv> (snd d2, -fst d2)"
+  define row2 where "row2 \<equiv> (-snd d1, fst d1)"
+  define u1 where "u1 \<equiv> (row1 \<bullet> dp) / d"
+  define u2 where "u2 \<equiv> (row2 \<bullet> dp) / d"
+  note unf = row1_def row2_def u1_def u2_def  
+  from assms have range: "0 \<le> u1 \<and> u1 \<le> 1 \<and> 0 \<le> u2 \<and> u2 \<le> 1" unfolding segment_intersection_la_single_solution_def
+    Let_def u1_def u2_def row1_def row2_def by auto
+  have u1_def': "u1 = (snd d2 * fst dp - fst d2 * snd dp) / d" unfolding u1_def row1_def inner_prod_def
+    by auto
+  have u2_def': "u2 = (fst d1 * snd dp - snd d1 * fst dp) / d" unfolding u2_def row2_def inner_prod_def
+    by auto
+  have "u1 * fst d1 + u2 * fst d2 = fst dp"
+  proof -  
+    have d_def': "d = fst d1 * snd d2 - fst d2 * snd d1" using assms unfolding det2_def'  by auto
+    have "(snd d2 * fst dp - fst d2 * snd dp) * fst d1 + (fst d1 * snd dp - snd d1 * fst dp) * fst d2 = fst dp * d"
+      (is "?lhs = ?rhs")
+      unfolding d_def' by (auto simp add:field_simps)
+    with `d \<noteq> 0` have "?lhs / d = fst dp" by (auto simp add:divide_simps)
+    thus ?thesis unfolding u1_def' u2_def' by (auto simp add:divide_simps)              
+  qed      
+  moreover have "u1 * snd d1 + u2 * snd d2 = snd dp"
+  proof -
+    have d_def': "d = fst d1 * snd d2 - fst d2 * snd d1" using assms unfolding det2_def'  by auto
+    have "(snd d2 * fst dp - fst d2 * snd dp) * snd d1 + (fst d1 * snd dp - snd d1 * fst dp) * snd d2 = snd dp * d"
+      (is "?lhs = ?rhs")
+      unfolding d_def' by (auto simp add:field_simps)
+    with `d \<noteq> 0` have "?lhs / d = snd dp" by (auto simp add:divide_simps)
+    thus ?thesis unfolding u1_def' u2_def' by (auto simp add:divide_simps)        
+  qed    
+  ultimately have eq: "u1 *\<^sub>R d1 + u2 *\<^sub>R d2 = dp" unfolding scaleR_prod_def by auto
+  show ?thesis  by (rule exI[where x="u1"], rule exI[where x="u2"]) (auto simp add:range eq)           
+qed
+      
+definition aligned :: "real2 \<Rightarrow> real2 \<Rightarrow> real2 \<Rightarrow> bool" where
+  "aligned d1 d2 dp \<equiv> 
+  (if fst d2 \<noteq> 0 then 
+      det2 (fst d1, fst d2) (snd d1, snd d2) = 0 \<and>  det2 (fst d2, fst dp) (snd d2, snd dp) = 0
+   else snd d2 = 0 \<and>  (if fst d1 \<noteq> 0 then det2 (fst d1, fst dp) (snd d1, snd dp) = 0 else snd d1 = 0 \<and> snd dp = 0))"
 
+abbreviation equal_sign :: "real \<Rightarrow> real \<Rightarrow> bool" where
+  "equal_sign x y \<equiv> (x \<ge> 0 \<and> y \<ge> 0) \<or> (x \<le> 0 \<and> y \<le> 0)"
+    
+lemma equal_sign_imp: 
+  "equal_sign x y \<Longrightarrow> 0 \<le> x * y"  
+  by (auto simp add: mult_nonpos_nonpos)
+    
+lemma equal_sign_imp2:
+  "equal_sign x y \<Longrightarrow> 0 \<le> x / y"
+  using zero_le_divide_iff by auto
+    
+lemma equal_sign_imp3:
+  "equal_sign x y \<Longrightarrow> 0 \<le> y / x"
+  using zero_le_divide_iff by auto    
+
+definition overlaps_real :: "real2 \<Rightarrow> real2 \<Rightarrow> bool" where
+  "overlaps_real i1 i2 \<equiv> (let i1' = (min (fst i1) (snd i1), max (fst i1) (snd i1)); 
+                              i2' =  (min (fst i2) (snd i2), max (fst i2) (snd i2)) in 
+                              fst i2' \<le> snd i1' \<and> fst i1' \<le> snd i2')"
+  
+lemma overlaps_real_ex:
+  assumes "overlaps_real i1 i2"
+  assumes "fst i1 \<le> snd i1" and "fst i2 \<le> snd i2"
+  shows "\<exists>t. t \<in> {fst i1 .. snd i1} \<and> t \<in> {fst i2 .. snd i2}"
+proof -
+  from assms have "fst i2 \<le> snd i1" and "fst i1 \<le> snd i2" unfolding overlaps_real_def Let_def
+    by auto      
+  consider "fst i1 \<le> fst i2" | "\<not> fst i1 \<le> fst i2" by linarith
+  thus ?thesis
+  proof (cases)
+    case 1
+    have "fst i2 \<in> {fst i2 .. snd i2}" using assms by auto
+    with 1 have "fst i2 \<in> {fst i1 .. snd i1}" using `fst i2 \<le> snd i1` by auto        
+    then show ?thesis using `fst i2 \<in> {fst i2 .. snd i2}` by (intro exI[where x="fst i2"]) (auto)
+  next
+    case 2
+    have "fst i1 \<in> {fst i1 .. snd i1}" using assms by auto
+    with 2 have "fst i1 \<in> {fst i2 .. snd i2}" using `fst i1 \<le> snd i2` by auto        
+    then show ?thesis by (intro exI[where x="fst i1"]) (auto simp add:assms)
+  qed    
+qed
+  
+  
+definition segment_intersection_la_multiple_solutions :: "real \<Rightarrow> real \<Rightarrow> real \<Rightarrow> bool" where
+  "segment_intersection_la_multiple_solutions d1x d2x dpx = 
+      (if d1x \<noteq> 0 \<and> d2x \<noteq> 0 then 
+          if equal_sign d1x d2x then 
+            let ub = dpx / d2x; lb = (dpx - d1x) / d2x in overlaps_real (lb, ub) (0,1)
+          else 
+            let ub = (dpx - d1x) / d2x; lb = dpx / d2x in overlaps_real (lb, ub) (0,1) 
+       else 
+          if d1x \<noteq> 0 then 
+            0 \<le> dpx / d1x \<and> dpx / d1x \<le> 1 
+          else if d2x \<noteq> 0 then
+            0 \<le> dpx / d2x \<and> dpx / d2x \<le> 1
+          else
+            False)"  
+  
+lemma multiple_solution_corr:
+  assumes "segment_intersection_la_multiple_solutions d1x d2x dpx"
+  shows "\<exists>u1 u2. 0 \<le> u1 \<and> u1 \<le> 1 \<and> 0 \<le> u2 \<and> u2 \<le> 1 \<and> u1 * d1x + u2 * d2x = dpx"
+proof (cases "d1x \<noteq> 0 \<and> d2x \<noteq> 0")
+  case True
+  consider (equal) "equal_sign d1x d2x" | (inequal) "\<not> equal_sign d1x d2x" by auto      
+  then show ?thesis
+  proof (cases)
+    case equal
+    define ub where "ub \<equiv> dpx / d2x" 
+    define lb where "lb \<equiv> (dpx - d1x) / d2x"
+    from equal True and assms have "overlaps_real (lb, ub) (0,1)"
+      unfolding segment_intersection_la_multiple_solutions_def Let_def lb_def ub_def by auto
+    have "lb \<le> ub" unfolding lb_def ub_def using True equal_sign_imp[OF equal] 
+      by (auto simp add:field_simps divide_simps)  
+    from overlaps_real_ex[OF `overlaps_real (lb, ub) (0,1)`]
+    obtain u2 where "u2 \<in> {lb .. ub}" and "u2 \<in> {0..1}" using `lb \<le> ub` by auto 
+    define u1 where "u1 = dpx / d1x - u2 * d2x / d1x" 
+    have eq: "u1 * d1x + u2 * d2x = dpx" unfolding u1_def using True by (auto simp add:divide_simps)
+    have "0 \<le> u1" unfolding u1_def using `u2 \<in> {lb .. ub}` unfolding lb_def ub_def 
+    proof -
+      have "0 \<le> d2x / d1x" using equal_sign_imp3[OF equal] by auto
+      assume " u2 \<in> {(dpx - d1x) / d2x..dpx / d2x} "
+      hence "u2 \<le> dpx / d2x" by auto        
+      hence "u2 * (d2x / d1x) \<le> dpx / d2x * (d2x / d1x)" 
+        using mult_right_mono[OF _ `0 \<le> d2x / d1x`, of "u2" "dpx / d2x"] by auto
+      hence "u2 * (d2x / d1x) \<le> dpx / d1x" using True by auto
+      thus "0 \<le> dpx / d1x - u2 * d2x / d1x" unfolding u1_def by auto          
+    qed
+    have "u1 \<le> 1"
+    proof -
+      have "0 \<le> d2x / d1x" using equal_sign_imp3[OF equal] by auto
+      from `u2 \<in> {lb .. ub}` have "lb \<le> u2" by auto
+      hence "(dpx - d1x) / d2x \<le> u2" unfolding lb_def by auto
+      hence "(dpx - d1x) / d2x * (d2x / d1x) \<le> u2 * (d2x / d1x)"
+        using mult_right_mono[OF _ `0 \<le> d2x / d1x`, of "(dpx - d1x) / d2x" "u2"]  by auto
+      hence "(dpx - d1x) / d1x \<le> u2 * d2x / d1x" using True by auto
+      thus ?thesis unfolding u1_def by (auto simp add:divide_simps)          
+    qed      
+    show ?thesis 
+      apply (rule exI[where x="u1"], rule exI[where x="u2"]) 
+      using `u2 \<in> {0..1}` `0 \<le> u1` `u1 \<le> 1` by (auto simp add:eq)
+  next
+    case inequal
+    define lb where "lb \<equiv> dpx / d2x" 
+    define ub where "ub \<equiv> (dpx - d1x) / d2x"
+    from True and inequal and assms have "overlaps_real (lb, ub) (0,1)"
+      unfolding segment_intersection_la_multiple_solutions_def Let_def lb_def ub_def by auto
+    have "lb \<le> ub"
+      unfolding lb_def ub_def
+    proof -
+      have l0: "d1x / d2x < 0" using True inequal by (auto simp add:divide_simps)
+      have "dpx / d1x - 1 \<le> dpx / d1x" by auto
+      hence "(dpx - d1x) / d1x \<le> dpx / d1x" by (auto simp add:divide_simps)
+      with l0 have "(dpx - d1x) / d1x * (d1x / d2x) \<ge> (dpx / d1x) * (d1x / d2x)"
+        using mult_right_mono_neg[of "(dpx - d1x) / d1x" "dpx / d1x" "d1x / d2x"]
+        by auto
+      thus "(dpx - d1x) / d2x \<ge> dpx / d2x" using True by auto           
+    qed
+    from overlaps_real_ex[OF `overlaps_real (lb, ub) (0,1)`]
+    obtain u2 where "u2 \<in> {lb..ub}" and "u2 \<in> {0..1}" using `lb \<le> ub` by auto
+    define u1 where "u1 = dpx / d1x - u2 * d2x / d1x"
+    have eq: "u1 * d1x + u2 * d2x = dpx" unfolding u1_def using True by (auto simp add:divide_simps)
+    have "0 \<le> u1"
+    proof -
+      have l0: "d2x / d1x < 0" using True inequal by (auto simp add:divide_simps)
+      from `u2 \<in> {lb .. ub}` have "lb \<le> u2" by auto
+      hence "dpx / d2x \<le> u2" unfolding lb_def by auto
+      hence "dpx / d2x * (d2x / d1x) \<ge> u2 * (d2x / d1x)"
+        using `d2x / d1x < 0` using mult_right_mono_neg[of "dpx / d2x" "u2" "d2x / d1x"]
+        by auto
+      thus ?thesis unfolding u1_def using True by auto          
+    qed
+    have "u1 \<le> 1"
+    proof -
+      have l0: "d2x / d1x < 0" using True inequal by (auto simp add:divide_simps)      
+      from `u2 \<in> {lb..ub}` have "u2 \<le> ub" by auto
+      hence "u2 \<le> (dpx - d1x) / d2x" unfolding ub_def by auto
+      hence "u2 * (d2x / d1x) \<ge> (dpx - d1x) / d2x * (d2x / d1x)"
+        using `d2x / d1x < 0` mult_right_mono_neg[of "u2" "(dpx - d1x) / d2x" "d2x / d1x"]
+        by auto
+      hence "dpx / d1x - 1 \<le> u2 * (d2x / d1x)" using True by (auto simp add:divide_simps)
+      thus ?thesis unfolding u1_def by auto                
+    qed  
+    show ?thesis 
+      apply (rule exI[where x="u1"], rule exI[where x="u2"]) 
+      using `u2 \<in> {0..1}` `0 \<le> u1` `u1 \<le> 1` by (auto simp add:eq)            
+  qed    
+next
+  case False
+  hence "d1x = 0 \<and> d2x \<noteq> 0 \<or> d1x \<noteq> 0 \<and> d2x = 0" using assms 
+    unfolding segment_intersection_la_multiple_solutions_def by auto
+  moreover
+  { assume as: "d1x = 0 \<and> d2x \<noteq> 0"
+    with assms have r1: "0 \<le> dpx / d2x" and r2: "dpx / d2x \<le> 1" 
+      unfolding segment_intersection_la_multiple_solutions_def by auto
+    define u2 where "u2 \<equiv> dpx / d2x"
+    from r1 and r2 have "0 \<le> u2" and "u2 \<le> 1" unfolding u2_def by auto  
+    hence "u2 * d2x = dpx" using as unfolding u2_def by auto
+    hence ?thesis using as `0 \<le> u2` `u2 \<le> 1` by auto }
+  moreover
+  { assume as: "d1x \<noteq> 0 \<and> d2x = 0"
+    define u2 where "u2 \<equiv> dpx / d1x" 
+    from assms and as have "0 \<le> u2" and "u2 \<le> 1" unfolding u2_def 
+      segment_intersection_la_multiple_solutions_def by auto
+    have "u2 * d1x = dpx" using as unfolding u2_def by auto
+    hence ?thesis using as `0 \<le> u2` `u2 \<le> 1` by auto }
+  ultimately show ?thesis by auto
+qed
+      
+definition segment_intersection_la :: "real2 \<times> real2 \<Rightarrow> real2 \<times> real2 \<Rightarrow> bool" where
+  "segment_intersection_la l1 l2 \<equiv> (let d1 = (snd l1) - (fst l1); 
+                                        d2 = (fst l2) - (snd l2); 
+                                        determinant = det2 (fst d1, fst d2) (snd d1, snd d2);
+                                        dp = fst l2 - fst l1
+                                     in if determinant \<noteq> 0 then 
+                                          segment_intersection_la_single_solution determinant d1 d2 dp  
+                                     else if aligned d1 d2 dp then
+                                          segment_intersection_la_multiple_solutions (fst d1) (fst d2) (fst dp)
+                                     else 
+                                          False)"
+  
+theorem
+  assumes "segment_intersection_la l1 l2"
+  shows "\<exists>p. p \<in> closed_segment (fst l1) (snd l1) \<and> p \<in> closed_segment (fst l2) (snd l2)"
+proof -
+  define d1 where "d1 \<equiv> snd l1 - fst l1"
+  define d2 where "d2 \<equiv> fst l2 - snd l2"
+  define determinant where "determinant \<equiv> det2 (fst d1, fst d2) (snd d1, snd d2)"    
+  define dp where "dp \<equiv> fst l2 - fst l1"
+  consider "determinant  = 0 \<and> \<not> aligned d1 d2 dp" | "determinant \<noteq> 0" | "determinant = 0 \<and> aligned d1 d2 dp"
+    by auto    
+  thus ?thesis
+  proof (cases)
+    case 1
+    then show ?thesis using assms unfolding segment_intersection_la_def Let_def determinant_def
+        d1_def d2_def dp_def by auto
+  next
+    case 2
+    with assms have "segment_intersection_la_single_solution determinant d1 d2 dp"
+      unfolding segment_intersection_la_def Let_def determinant_def d1_def d2_def dp_def
+      by auto
+    from single_solution_correctness[OF this] obtain u1 u2 where 
+      "u1 \<in> {0..1}" and "u2 \<in> {0..1}" and "u1 *\<^sub>R d1 + u2 *\<^sub>R d2 = dp"
+      using determinant_def 2 by auto 
+    hence "u1 *\<^sub>R (snd l1 - fst l1) + u2 *\<^sub>R (fst l2 - snd l2) = (fst l2 - fst l1)"
+      unfolding d1_def d2_def dp_def by auto
+    hence "fst l1 + u1 *\<^sub>R (snd l1 - fst l1) = fst l2 - u2 *\<^sub>R (fst l2 - snd l2)"
+      by (auto simp add:field_simps)
+    also have "... = fst l2 + u2 *\<^sub>R (snd l2 - fst l2)" by (auto simp add:field_simps scaleR_diff_right)
+    finally have 0: "fst l1 + u1 *\<^sub>R (snd l1 - fst l1) =  fst l2 + u2 *\<^sub>R (snd l2 - fst l2)"
+      by auto            
+    show ?thesis unfolding closed_segment_def
+    proof (intro exI[where x="fst l1 + u1 *\<^sub>R (snd l1 - fst l1)"], rule conjI)
+      show "fst l1 + u1 *\<^sub>R (snd l1 - fst l1) \<in> {(1 - u) *\<^sub>R fst l1 + u *\<^sub>R snd l1 |u. 0 \<le> u \<and> u \<le> 1}"
+        apply (rule CollectI, rule exI[where x="u1"])
+        using `u1 \<in> {0..1}` by (auto simp add:scaleR_diff_right scaleR_diff_left)
+    next
+      have "fst l2 + u2 *\<^sub>R (snd l2 - fst l2) \<in> {(1 - u) *\<^sub>R fst l2 + u *\<^sub>R snd l2 |u. 0 \<le> u \<and> u \<le> 1}"
+        apply (rule CollectI, rule exI[where x="u2"])
+        using `u2 \<in> {0..1}` by (auto simp add:scaleR_diff_right scaleR_diff_left)
+      with 0 show " fst l1 + u1 *\<^sub>R (snd l1 - fst l1) \<in> {(1 - u) *\<^sub>R fst l2 + u *\<^sub>R snd l2 |u. 0 \<le> u \<and> u \<le> 1}"
+        by auto  
+    qed          
+  next
+    case 3
+    with assms have 0: "segment_intersection_la_multiple_solutions (fst d1) (fst d2) (fst dp)"
+      unfolding segment_intersection_la_def Let_def determinant_def d1_def d2_def dp_def
+      by auto
+    obtain u1 u2 where "u1 \<in> {0..1}" "u2 \<in> {0..1}" and ceq: "u1 * fst d1 + u2 * fst d2 = fst dp"
+      using multiple_solution_corr[OF 0] by auto
+    with 3 have "u1 * snd d1 + u2 * snd d2 = snd dp"
+    proof (cases "fst d2 \<noteq> 0")
+      case True
+      assume "determinant = 0 \<and> aligned d1 d2 dp"
+      hence "aligned d1 d2 dp" by auto
+      hence i0: "det2 (fst d1, fst d2) (snd d1, snd d2) = 0" and i1: "det2 (fst d2, fst dp) (snd d2, snd dp) = 0"
+        unfolding aligned_def using True by auto
+      hence eq1: "snd d1 = (snd d2 / fst d2) * fst d1" using i0 True 
+        by (auto simp add: divide_simps algebra_simps)
+      have eq2: "snd d2 = (snd d2 / fst d2) *  fst d2" using True by auto   
+      from i1 have eq3: "snd dp = (snd d2 / fst d2) * fst dp" using True unfolding det2_def' 
+        by (auto simp add:divide_simps algebra_simps)
+      from ceq have "(snd d2 / fst d2) * (u1 * fst d1 + u2 * fst d2) = (snd d2 / fst d2) * fst dp"
+        by auto
+      thus  "u1 * snd d1 + u2 * snd d2 = snd dp" using eq1 eq2 eq3 by (auto simp add:algebra_simps True)                
+    next
+      case False
+      hence "fst d2 = 0" by auto
+      assume "determinant = 0 \<and> aligned d1 d2 dp" 
+      hence "aligned d1 d2 dp" and "determinant = 0" by auto
+      with False have "snd d2 = 0" unfolding aligned_def by auto
+      have "fst d1 = 0 \<or> fst d1 \<noteq> 0" by auto          
+      moreover
+      { assume "fst d1 = 0"
+        with `aligned d1 d2 dp` False have "snd d1 = 0" and "snd dp = 0" unfolding aligned_def by auto  
+        with `snd d2 = 0` have ?thesis by auto }
+      moreover
+      { assume "fst d1 \<noteq> 0"
+        with `aligned d1 d2 dp` False have "det2 (fst d1, fst dp) (snd d1, snd dp) = 0" 
+          unfolding aligned_def by auto
+        hence "fst d1 * snd dp = fst dp * snd d1" unfolding det2_def' by auto
+        with `fst d1 \<noteq> 0` have scale: "snd dp = (snd d1 / fst d1) * fst dp" by (auto simp add:algebra_simps divide_simps)
+        from ceq have "(snd d1 / fst d1) * (u1 * fst d1 + u2 * fst d2) = (snd d1 / fst d1) * fst dp"
+          by auto
+        hence "(snd d1 / fst d1) * u1 * fst d1 + (snd d1 / fst d1) * u2 * fst d2 = (snd d1 / fst d1) * fst dp"
+          by (auto simp add:algebra_simps)
+        hence "u1 * snd d1 + (snd d1 / fst d1) * u2 * fst d2 = snd dp"
+          using scale `fst d1 \<noteq> 0` by (auto simp add:field_simps) 
+        hence ?thesis unfolding `fst d2 = 0` `snd d2  = 0` by auto }      
+      ultimately show ?thesis by auto 
+    qed
+    with `u1 * fst d1 + u2 * fst d2 = fst dp` have "u1 *\<^sub>R d1 + u2 *\<^sub>R d2 = dp" 
+      using scaleR_prod_def[of "u1" "d1"] scaleR_prod_def[of "u2" "d2"] by (auto simp add:algebra_simps)
+    hence "u1 *\<^sub>R (snd l1 - fst l1) + u2 *\<^sub>R (fst l2 - snd l2) = (fst l2 - fst l1)"
+      unfolding d1_def d2_def dp_def by auto
+    hence "fst l1 + u1 *\<^sub>R (snd l1 - fst l1) = fst l2 - u2 *\<^sub>R (fst l2 - snd l2)"
+      by (auto simp add:field_simps)
+    also have "... = fst l2 + u2 *\<^sub>R (snd l2 - fst l2)" by (auto simp add:field_simps scaleR_diff_right)
+    finally have 0: "fst l1 + u1 *\<^sub>R (snd l1 - fst l1) =  fst l2 + u2 *\<^sub>R (snd l2 - fst l2)"
+      by auto            
+    show ?thesis unfolding closed_segment_def
+    proof (intro exI[where x="fst l1 + u1 *\<^sub>R (snd l1 - fst l1)"], rule conjI)
+      show "fst l1 + u1 *\<^sub>R (snd l1 - fst l1) \<in> {(1 - u) *\<^sub>R fst l1 + u *\<^sub>R snd l1 |u. 0 \<le> u \<and> u \<le> 1}"
+        apply (rule CollectI, rule exI[where x="u1"])
+        using `u1 \<in> {0..1}` by (auto simp add:scaleR_diff_right scaleR_diff_left)
+    next
+      have "fst l2 + u2 *\<^sub>R (snd l2 - fst l2) \<in> {(1 - u) *\<^sub>R fst l2 + u *\<^sub>R snd l2 |u. 0 \<le> u \<and> u \<le> 1}"
+        apply (rule CollectI, rule exI[where x="u2"])
+        using `u2 \<in> {0..1}` by (auto simp add:scaleR_diff_right scaleR_diff_left)
+      with 0 show " fst l1 + u1 *\<^sub>R (snd l1 - fst l1) \<in> {(1 - u) *\<^sub>R fst l2 + u *\<^sub>R snd l2 |u. 0 \<le> u \<and> u \<le> 1}"
+        by auto  
+    qed             
+  qed    
+qed
+    
 fun segments_intersect_polychain :: "real2 \<times> real2 \<Rightarrow> (real2 \<times> real2) list \<Rightarrow> bool" where
   "segments_intersect_polychain line [] = False" | 
   "segments_intersect_polychain line (c # cs) = 
@@ -5192,13 +6387,31 @@ subsubsection "Intersection of line segment with boundaries"
   
 definition intersect_left_boundary where
   "intersect_left_boundary line \<equiv> segments_intersect_polychain line points_le"
-
+  
+lemma intersect_left_boundary_correctness:
+  assumes "intersect_left_boundary line"
+  shows "\<exists>c \<in> set points_le. segment_intersection c line"
+  using assms unfolding intersect_left_boundary_def using segment_intersect_poly_correct
+  segment_intersection_correctness segment_intersection_completeness by blast   
+    
 definition intersect_right_boundary where
   "intersect_right_boundary line \<equiv> segments_intersect_polychain line points_ri"
     
+lemma intersect_right_boundary_correctness:
+  assumes "intersect_right_boundary line"
+  shows "\<exists>c \<in> set points_ri. segment_intersection c line"
+  using assms unfolding intersect_right_boundary_def using segment_intersect_poly_correct
+  segment_intersection_correctness segment_intersection_completeness by blast
+  
 definition intersect_boundaries where
   "intersect_boundaries line \<equiv> intersect_left_boundary line \<or> intersect_right_boundary line" 
   
+lemma intersect_boundaries_correctness:
+  assumes "intersect_boundaries line"
+  shows "\<exists>c \<in> (set points_ri \<union> set points_le). segment_intersection c line"
+  using intersect_left_boundary_correctness intersect_right_boundary_correctness assms
+  unfolding intersect_boundaries_def by blast
+    
 subsubsection "Rectangle containment"
         
 definition vertices_inside :: "rectangle \<Rightarrow> bool" where
@@ -5212,7 +6425,8 @@ lemma vertices_inside_pida:
   shows "point_in_drivable_area (get_vertices_rotated_translated rect ! i)"
 proof -
   define vertices where "vertices \<equiv> get_vertices_rotated_translated rect" 
-  from nbr_of_vertex_rotated have l: "length (get_vertices_rotated_translated rect) = 4" sorry
+  from nbr_of_vertex_rotated have l: "length (get_vertices_rotated_translated rect) = 4"
+    unfolding get_vertices_rotated_translated_def by auto
   from assms(1) have "map point_in_drivable_area (get_vertices_rotated_translated rect) ! 0" and
                      "map point_in_drivable_area (get_vertices_rotated_translated rect) ! 1" and
                      "map point_in_drivable_area (get_vertices_rotated_translated rect) ! 2" and 

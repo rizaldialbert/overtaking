@@ -389,7 +389,7 @@ definition semantics_ltlf_tr :: "tr_atom set list \<Rightarrow> tr_atom ltlf \<R
 ML \<open>
 val monitor = @{code monitor_tr};
 val monitor2 = @{code semantics_ltlf_tr};
-val comp_trace = @{code complete_trace};
+val comp_trace = @{code complete_trace};   
 val phi1 = @{code \<Phi>1}
 val test_phi1 = monitor comp_trace phi1;
 val test_phi1' = monitor2 comp_trace phi1;
