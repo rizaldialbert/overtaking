@@ -8440,10 +8440,10 @@ lemma lanelet_rectangle_commute:
   shows "lanelet.rectangle_inside a b rect = lanelet.rectangle_inside b a rect"
   using assms lanelet.rectangle_inside_def vertices_inside_commute lines_inside_commute lanelet_commute by simp
   
-theorem in_lane2_alt:  "Lane.in_lane rect = in_lane2 rect"
+theorem in_lane2_alt[code]:  "Lane.in_lane rect = in_lane2 rect"
   by (simp add: lane2'_def in_lane2_def lane0.lanelet_axioms lane1.lanelet_axioms lanelet_rectangle_commute)
     
-theorem lane_boundaries_touched2_alt_def:  "Lane.lane_boundaries_touched rect = lane_boundaries_touched2 rect"
+theorem lane_boundaries_touched2_alt_def[code]:  "Lane.lane_boundaries_touched rect = lane_boundaries_touched2 rect"
 proof - 
   have "Lane.lane_boundaries_touched rect = boundaries_touched [points0, points1, points2] rect 0" by auto
   hence "... = (map fst (filter (\<lambda>x. snd x) (List.enumerate 0 [bound0.rectangle_intersect rect, 
