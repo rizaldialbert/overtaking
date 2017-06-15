@@ -4694,7 +4694,354 @@ qed
   
 lemma segment_intersection_comm: "segment_intersection l1 l2 \<longleftrightarrow> segment_intersection l2 l1"
   using segment_intersection_completeness segment_intersection_correctness by blast
+    
+text "Implementation of segment intersection with Fourier--Motzkin technique as suggested
+  by the reviewer in IFM 2017."  
+    
+definition segment_intersection_la_single_solution :: "real \<Rightarrow> real2 \<Rightarrow> real2 \<Rightarrow> real2 \<Rightarrow> bool" where
+  "segment_intersection_la_single_solution d d1 d2 dp = (let row1 = (snd d2, -fst d2); row2 = (-snd d1, fst d1);
+                                                             u1 = (row1 \<bullet> dp) / d; u2 = (row2 \<bullet> dp) / d 
+                                                         in 0 \<le> u1 \<and> u1 \<le> 1 \<and> 0 \<le> u2 \<and> u2 \<le> 1)"
+  
+lemma single_solution_correctness:
+  assumes "segment_intersection_la_single_solution d d1 d2 dp"
+  assumes "d = det2 (fst d1, fst d2) (snd d1, snd d2)"
+  assumes "d \<noteq> 0"    
+  shows "\<exists>u1 u2. 0 \<le> u1 \<and> u1 \<le> 1 \<and> 0 \<le> u2 \<and> u2 \<le> 1 \<and> u1 *\<^sub>R d1 + u2 *\<^sub>R d2 = dp"
+proof -
+  define row1 where "row1 \<equiv> (snd d2, -fst d2)"
+  define row2 where "row2 \<equiv> (-snd d1, fst d1)"
+  define u1 where "u1 \<equiv> (row1 \<bullet> dp) / d"
+  define u2 where "u2 \<equiv> (row2 \<bullet> dp) / d"
+  note unf = row1_def row2_def u1_def u2_def  
+  from assms have range: "0 \<le> u1 \<and> u1 \<le> 1 \<and> 0 \<le> u2 \<and> u2 \<le> 1" unfolding segment_intersection_la_single_solution_def
+    Let_def u1_def u2_def row1_def row2_def by auto
+  have u1_def': "u1 = (snd d2 * fst dp - fst d2 * snd dp) / d" unfolding u1_def row1_def inner_prod_def
+    by auto
+  have u2_def': "u2 = (fst d1 * snd dp - snd d1 * fst dp) / d" unfolding u2_def row2_def inner_prod_def
+    by auto
+  have "u1 * fst d1 + u2 * fst d2 = fst dp"
+  proof -  
+    have d_def': "d = fst d1 * snd d2 - fst d2 * snd d1" using assms unfolding det2_def'  by auto
+    have "(snd d2 * fst dp - fst d2 * snd dp) * fst d1 + (fst d1 * snd dp - snd d1 * fst dp) * fst d2 = fst dp * d"
+      (is "?lhs = ?rhs")
+      unfolding d_def' by (auto simp add:field_simps)
+    with `d \<noteq> 0` have "?lhs / d = fst dp" by (auto simp add:divide_simps)
+    thus ?thesis unfolding u1_def' u2_def' by (auto simp add:divide_simps)              
+  qed      
+  moreover have "u1 * snd d1 + u2 * snd d2 = snd dp"
+  proof -
+    have d_def': "d = fst d1 * snd d2 - fst d2 * snd d1" using assms unfolding det2_def'  by auto
+    have "(snd d2 * fst dp - fst d2 * snd dp) * snd d1 + (fst d1 * snd dp - snd d1 * fst dp) * snd d2 = snd dp * d"
+      (is "?lhs = ?rhs")
+      unfolding d_def' by (auto simp add:field_simps)
+    with `d \<noteq> 0` have "?lhs / d = snd dp" by (auto simp add:divide_simps)
+    thus ?thesis unfolding u1_def' u2_def' by (auto simp add:divide_simps)        
+  qed    
+  ultimately have eq: "u1 *\<^sub>R d1 + u2 *\<^sub>R d2 = dp" unfolding scaleR_prod_def by auto
+  show ?thesis  by (rule exI[where x="u1"], rule exI[where x="u2"]) (auto simp add:range eq)           
+qed
+      
+definition aligned :: "real2 \<Rightarrow> real2 \<Rightarrow> real2 \<Rightarrow> bool" where
+  "aligned d1 d2 dp \<equiv> 
+  (if fst d2 \<noteq> 0 then 
+      det2 (fst d1, fst d2) (snd d1, snd d2) = 0 \<and>  det2 (fst d2, fst dp) (snd d2, snd dp) = 0
+   else snd d2 = 0 \<and>  (if fst d1 \<noteq> 0 then det2 (fst d1, fst dp) (snd d1, snd dp) = 0 else snd d1 = 0 \<and> snd dp = 0))"
 
+abbreviation equal_sign :: "real \<Rightarrow> real \<Rightarrow> bool" where
+  "equal_sign x y \<equiv> (x \<ge> 0 \<and> y \<ge> 0) \<or> (x \<le> 0 \<and> y \<le> 0)"
+    
+lemma equal_sign_imp: 
+  "equal_sign x y \<Longrightarrow> 0 \<le> x * y"  
+  by (auto simp add: mult_nonpos_nonpos)
+    
+lemma equal_sign_imp2:
+  "equal_sign x y \<Longrightarrow> 0 \<le> x / y"
+  using zero_le_divide_iff by auto
+    
+lemma equal_sign_imp3:
+  "equal_sign x y \<Longrightarrow> 0 \<le> y / x"
+  using zero_le_divide_iff by auto    
+
+definition overlaps_real :: "real2 \<Rightarrow> real2 \<Rightarrow> bool" where
+  "overlaps_real i1 i2 \<equiv> (let i1' = (min (fst i1) (snd i1), max (fst i1) (snd i1)); 
+                              i2' =  (min (fst i2) (snd i2), max (fst i2) (snd i2)) in 
+                              fst i2' \<le> snd i1' \<and> fst i1' \<le> snd i2')"
+  
+lemma overlaps_real_ex:
+  assumes "overlaps_real i1 i2"
+  assumes "fst i1 \<le> snd i1" and "fst i2 \<le> snd i2"
+  shows "\<exists>t. t \<in> {fst i1 .. snd i1} \<and> t \<in> {fst i2 .. snd i2}"
+proof -
+  from assms have "fst i2 \<le> snd i1" and "fst i1 \<le> snd i2" unfolding overlaps_real_def Let_def
+    by auto      
+  consider "fst i1 \<le> fst i2" | "\<not> fst i1 \<le> fst i2" by linarith
+  thus ?thesis
+  proof (cases)
+    case 1
+    have "fst i2 \<in> {fst i2 .. snd i2}" using assms by auto
+    with 1 have "fst i2 \<in> {fst i1 .. snd i1}" using `fst i2 \<le> snd i1` by auto        
+    then show ?thesis using `fst i2 \<in> {fst i2 .. snd i2}` by (intro exI[where x="fst i2"]) (auto)
+  next
+    case 2
+    have "fst i1 \<in> {fst i1 .. snd i1}" using assms by auto
+    with 2 have "fst i1 \<in> {fst i2 .. snd i2}" using `fst i1 \<le> snd i2` by auto        
+    then show ?thesis by (intro exI[where x="fst i1"]) (auto simp add:assms)
+  qed    
+qed
+  
+  
+definition segment_intersection_la_multiple_solutions :: "real \<Rightarrow> real \<Rightarrow> real \<Rightarrow> bool" where
+  "segment_intersection_la_multiple_solutions d1x d2x dpx = 
+      (if d1x \<noteq> 0 \<and> d2x \<noteq> 0 then 
+          if equal_sign d1x d2x then 
+            let ub = dpx / d2x; lb = (dpx - d1x) / d2x in overlaps_real (lb, ub) (0,1)
+          else 
+            let ub = (dpx - d1x) / d2x; lb = dpx / d2x in overlaps_real (lb, ub) (0,1) 
+       else 
+          if d1x \<noteq> 0 then 
+            0 \<le> dpx / d1x \<and> dpx / d1x \<le> 1 
+          else if d2x \<noteq> 0 then
+            0 \<le> dpx / d2x \<and> dpx / d2x \<le> 1
+          else
+            False)"  
+  
+lemma multiple_solution_corr:
+  assumes "segment_intersection_la_multiple_solutions d1x d2x dpx"
+  shows "\<exists>u1 u2. 0 \<le> u1 \<and> u1 \<le> 1 \<and> 0 \<le> u2 \<and> u2 \<le> 1 \<and> u1 * d1x + u2 * d2x = dpx"
+proof (cases "d1x \<noteq> 0 \<and> d2x \<noteq> 0")
+  case True
+  consider (equal) "equal_sign d1x d2x" | (inequal) "\<not> equal_sign d1x d2x" by auto      
+  then show ?thesis
+  proof (cases)
+    case equal
+    define ub where "ub \<equiv> dpx / d2x" 
+    define lb where "lb \<equiv> (dpx - d1x) / d2x"
+    from equal True and assms have "overlaps_real (lb, ub) (0,1)"
+      unfolding segment_intersection_la_multiple_solutions_def Let_def lb_def ub_def by auto
+    have "lb \<le> ub" unfolding lb_def ub_def using True equal_sign_imp[OF equal] 
+      by (auto simp add:field_simps divide_simps)  
+    from overlaps_real_ex[OF `overlaps_real (lb, ub) (0,1)`]
+    obtain u2 where "u2 \<in> {lb .. ub}" and "u2 \<in> {0..1}" using `lb \<le> ub` by auto 
+    define u1 where "u1 = dpx / d1x - u2 * d2x / d1x" 
+    have eq: "u1 * d1x + u2 * d2x = dpx" unfolding u1_def using True by (auto simp add:divide_simps)
+    have "0 \<le> u1" unfolding u1_def using `u2 \<in> {lb .. ub}` unfolding lb_def ub_def 
+    proof -
+      have "0 \<le> d2x / d1x" using equal_sign_imp3[OF equal] by auto
+      assume " u2 \<in> {(dpx - d1x) / d2x..dpx / d2x} "
+      hence "u2 \<le> dpx / d2x" by auto        
+      hence "u2 * (d2x / d1x) \<le> dpx / d2x * (d2x / d1x)" 
+        using mult_right_mono[OF _ `0 \<le> d2x / d1x`, of "u2" "dpx / d2x"] by auto
+      hence "u2 * (d2x / d1x) \<le> dpx / d1x" using True by auto
+      thus "0 \<le> dpx / d1x - u2 * d2x / d1x" unfolding u1_def by auto          
+    qed
+    have "u1 \<le> 1"
+    proof -
+      have "0 \<le> d2x / d1x" using equal_sign_imp3[OF equal] by auto
+      from `u2 \<in> {lb .. ub}` have "lb \<le> u2" by auto
+      hence "(dpx - d1x) / d2x \<le> u2" unfolding lb_def by auto
+      hence "(dpx - d1x) / d2x * (d2x / d1x) \<le> u2 * (d2x / d1x)"
+        using mult_right_mono[OF _ `0 \<le> d2x / d1x`, of "(dpx - d1x) / d2x" "u2"]  by auto
+      hence "(dpx - d1x) / d1x \<le> u2 * d2x / d1x" using True by auto
+      thus ?thesis unfolding u1_def by (auto simp add:divide_simps)          
+    qed      
+    show ?thesis 
+      apply (rule exI[where x="u1"], rule exI[where x="u2"]) 
+      using `u2 \<in> {0..1}` `0 \<le> u1` `u1 \<le> 1` by (auto simp add:eq)
+  next
+    case inequal
+    define lb where "lb \<equiv> dpx / d2x" 
+    define ub where "ub \<equiv> (dpx - d1x) / d2x"
+    from True and inequal and assms have "overlaps_real (lb, ub) (0,1)"
+      unfolding segment_intersection_la_multiple_solutions_def Let_def lb_def ub_def by auto
+    have "lb \<le> ub"
+      unfolding lb_def ub_def
+    proof -
+      have l0: "d1x / d2x < 0" using True inequal by (auto simp add:divide_simps)
+      have "dpx / d1x - 1 \<le> dpx / d1x" by auto
+      hence "(dpx - d1x) / d1x \<le> dpx / d1x" by (auto simp add:divide_simps)
+      with l0 have "(dpx - d1x) / d1x * (d1x / d2x) \<ge> (dpx / d1x) * (d1x / d2x)"
+        using mult_right_mono_neg[of "(dpx - d1x) / d1x" "dpx / d1x" "d1x / d2x"]
+        by auto
+      thus "(dpx - d1x) / d2x \<ge> dpx / d2x" using True by auto           
+    qed
+    from overlaps_real_ex[OF `overlaps_real (lb, ub) (0,1)`]
+    obtain u2 where "u2 \<in> {lb..ub}" and "u2 \<in> {0..1}" using `lb \<le> ub` by auto
+    define u1 where "u1 = dpx / d1x - u2 * d2x / d1x"
+    have eq: "u1 * d1x + u2 * d2x = dpx" unfolding u1_def using True by (auto simp add:divide_simps)
+    have "0 \<le> u1"
+    proof -
+      have l0: "d2x / d1x < 0" using True inequal by (auto simp add:divide_simps)
+      from `u2 \<in> {lb .. ub}` have "lb \<le> u2" by auto
+      hence "dpx / d2x \<le> u2" unfolding lb_def by auto
+      hence "dpx / d2x * (d2x / d1x) \<ge> u2 * (d2x / d1x)"
+        using `d2x / d1x < 0` using mult_right_mono_neg[of "dpx / d2x" "u2" "d2x / d1x"]
+        by auto
+      thus ?thesis unfolding u1_def using True by auto          
+    qed
+    have "u1 \<le> 1"
+    proof -
+      have l0: "d2x / d1x < 0" using True inequal by (auto simp add:divide_simps)      
+      from `u2 \<in> {lb..ub}` have "u2 \<le> ub" by auto
+      hence "u2 \<le> (dpx - d1x) / d2x" unfolding ub_def by auto
+      hence "u2 * (d2x / d1x) \<ge> (dpx - d1x) / d2x * (d2x / d1x)"
+        using `d2x / d1x < 0` mult_right_mono_neg[of "u2" "(dpx - d1x) / d2x" "d2x / d1x"]
+        by auto
+      hence "dpx / d1x - 1 \<le> u2 * (d2x / d1x)" using True by (auto simp add:divide_simps)
+      thus ?thesis unfolding u1_def by auto                
+    qed  
+    show ?thesis 
+      apply (rule exI[where x="u1"], rule exI[where x="u2"]) 
+      using `u2 \<in> {0..1}` `0 \<le> u1` `u1 \<le> 1` by (auto simp add:eq)            
+  qed    
+next
+  case False
+  hence "d1x = 0 \<and> d2x \<noteq> 0 \<or> d1x \<noteq> 0 \<and> d2x = 0" using assms 
+    unfolding segment_intersection_la_multiple_solutions_def by auto
+  moreover
+  { assume as: "d1x = 0 \<and> d2x \<noteq> 0"
+    with assms have r1: "0 \<le> dpx / d2x" and r2: "dpx / d2x \<le> 1" 
+      unfolding segment_intersection_la_multiple_solutions_def by auto
+    define u2 where "u2 \<equiv> dpx / d2x"
+    from r1 and r2 have "0 \<le> u2" and "u2 \<le> 1" unfolding u2_def by auto  
+    hence "u2 * d2x = dpx" using as unfolding u2_def by auto
+    hence ?thesis using as `0 \<le> u2` `u2 \<le> 1` by auto }
+  moreover
+  { assume as: "d1x \<noteq> 0 \<and> d2x = 0"
+    define u2 where "u2 \<equiv> dpx / d1x" 
+    from assms and as have "0 \<le> u2" and "u2 \<le> 1" unfolding u2_def 
+      segment_intersection_la_multiple_solutions_def by auto
+    have "u2 * d1x = dpx" using as unfolding u2_def by auto
+    hence ?thesis using as `0 \<le> u2` `u2 \<le> 1` by auto }
+  ultimately show ?thesis by auto
+qed
+      
+definition segment_intersection_la :: "real2 \<times> real2 \<Rightarrow> real2 \<times> real2 \<Rightarrow> bool" where
+  "segment_intersection_la l1 l2 \<equiv> (let d1 = (snd l1) - (fst l1); 
+                                        d2 = (fst l2) - (snd l2); 
+                                        determinant = det2 (fst d1, fst d2) (snd d1, snd d2);
+                                        dp = fst l2 - fst l1
+                                     in if determinant \<noteq> 0 then 
+                                          segment_intersection_la_single_solution determinant d1 d2 dp  
+                                     else if aligned d1 d2 dp then
+                                          segment_intersection_la_multiple_solutions (fst d1) (fst d2) (fst dp)
+                                     else 
+                                          False)"
+  
+theorem
+  assumes "segment_intersection_la l1 l2"
+  shows "\<exists>p. p \<in> closed_segment (fst l1) (snd l1) \<and> p \<in> closed_segment (fst l2) (snd l2)"
+proof -
+  define d1 where "d1 \<equiv> snd l1 - fst l1"
+  define d2 where "d2 \<equiv> fst l2 - snd l2"
+  define determinant where "determinant \<equiv> det2 (fst d1, fst d2) (snd d1, snd d2)"    
+  define dp where "dp \<equiv> fst l2 - fst l1"
+  consider "determinant  = 0 \<and> \<not> aligned d1 d2 dp" | "determinant \<noteq> 0" | "determinant = 0 \<and> aligned d1 d2 dp"
+    by auto    
+  thus ?thesis
+  proof (cases)
+    case 1
+    then show ?thesis using assms unfolding segment_intersection_la_def Let_def determinant_def
+        d1_def d2_def dp_def by auto
+  next
+    case 2
+    with assms have "segment_intersection_la_single_solution determinant d1 d2 dp"
+      unfolding segment_intersection_la_def Let_def determinant_def d1_def d2_def dp_def
+      by auto
+    from single_solution_correctness[OF this] obtain u1 u2 where 
+      "u1 \<in> {0..1}" and "u2 \<in> {0..1}" and "u1 *\<^sub>R d1 + u2 *\<^sub>R d2 = dp"
+      using determinant_def 2 by auto 
+    hence "u1 *\<^sub>R (snd l1 - fst l1) + u2 *\<^sub>R (fst l2 - snd l2) = (fst l2 - fst l1)"
+      unfolding d1_def d2_def dp_def by auto
+    hence "fst l1 + u1 *\<^sub>R (snd l1 - fst l1) = fst l2 - u2 *\<^sub>R (fst l2 - snd l2)"
+      by (auto simp add:field_simps)
+    also have "... = fst l2 + u2 *\<^sub>R (snd l2 - fst l2)" by (auto simp add:field_simps scaleR_diff_right)
+    finally have 0: "fst l1 + u1 *\<^sub>R (snd l1 - fst l1) =  fst l2 + u2 *\<^sub>R (snd l2 - fst l2)"
+      by auto            
+    show ?thesis unfolding closed_segment_def
+    proof (intro exI[where x="fst l1 + u1 *\<^sub>R (snd l1 - fst l1)"], rule conjI)
+      show "fst l1 + u1 *\<^sub>R (snd l1 - fst l1) \<in> {(1 - u) *\<^sub>R fst l1 + u *\<^sub>R snd l1 |u. 0 \<le> u \<and> u \<le> 1}"
+        apply (rule CollectI, rule exI[where x="u1"])
+        using `u1 \<in> {0..1}` by (auto simp add:scaleR_diff_right scaleR_diff_left)
+    next
+      have "fst l2 + u2 *\<^sub>R (snd l2 - fst l2) \<in> {(1 - u) *\<^sub>R fst l2 + u *\<^sub>R snd l2 |u. 0 \<le> u \<and> u \<le> 1}"
+        apply (rule CollectI, rule exI[where x="u2"])
+        using `u2 \<in> {0..1}` by (auto simp add:scaleR_diff_right scaleR_diff_left)
+      with 0 show " fst l1 + u1 *\<^sub>R (snd l1 - fst l1) \<in> {(1 - u) *\<^sub>R fst l2 + u *\<^sub>R snd l2 |u. 0 \<le> u \<and> u \<le> 1}"
+        by auto  
+    qed          
+  next
+    case 3
+    with assms have 0: "segment_intersection_la_multiple_solutions (fst d1) (fst d2) (fst dp)"
+      unfolding segment_intersection_la_def Let_def determinant_def d1_def d2_def dp_def
+      by auto
+    obtain u1 u2 where "u1 \<in> {0..1}" "u2 \<in> {0..1}" and ceq: "u1 * fst d1 + u2 * fst d2 = fst dp"
+      using multiple_solution_corr[OF 0] by auto
+    with 3 have "u1 * snd d1 + u2 * snd d2 = snd dp"
+    proof (cases "fst d2 \<noteq> 0")
+      case True
+      assume "determinant = 0 \<and> aligned d1 d2 dp"
+      hence "aligned d1 d2 dp" by auto
+      hence i0: "det2 (fst d1, fst d2) (snd d1, snd d2) = 0" and i1: "det2 (fst d2, fst dp) (snd d2, snd dp) = 0"
+        unfolding aligned_def using True by auto
+      hence eq1: "snd d1 = (snd d2 / fst d2) * fst d1" using i0 True 
+        by (auto simp add: divide_simps algebra_simps)
+      have eq2: "snd d2 = (snd d2 / fst d2) *  fst d2" using True by auto   
+      from i1 have eq3: "snd dp = (snd d2 / fst d2) * fst dp" using True unfolding det2_def' 
+        by (auto simp add:divide_simps algebra_simps)
+      from ceq have "(snd d2 / fst d2) * (u1 * fst d1 + u2 * fst d2) = (snd d2 / fst d2) * fst dp"
+        by auto
+      thus  "u1 * snd d1 + u2 * snd d2 = snd dp" using eq1 eq2 eq3 by (auto simp add:algebra_simps True)                
+    next
+      case False
+      hence "fst d2 = 0" by auto
+      assume "determinant = 0 \<and> aligned d1 d2 dp" 
+      hence "aligned d1 d2 dp" and "determinant = 0" by auto
+      with False have "snd d2 = 0" unfolding aligned_def by auto
+      have "fst d1 = 0 \<or> fst d1 \<noteq> 0" by auto          
+      moreover
+      { assume "fst d1 = 0"
+        with `aligned d1 d2 dp` False have "snd d1 = 0" and "snd dp = 0" unfolding aligned_def by auto  
+        with `snd d2 = 0` have ?thesis by auto }
+      moreover
+      { assume "fst d1 \<noteq> 0"
+        with `aligned d1 d2 dp` False have "det2 (fst d1, fst dp) (snd d1, snd dp) = 0" 
+          unfolding aligned_def by auto
+        hence "fst d1 * snd dp = fst dp * snd d1" unfolding det2_def' by auto
+        with `fst d1 \<noteq> 0` have scale: "snd dp = (snd d1 / fst d1) * fst dp" by (auto simp add:algebra_simps divide_simps)
+        from ceq have "(snd d1 / fst d1) * (u1 * fst d1 + u2 * fst d2) = (snd d1 / fst d1) * fst dp"
+          by auto
+        hence "(snd d1 / fst d1) * u1 * fst d1 + (snd d1 / fst d1) * u2 * fst d2 = (snd d1 / fst d1) * fst dp"
+          by (auto simp add:algebra_simps)
+        hence "u1 * snd d1 + (snd d1 / fst d1) * u2 * fst d2 = snd dp"
+          using scale `fst d1 \<noteq> 0` by (auto simp add:field_simps) 
+        hence ?thesis unfolding `fst d2 = 0` `snd d2  = 0` by auto }      
+      ultimately show ?thesis by auto 
+    qed
+    with `u1 * fst d1 + u2 * fst d2 = fst dp` have "u1 *\<^sub>R d1 + u2 *\<^sub>R d2 = dp" 
+      using scaleR_prod_def[of "u1" "d1"] scaleR_prod_def[of "u2" "d2"] by (auto simp add:algebra_simps)
+    hence "u1 *\<^sub>R (snd l1 - fst l1) + u2 *\<^sub>R (fst l2 - snd l2) = (fst l2 - fst l1)"
+      unfolding d1_def d2_def dp_def by auto
+    hence "fst l1 + u1 *\<^sub>R (snd l1 - fst l1) = fst l2 - u2 *\<^sub>R (fst l2 - snd l2)"
+      by (auto simp add:field_simps)
+    also have "... = fst l2 + u2 *\<^sub>R (snd l2 - fst l2)" by (auto simp add:field_simps scaleR_diff_right)
+    finally have 0: "fst l1 + u1 *\<^sub>R (snd l1 - fst l1) =  fst l2 + u2 *\<^sub>R (snd l2 - fst l2)"
+      by auto            
+    show ?thesis unfolding closed_segment_def
+    proof (intro exI[where x="fst l1 + u1 *\<^sub>R (snd l1 - fst l1)"], rule conjI)
+      show "fst l1 + u1 *\<^sub>R (snd l1 - fst l1) \<in> {(1 - u) *\<^sub>R fst l1 + u *\<^sub>R snd l1 |u. 0 \<le> u \<and> u \<le> 1}"
+        apply (rule CollectI, rule exI[where x="u1"])
+        using `u1 \<in> {0..1}` by (auto simp add:scaleR_diff_right scaleR_diff_left)
+    next
+      have "fst l2 + u2 *\<^sub>R (snd l2 - fst l2) \<in> {(1 - u) *\<^sub>R fst l2 + u *\<^sub>R snd l2 |u. 0 \<le> u \<and> u \<le> 1}"
+        apply (rule CollectI, rule exI[where x="u2"])
+        using `u2 \<in> {0..1}` by (auto simp add:scaleR_diff_right scaleR_diff_left)
+      with 0 show " fst l1 + u1 *\<^sub>R (snd l1 - fst l1) \<in> {(1 - u) *\<^sub>R fst l2 + u *\<^sub>R snd l2 |u. 0 \<le> u \<and> u \<le> 1}"
+        by auto  
+    qed             
+  qed    
+qed
+    
 fun segments_intersect_polychain :: "real2 \<times> real2 \<Rightarrow> (real2 \<times> real2) list \<Rightarrow> bool" where
   "segments_intersect_polychain line [] = False" | 
   "segments_intersect_polychain line (c # cs) = 
