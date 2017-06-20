@@ -4693,6 +4693,12 @@ qed
 lemma segment_intersection_comm: "segment_intersection l1 l2 \<longleftrightarrow> segment_intersection l2 l1"
   using segment_intersection_completeness segment_intersection_correctness by blast
     
+lemma segment_intersection_def':
+  "segment_intersection l1 l2 = 
+        (\<exists>p . p \<in> closed_segment (fst l1) (snd l1) \<and> p \<in> closed_segment (fst l2) (snd l2))"
+  using segment_intersection_correctness[of "l1" "l2"] segment_intersection_completeness[of "l1" "l2"]
+  by auto
+    
 text "Implementation of segment intersection with Fourier--Motzkin technique as suggested
   by the reviewer in IFM 2017."  
     
@@ -5585,6 +5591,14 @@ proof -
     qed      
   qed  
 qed
+  
+lemma segment_intersection_la_def': 
+  "segment_intersection_la l1 l2 = (\<exists>p. p \<in> closed_segment (fst l1) (snd l1) \<and> p \<in> closed_segment (fst l2) (snd l2))"  
+  using segment_intersection_la_correct[of "l1" "l2"] segment_intersection_la_complete[of "l1" "l2"]
+  by auto
+  
+theorem [code]: "segment_intersection l1 l2 = segment_intersection_la l1 l2"
+  unfolding segment_intersection_def' segment_intersection_la_def' by auto  
       
 fun segments_intersect_polychain :: "real2 \<times> real2 \<Rightarrow> (real2 \<times> real2) list \<Rightarrow> bool" where
   "segments_intersect_polychain line [] = False" | 
