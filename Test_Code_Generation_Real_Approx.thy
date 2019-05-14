@@ -1,8 +1,8 @@
 theory Test_Code_Generation_Real_Approx
 imports
   Environment_Executable
-  "~~/src/HOL/Library/Code_Real_Approx_By_Float"
-begin                                                          
+  "HOL-Library.Code_Real_Approx_By_Float"
+begin
 
 type_synonym segment = "(real*real)*real*real"
 
