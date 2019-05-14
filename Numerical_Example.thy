@@ -3,29 +3,29 @@ imports
   Environment_Executable
   Test_Code_Generation_Real_Approx
   Overtaking_rules
-begin                                                          
- 
+begin
+
 text \<open>The lane consists of two lanelets with the same direction. All lane boundaries are
-  simply straight lanes.\<close> 
-  
+  simply straight lanes.\<close>
+
 definition bound0 :: "(real2 \<times> real2) list" where "bound0 = [((-35,-2.25),(200,-2.251))]"
 definition bound1 :: "(real2 \<times> real2) list" where "bound1 = [((-35, 2.25),(200, 2.251))]"
 definition bound2 :: "(real2 \<times> real2) list" where "bound2 = [((-35, 6.75),(200, 6.751))]"
-  
-text \<open>Interpreting the definition @{term "lane2'"} locale\<close>  
-  
+
+text \<open>Interpreting the definition @{term "lane2'"} locale\<close>
+
 global_interpretation l2': lane2' bound0 bound1 bound2
-  defines lane_detection = l2'.Lane.lane_detection and 
-  in_lane = l2'.in_lane2  and 
-  in_lane' = l2'.Lane.in_lane and 
+  defines lane_detection = l2'.Lane.lane_detection and
+  in_lane = l2'.in_lane2  and
+  in_lane' = l2'.Lane.in_lane and
   lines_inside0 = l2'.lane0.lines_inside and
   lines_inside1 = l2'.lane1.lines_inside and
   intersect_boundaries0 = l2'.lane0.intersect_boundaries and
   intersect_boundaries1 = l2'.lane1.intersect_boundaries and
   intersect_right_boundary0 = l2'.lane0.intersect_right_boundary and
-  intersect_right_boundary1 = l2'.lane1.intersect_right_boundary and  
-  intersect_left_boundary0 = l2'.lane0.intersect_left_boundary and 
-  intersect_left_boundary1 = l2'.lane1.intersect_left_boundary and   
+  intersect_right_boundary1 = l2'.lane1.intersect_right_boundary and
+  intersect_left_boundary0 = l2'.lane0.intersect_left_boundary and
+  intersect_left_boundary1 = l2'.lane1.intersect_left_boundary and
   rectangle_inside0 = l2'.lane0.rectangle_inside and
   rectangle_inside1 = l2'.lane1.rectangle_inside and
   lane_boundaries_touched = l2'.Lane.lane_boundaries_touched and
@@ -33,57 +33,57 @@ global_interpretation l2': lane2' bound0 bound1 bound2
   point_in_drivable_area1 = l2'.lane1.point_in_drivable_area and
   direction_right0 = l2'.lane0.direction_right and
   direction_right1 = l2'.lane1.direction_right and
-  rectangle_intersect0 = l2'.bound0.rectangle_intersect and 
-  rectangle_intersect1 = l2'.bound1.rectangle_intersect and 
-  rectangle_intersect2 = l2'.bound2.rectangle_intersect and 
+  rectangle_intersect0 = l2'.bound0.rectangle_intersect and
+  rectangle_intersect1 = l2'.bound1.rectangle_intersect and
+  rectangle_intersect2 = l2'.bound2.rectangle_intersect and
   vertices_inside0 = l2'.lane0.vertices_inside and
   lane_boundaries_touched2 = l2'.lane_boundaries_touched2 and
-  vertices_inside1 = l2'.lane1.vertices_inside and 
-  initial_lane = l2'.Lane.initial_lane and 
-  start_inc_lane = l2'.Lane.start_inc_lane and 
+  vertices_inside1 = l2'.lane1.vertices_inside and
+  initial_lane = l2'.Lane.initial_lane and
+  start_inc_lane = l2'.Lane.start_inc_lane and
   finish_inc_lane = l2'.Lane.finish_inc_lane and
-  increase_lane = l2'.Lane.increase_lane and 
+  increase_lane = l2'.Lane.increase_lane and
   decrease_lane = l2'.Lane.decrease_lane and
   start_dec_lane = l2'.Lane.start_dec_lane and
-  finish_dec_lane = l2'.Lane.finish_dec_lane and 
-  overtaking = l2'.Lane.overtaking and 
+  finish_dec_lane = l2'.Lane.finish_dec_lane and
+  overtaking = l2'.Lane.overtaking and
   overtaking_trace = l2'.Lane.overtaking_trace and
   fast_lane_trace = l2'.Lane.fast_lane_trace and
   merging_trace = l2'.Lane.merging_trace and
   original_lane_trace = l2'.Lane.original_lane_trace and
   time_points_to_ov_bools = l2'.Lane.time_points_to_ov_bools and
   time_points_to_fl_bools = l2'.Lane.time_points_to_fl_bools and
-  time_points_to_merge_bools = l2'.Lane.time_points_to_merge_bools and 
+  time_points_to_merge_bools = l2'.Lane.time_points_to_merge_bools and
   time_points_to_ori_bools = l2'.Lane.time_points_to_ori_bools and
-  overtaking_checker = l2'.Lane.overtaking_checker and 
-  onfastlane_checker = l2'.Lane.onfastlane_checker and 
-  merging_checker = l2'.Lane.merging_checker and 
-  original_lane_checker = l2'.Lane.original_lane_checker and 
-  sd_rear_checker = l2'.Lane.sd_rear_checker and 
-  sd_rear_checker' = l2'.Lane.sd_rear_checker' and 
-  sd_rears = l2'.Lane.sd_rears and 
-  sd_rear = l2'.Lane.sd_rear and  
+  overtaking_checker = l2'.Lane.overtaking_checker and
+  onfastlane_checker = l2'.Lane.onfastlane_checker and
+  merging_checker = l2'.Lane.merging_checker and
+  original_lane_checker = l2'.Lane.original_lane_checker and
+  sd_rear_checker = l2'.Lane.sd_rear_checker and
+  sd_rear_checker' = l2'.Lane.sd_rear_checker' and
+  sd_rears = l2'.Lane.sd_rears and
+  sd_rear = l2'.Lane.sd_rear and
   sd_rear' = l2'.Lane.sd_rear' and
   sd_raw_state = l2'.Lane.sd_raw_state and
-  vehicles_behind = l2'.Lane.vehicles_behind and 
-  trim_vehicles_same_lane = l2'.Lane.trim_vehicles_same_lane and 
-  safe_to_return_trace = l2'.Lane.safe_to_return_trace and 
-  safe_to_return_checker = l2'.Lane.safe_to_return_checker and 
-  closest_vehicles_infront_idx = l2'.Lane.closest_vehicles_infront_idx and 
-  vehicles_infront = l2'.Lane.vehicles_infront and 
-  sd_raw_state_list' = l2'.Lane.sd_raw_state_list' and 
+  vehicles_behind = l2'.Lane.vehicles_behind and
+  trim_vehicles_same_lane = l2'.Lane.trim_vehicles_same_lane and
+  safe_to_return_trace = l2'.Lane.safe_to_return_trace and
+  safe_to_return_checker = l2'.Lane.safe_to_return_checker and
+  closest_vehicles_infront_idx = l2'.Lane.closest_vehicles_infront_idx and
+  vehicles_infront = l2'.Lane.vehicles_infront and
+  sd_raw_state_list' = l2'.Lane.sd_raw_state_list' and
   sd_raw_state_list = l2'.Lane.sd_raw_state_list
-  by (unfold_locales) (eval+)  
-    
+  by (unfold_locales) (eval+)
+
 lemma [code]: "start_dec_lane uu i num =
   (case i of
     0 \<Rightarrow> None
   | Suc v \<Rightarrow>
     case uu of
      [] \<Rightarrow> None
-  | (rect # rects) \<Rightarrow> 
+  | (rect # rects) \<Rightarrow>
     (case lane_detection rect of Outside \<Rightarrow> None
-     | Lane n \<Rightarrow>                       
+     | Lane n \<Rightarrow>
          if n = Suc v then start_dec_lane rects n (num + 1) else None
      | Boundaries ns \<Rightarrow>
          if tl ns = [] \<and> hd ns = Suc v then Some (num, rects)
@@ -103,11 +103,11 @@ lemma [code]: "finish_dec_lane uu i num =
        if tl ns = [] \<and> hd ns = Suc v
        then finish_dec_lane rects (Suc v) (num + 1) else None))"
   by (auto split: nat.splits list.splits)
-        
+
 text \<open>Preparing the trace\<close>
-  
+
 definition xpos :: "real list" where
-"xpos = 
+"xpos =
 [
          0,    1.6657,    3.3299,    4.9924,    6.6525,    8.3097,    9.9629,   11.6121,   13.2576,   14.8995,   16.5373,   18.1708,   19.7999,   21.4245,   23.0449,   24.6612,
    26.2739,   27.8833,   29.4899,   31.0942,   32.6956,   34.2943,   35.8899,   37.4826,   39.0721,   40.6585,   42.2417,   43.8217,   45.3985,   46.9722,   48.5428,   50.1104,
@@ -116,10 +116,10 @@ definition xpos :: "real list" where
   100.8035,  102.3365,  103.8716,  105.4097,  106.9516,  108.4977,  110.0486,  111.6043,  113.1649,  114.7304,  116.3007,  117.8756,  119.4551,  121.0392,  122.6280,  124.2215,
   125.8199,  127.4233,  129.0319,  130.6458,  132.2650,  133.8893,  135.5186,  137.1525,  138.7910,  140.4335,  142.0797,  143.7293,  145.3821,  147.0375,  148.6949,  150.3541,
   152.0148,  153.6768,  155.3399,  157.0040,  158.6687
-]"  
- 
+]"
+
 definition ypos :: "real list" where
-"ypos = 
+"ypos =
 [
    -0.0005,    0.0185,    0.0712,    0.1619,    0.2923,    0.4609,    0.6655,    0.9007,    1.1607,    1.4384,    1.7260,    2.0161,    2.3057,    2.5874,    2.8549,    3.1037,
     3.3271,    3.5250,    3.6917,    3.8293,    3.9450,    4.0410,    4.1199,    4.1843,    4.2365,    4.2785,    4.3123,    4.3393,    4.3608,    4.3780,    4.3916,    4.4023,
@@ -131,7 +131,7 @@ definition ypos :: "real list" where
 ]"
 
 definition oris :: "real list" where
-"oris = 
+"oris =
 [
          0,    0.0102,    0.0244,    0.0425,    0.0625,    0.0830,    0.1036,    0.1220,    0.1383,    0.1511,    0.1603,    0.1656,    0.1689,    0.1678,    0.1633,    0.1557,
     0.1442,    0.1313,    0.1154,    0.1010,    0.0872,    0.0743,    0.0627,    0.0525,    0.0436,    0.0360,    0.0295,    0.0241,    0.0196,    0.0159,    0.0129,    0.0104,
@@ -143,11 +143,11 @@ definition oris :: "real list" where
 ]"
 
 definition lengths :: "real list" where
-  "lengths = replicate 101 4.8" 
-  
+  "lengths = replicate 101 4.8"
+
 definition widths :: "real list" where
-  "widths = replicate 101 2" 
-    
+  "widths = replicate 101 2"
+
 definition veloxs :: "real list" where
 "veloxs =
 [
@@ -158,8 +158,8 @@ definition veloxs :: "real list" where
    15.3021,   15.3179,   15.3382,   15.3655,   15.3995,   15.4391,   15.4825,   15.5282,   15.5746,   15.6209,   15.6664,   15.7111,   15.7553,   15.7998,   15.8450,   15.8911,
    15.9386,   15.9879,   16.0389,   16.0911,   16.1433,   16.1951,   16.2455,   16.2940,   16.3402,   16.3829,   16.4226,   16.4594,   16.4932,   16.5215,   16.5460,   16.5672,
    16.5856,   16.6016,   16.6152,   16.6264,   16.6352
-]"  
-  
+]"
+
 definition veloys :: "real list" where
 "veloys =
 [
@@ -201,17 +201,17 @@ definition max_decelys :: "real list" where
 
 definition max_decels :: "real2 list" where
   "max_decels = zip max_decelxs max_decelys"
-  
+
 fun mk_rectangles :: "real list \<Rightarrow> real list \<Rightarrow> real list \<Rightarrow> real list \<Rightarrow> real list \<Rightarrow> rectangle list" where
   "mk_rectangles    []       []      []        []       []    = []" |
   "mk_rectangles (x # xs) (y # ys) (p # ps) (l # ls) (w # ws) = \<lparr>Xcoord = x, Ycoord = y, Orient = p, Length = l, Width = w\<rparr> # mk_rectangles xs ys ps ls ws"
-  
-definition rectangles where "rectangles = mk_rectangles xpos ypos oris lengths widths"  
-  
-definition "test" where "test \<equiv> \<lambda>rect. start_inc_lane rect 0 0"  
-   
-declare [[ML_print_depth=1000]] 
-  
+
+definition rectangles where "rectangles = mk_rectangles xpos ypos oris lengths widths"
+
+definition "test" where "test \<equiv> \<lambda>rect. start_inc_lane rect 0 0"
+
+declare [[ML_print_depth=1000]]
+
 ML\<open>
 val rectangles = @{code rectangles};
 val test_rectangle = nth rectangles 13;
@@ -243,103 +243,103 @@ val decrease_lane = @{code decrease_lane}
 val overtaking = @{code overtaking}
 val test_overtaking = overtaking rectangles;
 val overtaking_trace = @{code overtaking_trace};
-val test_overtaking_trace = overtaking_trace rectangles; 
+val test_overtaking_trace = overtaking_trace rectangles;
 val fast_lane_trace = @{code fast_lane_trace}
 val test_fast_lane_trace = fast_lane_trace rectangles;
 val merging_trace = @{code merging_trace}
 val test_merging_trace = merging_trace rectangles;
 val original_lane_trace = @{code original_lane_trace};
 val test_original_lane_trace = original_lane_trace rectangles;
-\<close>  
-   
+\<close>
+
 fun mk_raw_state :: "real list \<Rightarrow> real list \<Rightarrow> real list \<Rightarrow> real list \<Rightarrow> real list \<Rightarrow> real2 list \<Rightarrow> real2 list \<Rightarrow> raw_state list" where
   "mk_raw_state    []       []      []        []       []       []       []    = []" |
   "mk_raw_state (x # xs) (y # ys) (p # ps) (l # ls) (w # ws) (v # vs) (a # as) = \<lparr>Xcoord = x, Ycoord = y, Orient = p, Length = l, Width = w, velocity = v, acceleration = a\<rparr> # mk_raw_state xs ys ps ls ws vs as"
-  
+
 definition raw_states where "raw_states = mk_raw_state xpos ypos oris lengths widths velos max_decels"
 definition ego_run where "ego_run = (Motorised, raw_states)"
-  
-text \<open>Trace for vehicle being overtaken. The length of the trace is equivalent to that of 
-ego vehicle.\<close>   
-  
+
+text \<open>Trace for vehicle being overtaken. The length of the trace is equivalent to that of
+ego vehicle.\<close>
+
 lemma "length veloxs = 101" unfolding veloxs_def by auto
 
-text \<open>The other vehicle is positioned at @{term "(19,0)"} initially. The rest is calculated by 
-simply using @{term "s + v * t"}. Each time point is @{term "0.1"} s.\<close>   
-  
+text \<open>The other vehicle is positioned at @{term "(19,0)"} initially. The rest is calculated by
+simply using @{term "s + v * t"}. Each time point is @{term "0.1"} s.\<close>
+
 definition xpos_one :: "real list" where
-  "xpos_one = 19 # [19 + 11.1 * 0.1 * t . t \<leftarrow> [1..100]]"  
-  
+  "xpos_one = 19 # [19 + 11.1 * 0.1 * t . t \<leftarrow> [1..100]]"
+
 definition ypos_one :: "real list" where
   "ypos_one = replicate 101 0"
-  
+
 definition oris_one :: "real list" where
-  "oris_one = replicate 101 0"  
-  
+  "oris_one = replicate 101 0"
+
 definition rectangles_other_one where "rectangles_other_one \<equiv> mk_rectangles xpos_one ypos_one oris_one lengths widths"
-  
-text \<open>The vehicle being overtaken is assumed to maintain its current speed. It is not allowed 
+
+text \<open>The vehicle being overtaken is assumed to maintain its current speed. It is not allowed
 to accelerate when the vehicle is being overtaken.\<close>
-    
+
 definition veloxs_one :: "real list" where
   "veloxs_one = replicate 101 11.1"
-  
+
 definition veloys_one :: "real list" where
   "veloys_one = replicate 101 0"
-  
+
 definition velos_one :: "real2 list" where
-  "velos_one = zip veloxs_one veloys_one"  
-  
+  "velos_one = zip veloxs_one veloys_one"
+
 definition reaction_time :: "real" where
-  "reaction_time = 0.5"  
-  
-definition raw_states_other where "raw_states_other = mk_raw_state xpos_one ypos_one oris_one lengths widths velos_one max_decels" 
+  "reaction_time = 0.5"
+
+definition raw_states_other where "raw_states_other = mk_raw_state xpos_one ypos_one oris_one lengths widths velos_one max_decels"
 definition other_one_run where "other_one_run = (Motorised, raw_states_other)"
-  
-text \<open>Trace for the second vehicle.\<close>  
-  
+
+text \<open>Trace for the second vehicle.\<close>
+
 definition xpos_two :: "real list" where
   "xpos_two = -25 # [-25 + 16.7 * 0.1 * t. t \<leftarrow> [1..100]]"
 
 lemma "length xpos_two = 101" unfolding xpos_two_def by eval
-    
+
 definition ypos_two :: "real list" where
   "ypos_two = replicate 101 4.5"
-  
+
 definition oris_two :: "real list" where
   "oris_two = replicate 101 0"
 
 definition rectangles_other_two where "rectangles_other_two \<equiv> mk_rectangles xpos_two ypos_two oris_two lengths widths"
-  
+
 definition veloxs_two :: "real list" where
   "veloxs_two = replicate 101 16.7"
 
 definition veloys_two :: "real list" where
-  "veloys_two = replicate 101 0"  
-  
+  "veloys_two = replicate 101 0"
+
 definition velos_two :: "real2 list" where
-  "velos_two = zip veloxs_two veloys_two"  
-  
+  "velos_two = zip veloxs_two veloys_two"
+
 definition raw_states_other_two where "raw_states_other_two \<equiv> mk_raw_state xpos_two ypos_two oris_two lengths widths velos_two max_decels"
 definition other_two_run where "other_two_run \<equiv> (Motorised, raw_states_other_two)"
 definition black_boxes :: black_boxes where "black_boxes = (ego_run, [other_one_run, other_two_run])"
-    
-definition toc where "toc \<equiv> overtaking_checker black_boxes"  
+
+definition toc where "toc \<equiv> overtaking_checker black_boxes"
 definition tfl where "tfl \<equiv> onfastlane_checker black_boxes"
 definition tm where "tm \<equiv> merging_checker black_boxes"
 definition tol where "tol \<equiv> original_lane_checker black_boxes"
-definition tsd where "tsd \<equiv> sd_rear_checker black_boxes reaction_time"  
-definition tsr where "tsr \<equiv> safe_to_return_checker black_boxes reaction_time"  
- 
-value [code] "toc"   
-value [code] "tfl"  
-value [code] "tm"  
-value [code] "tol"  
-value [code] "tsd" 
-value [code] "List.enumerate 0 (zip tol tsd)"  
-    
-definition eight_list where "eight_list \<equiv> nth_list 73 (map snd (snd black_boxes))"  
-  
+definition tsd where "tsd \<equiv> sd_rear_checker black_boxes reaction_time"
+definition tsr where "tsr \<equiv> safe_to_return_checker black_boxes reaction_time"
+
+value [code] "toc"
+value [code] "tfl"
+value [code] "tm"
+value [code] "tol"
+value [code] "tsd"
+value [code] "List.enumerate 0 (zip tol tsd)"
+
+definition eight_list where "eight_list \<equiv> nth_list 73 (map snd (snd black_boxes))"
+
 ML \<open>
 val test = @{code sd_rear_checker'} @{code black_boxes} @{code reaction_time};
 val other_runs_t = @{code List.transpose} (map snd (snd @{code black_boxes}));
@@ -353,18 +353,18 @@ val sd_rear_prime = @{code sd_rear'} veh_behind eight_ego @{code reaction_time};
 (* val sd_raw_state = @{code sd_raw_state} (hd veh_behind) eight_ego @{code reaction_time};
  *)
 \<close>
-  
-value [code] "tsr"  
-  
+
+value [code] "tsr"
+
 definition temp where "temp or so \<equiv>  [f or. f \<leftarrow> (map nth_list so)]"
-definition temp2 where "temp2 bb so \<equiv> [f (snd (fst bb)) . f \<leftarrow> (map (\<lambda>n xs. xs ! n) so)]"  
-definition temp3 where "temp3 or ovp \<equiv> [f or. f \<leftarrow> (map (\<lambda>n xss. xss !n) ovp)]"    
+definition temp2 where "temp2 bb so \<equiv> [f (snd (fst bb)) . f \<leftarrow> (map (\<lambda>n xs. xs ! n) so)]"
+definition temp3 where "temp3 or ovp \<equiv> [f or. f \<leftarrow> (map (\<lambda>n xss. xss !n) ovp)]"
 ML \<open>
 val ego_rects = @{code bb_to_rects} @{code black_boxes};
 val ov_nums = @{code overtaking} ego_rects;
 val start_ovs = map fst ov_nums;
 val other_runs = map snd (snd @{code black_boxes});
-val choppeds = @{code temp} other_runs start_ovs; 
+val choppeds = @{code temp} other_runs start_ovs;
 val ego_chopped = @{code temp2} @{code black_boxes} start_ovs;
 val overtaken_vehs = map ((fn f => fn p => f (fst p) (snd p)) @{code closest_vehicles_infront_idx})
                                                               (@{code zip} (@{code List.transpose} choppeds) ego_chopped);
@@ -374,22 +374,22 @@ val result = @{code sd_raw_state_list} relevant_trace (snd (fst @{code black_box
 val result2 = @{code List.enumerate} @{code "0 :: nat"} (@{code nth} result @{code "0 :: nat"});
 List.nth(snd (fst @{code black_boxes}), 36);
 List.nth(List.nth (relevant_trace, 0), 36);
-\<close>  
-        
+\<close>
+
 fun combine_to_trace :: "tr_atom set list list \<Rightarrow> tr_atom set list \<Rightarrow> tr_atom set list" where
-  "combine_to_trace [] res = res" | 
+  "combine_to_trace [] res = res" |
   "combine_to_trace (x # xs) res = combine_to_trace xs (map (\<lambda>x. union (fst x) (snd x)) (zip x res))"
 
 definition empty_trace :: "tr_atom set list" where "empty_trace \<equiv> replicate 101 {}"
 definition complete_trace where "complete_trace \<equiv> combine_to_trace [toc, tfl, tm, tol, tsd, tsr] empty_trace"
-  
+
 definition semantics_ltlf_tr :: "tr_atom set list \<Rightarrow> tr_atom ltlf \<Rightarrow> bool" where
   "semantics_ltlf_tr \<equiv> semantics_ltlf"
-    
+
 ML \<open>
 val monitor = @{code monitor_tr};
 val monitor2 = @{code semantics_ltlf_tr};
-val comp_trace = @{code complete_trace};   
+val comp_trace = @{code complete_trace};
 val phi1 = @{code \<Phi>1}
 val test_phi1 = monitor comp_trace phi1;
 val test_phi1' = monitor2 comp_trace phi1;
@@ -400,8 +400,6 @@ val phi3 = @{code \<Phi>3};
 val test_phi3 = monitor comp_trace phi3;
 val phi4 = @{code \<Phi>4};
 val test_phi4 = monitor2 comp_trace phi4;
-\<close>  
+\<close>
 
-  
-    
- 
+end

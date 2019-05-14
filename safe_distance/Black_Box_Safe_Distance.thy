@@ -10,15 +10,22 @@ type_synonym ivl = "float * float"
 definition real_ivl_of_real::"nat \<Rightarrow> real \<Rightarrow> (real * real)" where
   "real_ivl_of_real p x = (truncate_down (Suc p) x, truncate_up (Suc p) x)"
 
+hide_const (open) Fraction_Field.Fract
+
+context includes float.lifting begin
+
 lift_definition float_ivl_of_real::"nat \<Rightarrow> real \<Rightarrow> ivl" is real_ivl_of_real
   by (auto simp: real_ivl_of_real_def)
 
+end
+
 lemma real_of_rat_Fract[simp]: "real_of_rat (Fract a b) = a / b"
-by (simp add: Fract_of_int_quotient of_rat_divide)  
+by (simp add: Fract_of_int_quotient of_rat_divide)
 
 lemma [code]: "float_ivl_of_real p (Ratreal r) =
   (let (a, b) = quotient_of r in
   (float_div_down p a b, float_div_up p a b))"
+  including float.lifting
   apply transfer
   apply (auto split: prod.split simp: real_ivl_of_real_def real_div_down_def real_div_up_def)
   apply (metis of_rat_divide of_rat_of_int_eq quotient_of_div of_int_def)
@@ -451,7 +458,6 @@ lemma checker_kernel: "checker 0 54.93 (-5.6087) 62.58 54.90 (-5.6388)"
 
 subsubsection\<open>Evaluation\<close>
 text \<open>\label{sec:eval}\<close>
-
 ML \<open>Char.isPunct\<close>
 definition "testval = (40.99::real)"
 export_code testval in SML

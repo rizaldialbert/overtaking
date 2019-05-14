@@ -1,7 +1,7 @@
 theory Safe_Distance_Auxiliarities
 imports
-  "~~/src/HOL/Analysis" (*set prover to HOL-Analysis*)
-  "~~/src/HOL/Library/Float"
+  "HOL-Analysis.Analysis" (*set prover to HOL-Analysis*)
+  "HOL-Library.Float"
 begin
 
 subsection \<open>TODO: Taken from \<open>ODE_Auxiliarities\<close>, move to distribution and remove from ODE!\<close>
@@ -160,7 +160,7 @@ lemma has_derivative_transform:
   shows "(g has_derivative f') (at x within s)"
   using assms
   by (intro has_derivative_transform_within[OF _ zero_less_one, where g=g]) auto
-                                     
+
 
 subsection \<open>Float\<close>
 
@@ -172,11 +172,15 @@ definition real_div_down::"nat \<Rightarrow> int \<Rightarrow> int \<Rightarrow>
 definition real_div_up::"nat \<Rightarrow> int \<Rightarrow> int \<Rightarrow> real"
   where "real_div_up p i j = truncate_up (Suc p) (i / j)"
 
+context includes float.lifting begin
+
 lift_definition float_div_down::"nat \<Rightarrow> int \<Rightarrow> int \<Rightarrow> float" is real_div_down
   by (simp add: real_div_down_def)
 
 lift_definition float_div_up::"nat \<Rightarrow> int \<Rightarrow> int \<Rightarrow> float" is real_div_up
   by (simp add: real_div_up_def)
+
+end
 
 lemma floor_log_divide_eq:
   assumes "i > 0" "j > 0" "p > 1"
@@ -200,12 +204,19 @@ proof -
       auto
         intro!: floor_eq2
         intro: powr_strict powr
-        simp: powr_divide2[symmetric] powr_add divide_simps algebra_simps bitlen_def)+
+        simp: powr_diff powr_add divide_simps algebra_simps bitlen_def)+
   finally
   show ?thesis by simp
 qed
 
 lemma compute_float_div_up[code]: "float_div_up p i j = - float_div_down p (-i) j"
+  including float.lifting
   by transfer (simp add: real_div_up_def real_div_down_def truncate_up_eq_truncate_down)
+
+lemma compute_float_div_down[code]:
+  "float_div_down prec m1 m2 = lapprox_rat (Suc prec) m1 m2"
+  including float.lifting
+  apply transfer
+  unfolding real_div_down_def ..
 
 end
